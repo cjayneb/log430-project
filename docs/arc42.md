@@ -134,6 +134,10 @@ specifies the external interfaces.
 If necessary, differentiate the business context (domain specific inputs
 and outputs) from the technical context (channels, protocols, hardware).
 
+- **Context Diagram**
+- **Domain model sketch**
+- **Bounded Context Diagram**??
+
 **Motivation.**
 
 The domain interfaces and technical interfaces to communication partners
@@ -219,6 +223,8 @@ solution strategies, that shape the system’s architecture. These include
 - relevant organizational decisions, e.g. selecting a development
   process or delegating certain tasks to third parties.
 
+- **3+ ADRs**
+
 **Motivation.**
 
 These decisions form the cornerstones for your architecture. They are
@@ -244,6 +250,10 @@ dependencies (relationships, associations, …)
 
 This view is mandatory for every architecture documentation. In analogy
 to a house this is the _floor plan_.
+
+- **C4 diagrams**
+- **Class diagram**
+- **Component diagram**
 
 **Motivation.**
 
@@ -440,6 +450,11 @@ system’s building blocks in form of scenarios from the following areas:
 
 - error and exception scenarios
 
+- **Use cases diagram**
+- **Minimum 3 Use case descriptions (validated with client?)**
+  - Sequence diagram
+  - Activity diagram
+
 Remark: The main criterion for the choice of possible scenarios
 (sequences, workflows) is their **architectural relevance**. It is
 **not** important to describe a large number of scenarios. You should
@@ -510,6 +525,8 @@ From a software perspective it is sufficient to capture those elements
 of the infrastructure that are needed to show the deployment of your
 building blocks. Hardware architects can go beyond that and describe the
 infrastructure to any level of detail they need to capture.
+
+- **Deployment Diagram**
 
 **Motivation.**
 
@@ -600,6 +617,8 @@ include many different topics, such as
 - principal, often technical decisions of overall decisions
 
 - implementation rules
+
+- **choix de style (Hexagonal ou MVC + ports/adapters), couches & dépendances.**
 
 **Motivation.**
 
