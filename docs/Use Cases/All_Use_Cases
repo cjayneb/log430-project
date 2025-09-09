@@ -1,0 +1,40 @@
+@startuml
+left to right direction
+
+actor Client as C
+
+rectangle BrokerX {
+    together {
+        usecase "UC-01\nRegistration & Identity Verification" as UC01 #palegreen
+        usecase "UC-02\nAuthentication & MFA" as UC02 #palegreen
+        usecase "UC-03\nWallet Funding" as UC03
+        usecase "UC-04\nMarket Data Subscription" as UC04
+        usecase "UC-06\nOrder Modification/Cancellation" as UC06
+    }
+    
+    usecase "UC-08\nExecution Confirmation & Notifications" as UC08
+    usecase "UC-07\nMatching & Execution" as UC07
+    usecase "UC-05\nOrder Placement" as UC05 #palegreen
+}
+
+actor "Payment Service" as PS
+actor "Market Data Provider" as MDP
+
+' Client interactions
+C --> UC01
+C --> UC02
+C --> UC03
+C --> UC04
+C --> UC05
+C --> UC06
+
+' External services interactions
+UC03 --> PS 
+UC04 --> MDP
+
+' Relationships between use cases
+UC08 -- C
+UC07 .> UC05 : <<extend>>
+UC07 .> UC08 : <<include>>
+
+@enduml
