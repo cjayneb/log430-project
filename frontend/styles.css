@@ -1,0 +1,92 @@
+/****************
+GLOBAL STYLES
+*****************/
+html,
+body {
+  height: 100vh;
+  background-color: rgb(58, 58, 58);
+  color: rgb(200, 200, 200);
+}
+
+#screen-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 100vh;
+}
+
+ul li:hover {
+  background-color: gray;
+  cursor: pointer;
+  border-radius: 0.5vh;
+}
+
+/****************
+NAV BAR
+*****************/
+#nav-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+  padding-left: 1vb;
+  border-radius: 1vh;
+}
+
+#nav-container ul {
+  list-style: none;
+}
+
+#nav-container ul li {
+  display: inline-block;
+  font-size: large;
+  padding: 2vh;
+}
+
+/****************
+MAIN CONTENT
+*****************/
+#main-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+#main-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+#main-container ul li {
+  padding: 2vh;
+}
+
+#login-form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2vh;
+}
+
+#login-form-container form input {
+  width: 30vh;
+}
+#login-form-container form input[type="submit"] {
+  display: block;
+  margin: 2vh auto; /* auto horizontally centers it */
+  width: 90%; /* shrink to fit content instead of 30vh */
+  padding: 0.5em 1.5em;
+}
+
+/****************
+FOOTER
+*****************/
+#footer-container {
+  padding: 1vh;
+  text-align: center;
+  color: rgb(160, 160, 160);
+}
+
+footer a {
+  color: rgb(64, 163, 255);
+}

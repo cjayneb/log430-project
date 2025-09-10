@@ -5,17 +5,17 @@ actor Client as C
 
 rectangle BrokerX {
     together {
-        usecase "UC-01\nRegistration & Identity Verification" as UC01 #palegreen
-        usecase "UC-02\nAuthentication & MFA" as UC02 #palegreen
-        usecase "UC-03\nWallet Funding" as UC03
-        usecase "UC-04\nMarket Data Subscription" as UC04
-        usecase "UC-06\nOrder Modification/Cancellation" as UC06
+        usecase "UC-01\nSign up" as UC01
+        usecase "UC-02\nLogin" as UC02 #palegreen
+        usecase "UC-03\nAdd funds" as UC03
+        usecase "UC-04\nView stock" as UC04
+        usecase "UC-06\nModify order" as UC06
     }
     
     together {
-        usecase "UC-05\nOrder Placement" as UC05 #palegreen
-        usecase "UC-08\nExecution Confirmation & Notifications" as UC08
-        usecase "UC-07\nMatching & Execution" as UC07
+        usecase "UC-08\nConfirm order and notify client" as UC08
+        usecase "UC-05\nPlace order" as UC05 #palegreen
+        usecase "UC-07\nFind match and execute order" as UC07 #palegreen
     }
 }
 
@@ -31,12 +31,12 @@ C --> UC05
 C --> UC06
 
 ' External services interactions
-UC03 --> PS 
-UC04 --> MDP
+UC03 -- PS 
+UC04 -- MDP
 
 ' Relationships between use cases
+UC08 -- C
 UC05 <. UC07 : <<extend>>
 UC08 <. UC07 : <<include>>
-UC08 -- C
 
 @enduml
