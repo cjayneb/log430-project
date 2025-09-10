@@ -12,9 +12,11 @@ rectangle BrokerX {
         usecase "UC-06\nOrder Modification/Cancellation" as UC06
     }
     
-    usecase "UC-08\nExecution Confirmation & Notifications" as UC08
-    usecase "UC-07\nMatching & Execution" as UC07
-    usecase "UC-05\nOrder Placement" as UC05 #palegreen
+    together {
+        usecase "UC-05\nOrder Placement" as UC05 #palegreen
+        usecase "UC-08\nExecution Confirmation & Notifications" as UC08
+        usecase "UC-07\nMatching & Execution" as UC07
+    }
 }
 
 actor "Payment Service" as PS
@@ -33,8 +35,8 @@ UC03 --> PS
 UC04 --> MDP
 
 ' Relationships between use cases
+UC05 <. UC07 : <<extend>>
+UC08 <. UC07 : <<include>>
 UC08 -- C
-UC07 .> UC05 : <<extend>>
-UC07 .> UC08 : <<include>>
 
 @enduml
