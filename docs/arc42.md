@@ -11,60 +11,52 @@ Template Revision: 7.0 EN (based on asciidoc), January 2017
 architecture template, <http://www.arc42.de>. Created by Dr. Peter
 Hruschka & Dr. Gernot Starke.
 
-# Introduction and Goals
-
-Describes the relevant requirements and the driving forces that software
-architects and development team must consider. These include
-
-- underlying business goals, essential features and functional
-  requirements for the system
-
-- quality goals for the architecture
-
-- relevant stakeholders and their expectations
+# 1. Introduction and Goals
 
 ## Requirements Overview
 
-**Contents.**
+The BrokerX project is an online brokerage platform targeting individual investors, developed in response to the rapidly evolving financial services sector.
 
-Short description of the functional requirements, driving forces,
-extract (or abstract) of requirements. Link to (hopefully existing)
-requirements documents (with version number and information where to
-find it).
+The system **must** support the following functionalities:
 
-**Motivation.**
+- **Authentication**
+  - Justification:
+- **Order placement**
+  - Justification:
+- **Matching & Execution**
+  - Justification:
+- **Market data subscription**
+  - Justififcation:
 
-From the point of view of the end users a system is created or modified
-to improve support of a business activity and/or improve the quality.
+The system **should** support the following functionalities:
 
-**Form.**
+- **Registration**
+  - Justification:
+- **Wallet funding**
+  - Justification:
+- **Order modification/cancellation**
+  - Justification:
 
-Short textual description, probably in tabular use-case format. If
-requirements documents exist this overview should refer to these
-documents.
+The system **could** support the following functionalities:
 
-Keep these excerpts as short as possible. Balance readability of this
-document with potential redundancy w.r.t to requirements documents.
+- **Notifications**
+  - Justification:
+
+These functions cover the core trading workflow and will be expanded in later iterations.
+
+[LOG430 - 2025.3 - Projet - Cahier de Charge.pdf](Other%20docs/cahier_de_charge.pdf)
 
 ## Quality Goals
 
-**Contents.**
+| Priority | Quality goal | Scenario                                                   |
+| -------- | ------------ | ---------------------------------------------------------- |
+| 1        | Latency      | ≤ 500 ms to get an acknowledgement after placing an order. |
+| 2        | Throughput   | ≥ 300 orders successfully placed per second.               |
+| 3        | Availability | The system mus tbe available at least 90% of the time.     |
 
-The top three (max five) quality goals for the architecture whose
-fulfillment is of highest importance to the major stakeholders. We
-really mean quality goals for the architecture. Don’t confuse them with
-project goals. They are not necessarily identical.
+These goals are to be met during the first iteration (monolithic architecture) of BrokerX.
 
-**Motivation.**
-
-You should know the quality goals of your most important stakeholders,
-since they will influence fundamental architectural decisions. Make sure
-to be very concrete about these qualities, avoid buzzwords. If you as an
-architect do not know how the quality of your work will be judged …
-
-**Form.**
-
-A table with quality goals and concrete scenarios, ordered by priorities
+**Justification** : TODO
 
 ## Stakeholders
 
@@ -95,12 +87,13 @@ level of detail of your work and its results.
 Table with role names, person names, and their expectations with respect
 to the architecture and its documentation.
 
-| Role/Name | Contact   | Expectations            |
-| --------- | --------- | ----------------------- |
-| Role-1    | Contact-1 | _&lt;Expectation-1_&gt; |
-| Role-2    | Contact-2 | _&lt;Expectation-2_&gt; |
+| Role/Name              | Contact   | Expectations            |
+| ---------------------- | --------- | ----------------------- |
+| Clients                | Contact-1 | _&lt;Expectation-1_&gt; |
+| Developers of BrokerX  | Contact-2 | _&lt;Expectation-2_&gt; |
+| Back-Office Operations | Contact-2 | _&lt;Expectation-2_&gt; |
 
-# Architecture Constraints
+# 2. Architecture Constraints
 
 **Contents.**
 
@@ -122,7 +115,7 @@ subdivide them into technical constraints, organizational and political
 constraints and conventions (e.g. programming or versioning guidelines,
 documentation or naming conventions)
 
-# System Scope and Context
+# 3. System Scope and Context
 
 **Contents.**
 
@@ -206,7 +199,7 @@ and input/output.
 
 **&lt;Mapping Input/Output to Channels&gt;**
 
-# Solution Strategy
+# 4. Solution Strategy
 
 **Contents.**
 
@@ -238,7 +231,7 @@ Motivate what you have decided and why you decided that way, based upon
 your problem statement, the quality goals and key constraints. Refer to
 details in the following sections.
 
-# Building Block View
+# 5. Building Block View
 
 **Content.**
 
@@ -433,7 +426,7 @@ _&lt;white box template&gt;_
 
 _&lt;white box template&gt;_
 
-# Runtime View
+# 6. Runtime View
 
 **Contents.**
 
@@ -498,7 +491,7 @@ There are many notations for describing scenarios, e.g.
 
 ## &lt;Runtime Scenario n&gt;
 
-# Deployment View
+# 7. Deployment View
 
 **Content.**
 
@@ -599,7 +592,7 @@ _&lt;diagram + explanation&gt;_
 
 _&lt;diagram + explanation&gt;_
 
-# Cross-cutting Concepts
+# 8. Cross-cutting Concepts
 
 **Content.**
 
@@ -681,7 +674,7 @@ _&lt;explanation&gt;_
 
 _&lt;explanation&gt;_
 
-# Design Decisions
+# 9. Design Decisions
 
 **Contents.**
 
@@ -712,7 +705,7 @@ Various options:
 
 - ADR (architecture decision record) for every important decision
 
-# Quality Requirements
+# 10. Quality Requirements
 
 **Content.**
 
@@ -790,7 +783,7 @@ evaluated.
 
 Tabular or free form text.
 
-# Risks and Technical Debts
+# 11. Risks and Technical Debts
 
 **Contents.**
 
@@ -812,31 +805,9 @@ of the overall risk analysis and measurement planning.
 List of risks and/or technical debts, probably including suggested
 measures to minimize, mitigate or avoid risks or reduce technical debts.
 
-# Glossary
+# 12. Glossary
 
-**Contents.**
-
-The most important domain and technical terms that your stakeholders use
-when discussing the system.
-
-You can also see the glossary as source for translations if you work in
-multi-language teams.
-
-**Motivation.**
-
-You should clearly define your terms, so that all stakeholders
-
-- have an identical understanding of these terms
-
-- do not use synonyms and homonyms
-
-**Form.**
-
-A table with columns &lt;Term&gt; and &lt;Definition&gt;.
-
-Potentially more columns in case you need translations.
-
-| Term   | Definition           |
-| ------ | -------------------- |
-| Term 1 | &lt;definition-1&gt; |
-| Term 2 | &lt;definition-2&gt; |
+| Term   | Definition                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI** | Continuous Integration: automation of the integration of new code into the main code base with checks on quality and automated tests. |
+| **CD** | Continuous Deployment: automation of the deployment of new features to the client application.                                        |
