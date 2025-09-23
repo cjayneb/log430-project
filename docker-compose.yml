@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: ./backend
+    container_name: brokerx_app
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_PORT=8080
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://app:8080/health"]
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: mysql:8.0
+    container_name: brokerx_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: brokerx
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
