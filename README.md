@@ -20,7 +20,7 @@ To run this project locally, you need the following tools installed:
 
 2. **Configure environment variables**
 
-   Change the values in the `backend/config.go` file if you want to override defaults.  
+   Change the values in the `backend/config.go` file if you want to override defaults.
    Example:
 
    ```env
@@ -28,7 +28,7 @@ To run this project locally, you need the following tools installed:
     DBUrl string `env:"DATABASE_URL" envDefault:"user:pass@tcp(127.0.0.1:3306)/brokerx"`
    ```
 
-   > By default, these values are already set in `docker-compose.yml`.
+   > The environnement variables set in the `docker-compose.yml` will override the values set in `backend/config.go` when running the project with Docker Compose.
 
 ## Running the project
 
@@ -45,11 +45,14 @@ This will start the API server on http://127.0.0.1:8080.
 - Health endpoint: http://127.0.0.1:8080/health (GET)
 - Login endpoint: http://127.0.0.1:8080/login (POST)
 
+> You must have a MySQL instance running on your machine for this to work
+
 ### Run with Docker Compose
 
 From the project root:
 
 ```bash
+docker compose down -v # To remove existing containers and their volumes
 docker compose up --build -d
 ```
 

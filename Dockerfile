@@ -27,10 +27,6 @@ COPY frontend ./frontend
 # Copy the binary
 COPY --from=builder /app/brokerx .
 
-# Environment variables
-ENV APP_PORT=8080
-ENV DATABASE_URL=root:root@tcp(db:3306)/brokerx
-
 EXPOSE 8080
 
 CMD ["./brokerx"]

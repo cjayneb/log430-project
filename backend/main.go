@@ -4,8 +4,9 @@ import (
 	"brokerx/adapters"
 	"brokerx/core"
 	"database/sql"
-	"log"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -18,7 +19,11 @@ func main() {
 	config.LoadConfig()
 	
 	userRepo:= initDbConnection(&config)
-	authService := &core.AuthService{Repo: userRepo}
+	authService := &core.AuthService{
+		Repo: userRepo, 
+		PasswordAllowedRetries: config.PasswordAllowedRetries, 
+		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
+	}
 	authHandler := &adapters.AuthHandler{Service: *authService}
 
 	router := initRouter(authHandler)
@@ -48,6 +53,15 @@ func initRouter(authHandler *adapters.AuthHandler) (*chi.Mux) {
         http.ServeFile(w, r, "./frontend/login.html")
     })
 
+	// Public API routes
+    router.Post("/auth/login", authHandler.Login)
+    router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+        _, err := w.Write([]byte("OK"))
+		if err != nil {
+			log.Errorf("Health check response error: %v", err)
+		}
+    })
+
     // Protected routes
     router.Group(func(r chi.Router) {
         r.Use(authHandler.Middleware)
@@ -55,15 +69,6 @@ func initRouter(authHandler *adapters.AuthHandler) (*chi.Mux) {
         r.Get("/", func(w http.ResponseWriter, r *http.Request) {
             http.ServeFile(w, r, "./frontend/index.html")
         })
-    })
-
-    // API routes
-    router.Post("/auth/login", authHandler.Login)
-    router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-        _, err := w.Write([]byte("OK"))
-		if err != nil {
-			log.Printf("Health check response error: %v", err)
-		}
     })
 
     return router
