@@ -22,7 +22,11 @@ func main() {
 	authHandler := &adapters.AuthHandler{Service: *authService}
 
 	router := initRouter(authHandler)
-	http.ListenAndServe(":"+config.Port, router)
+
+	err := http.ListenAndServe(":"+config.Port, router)
+	if err != nil {
+		log.Fatalf("Server error : %s", err)
+	}
 }
 
 func initDbConnection(config *Config) (*adapters.SQLUserRepository) {
@@ -53,13 +57,13 @@ func initRouter(authHandler *adapters.AuthHandler) (*chi.Mux) {
         })
     })
 
-    // API
+    // API routes
     router.Post("/auth/login", authHandler.Login)
-
-    // Health
     router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.WriteHeader(http.StatusOK)
-        w.Write([]byte("OK"))
+        _, err := w.Write([]byte("OK"))
+		if err != nil {
+			log.Printf("Health check response error: %v", err)
+		}
     })
 
     return router

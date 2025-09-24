@@ -50,5 +50,8 @@ func initSession(r *http.Request, w http.ResponseWriter, userEmail string) {
         Secure:   true,
         SameSite: http.SameSiteLaxMode,
     }
-    session.Save(r, w)
+    err := session.Save(r, w)
+    if err != nil {
+        http.Error(w, "Failed to save session", http.StatusInternalServerError)
+    }
 }
