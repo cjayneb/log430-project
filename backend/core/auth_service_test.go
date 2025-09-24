@@ -8,9 +8,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,162 +37,146 @@ func makeHashedPassword(pw string) string {
 
 func makeUser(email, password string, failedAttempts int, lockedUntil sql.NullTime) *models.User {
 	return &models.User{
-		Email:    email,
-		Password: makeHashedPassword(password),
+		Email:          email,
+		Password:       makeHashedPassword(password),
 		FailedAttempts: failedAttempts,
-		LockedUntil: lockedUntil,
+		LockedUntil:    lockedUntil,
 	}
 }
 
-func TestAuthenticateSuccess(t *testing.T) {
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 0, sql.NullTime{Valid: false})
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	repo.On("Update", mock.Anything).Return(nil)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 3,
+// ---------------------------
+// Test Suite
+// ---------------------------
+
+type AuthServiceTestSuite struct {
+	suite.Suite
+	repo    *MockUserRepo
+	service *AuthService
+	email   string
+	pass    string
+}
+
+func (s *AuthServiceTestSuite) SetupTest() {
+	s.repo = new(MockUserRepo)
+	s.service = &AuthService{
+		Repo:                       s.repo,
+		PasswordAllowedRetries:     3,
 		PasswordLockDurationMinutes: 15,
 	}
-
-	result, err := service.Authenticate(email, password)
-
-	require.NoError(t, err)
-	require.Equal(t, user, result)
+	s.email = "email"
+	s.pass = "password"
 }
 
-func TestAuthenticateUserNotFound(t *testing.T) {
-	email := "email"
-	password := "password"
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(nil, sql.ErrNoRows)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 3,
-		PasswordLockDurationMinutes: 15,
-	}
+// ---------------------------
+// Tests
+// ---------------------------
 
-	result, err := service.Authenticate(email, password)
+func (s *AuthServiceTestSuite) TestAuthenticateSuccess() {
+	user := makeUser(s.email, s.pass, 0, sql.NullTime{Valid: false})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+	s.repo.On("Update", mock.Anything).Return(nil)
 
-	require.Nil(t, result)
-	require.Error(t, err)
-	require.Equal(t, "user not found", err.Error())
+	result, err := s.service.Authenticate(s.email, s.pass)
+
+	s.Require().NoError(err)
+	s.Equal(user, result)
 }
 
-func TestAuthenticateUserLockUserUpdateFailure(t *testing.T) {
+func (s *AuthServiceTestSuite) TestAuthenticateUserNotFound() {
+	s.repo.On("FindByEmail", s.email).Return(nil, sql.ErrNoRows)
+
+	result, err := s.service.Authenticate(s.email, s.pass)
+
+	s.Nil(result)
+	s.Error(err)
+	s.Equal("user not found", err.Error())
+}
+
+func (s *AuthServiceTestSuite) TestAuthenticateInvalidPasswordTriggersLockout() {
+	user := makeUser(s.email, s.pass, 0, sql.NullTime{Valid: false})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+	s.repo.On("Update", mock.Anything).Return(nil)
+	s.service.PasswordAllowedRetries = 1
+
+	result, err := s.service.Authenticate(s.email, "wrongpassword")
+
+	s.Nil(result)
+	s.Error(err)
+	s.Equal("invalid credentials", err.Error())
+	s.True(user.LockedUntil.Valid)
+}
+
+func (s *AuthServiceTestSuite) TestAuthenticateAccountLocked() {
+	user := makeUser(s.email, s.pass, 0, sql.NullTime{
+		Time:  time.Now().Add(10 * time.Minute),
+		Valid: true,
+	})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+
+	result, err := s.service.Authenticate(s.email, s.pass)
+
+	s.Nil(result)
+	s.Error(err)
+	s.Equal("account is locked. Try again later", err.Error())
+}
+
+func (s *AuthServiceTestSuite) TestAuthenticateUserLockUserUpdateFailure() {
 	expectedLog := "Failed to update user lock status: sql: connection is already closed"
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 0, sql.NullTime{Valid: false})
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 1,
-		PasswordLockDurationMinutes: 15,
-	}
+	user := makeUser(s.email, s.pass, 0, sql.NullTime{Valid: false})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+	s.repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
+	s.service.PasswordAllowedRetries = 1
+
 	var buf bytes.Buffer
 	originalOutput := log.StandardLogger().Writer()
 	log.SetOutput(&buf)
 	defer log.SetOutput(originalOutput)
 
-	result, err := service.Authenticate(email, "wrongpassword")
+	result, err := s.service.Authenticate(s.email, "wrongpassword")
 	logOutput := buf.String()
 
-	require.Contains(t, logOutput, expectedLog)
-	require.Nil(t, result)
-	require.Error(t, err)
+	s.Contains(logOutput, expectedLog)
+	s.Nil(result)
+	s.Error(err)
 }
 
-func TestAuthenticateResetLockoutUpdateFailure(t *testing.T) {
+func (s *AuthServiceTestSuite) TestAuthenticateResetLockout() {
+	user := makeUser(s.email, s.pass, 3, sql.NullTime{Valid: false})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+	s.repo.On("Update", mock.Anything).Return(nil)
+	s.service.PasswordAllowedRetries = 5
+	s.service.PasswordLockDurationMinutes = 5
+
+	result, err := s.service.Authenticate(s.email, s.pass)
+
+	s.Equal(0, result.FailedAttempts)
+	s.NoError(err)
+}
+
+func (s *AuthServiceTestSuite) TestAuthenticateResetLockoutUpdateFailure() {
 	expectedLog := "Failed to update user lock status: sql: connection is already closed"
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 3, sql.NullTime{Valid: false})
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 5,
-		PasswordLockDurationMinutes: 5,
-	}
+	user := makeUser(s.email, s.pass, 3, sql.NullTime{Valid: false})
+	s.repo.On("FindByEmail", s.email).Return(user, nil)
+	s.repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
+	s.service.PasswordAllowedRetries = 5
+	s.service.PasswordLockDurationMinutes = 5
+
 	var buf bytes.Buffer
 	originalOutput := log.StandardLogger().Writer()
 	log.SetOutput(&buf)
 	defer log.SetOutput(originalOutput)
 
-	result, err := service.Authenticate(email, password)
+	result, err := s.service.Authenticate(s.email, s.pass)
 	logOutput := buf.String()
 
-	require.Contains(t, logOutput, expectedLog)
-	require.Equal(t, 0, result.FailedAttempts)
-	require.Nil(t, err)
+	s.Contains(logOutput, expectedLog)
+	s.Equal(0, result.FailedAttempts)
+	s.NoError(err)
 }
 
-func TestAuthenticateInvalidPasswordTriggersLockout(t *testing.T) {
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 0, sql.NullTime{Valid: false})
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	repo.On("Update", mock.Anything).Return(nil)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 1,
-		PasswordLockDurationMinutes: 5,
-	}
-
-	result, err := service.Authenticate(email, "wrongpassword")
-
-	require.Nil(t, result)
-	require.Error(t, err)
-	require.Equal(t, "invalid credentials", err.Error())
-	require.True(t, user.LockedUntil.Valid)
-}
-
-func TestAuthenticateResetLockout(t *testing.T) {
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 3, sql.NullTime{Valid: false})
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	repo.On("Update", mock.Anything).Return(nil)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 5,
-		PasswordLockDurationMinutes: 5,
-	}
-
-	result, err := service.Authenticate(email, password)
-
-	require.Equal(t, 0, result.FailedAttempts)
-	require.Nil(t, err)
-}
-
-func TestAuthenticateAccountLocked(t *testing.T) {
-	email := "email"
-	password := "password"
-	user := makeUser(email, password, 3, 
-		sql.NullTime{
-			Time:  time.Now().Add(10 * time.Minute),
-			Valid: true,
-		},
-	)
-	repo := new(MockUserRepo)
-	repo.On("FindByEmail", email).Return(user, nil)
-	service := &AuthService{
-		Repo: repo,
-		PasswordAllowedRetries: 3,
-		PasswordLockDurationMinutes: 15,
-	}
-
-	result, err := service.Authenticate(email, password)
-
-	require.Nil(t, result)
-	require.Error(t, err)
-	require.Equal(t, "account is locked. Try again later", err.Error())
+// ---------------------------
+// Run the suite
+// ---------------------------
+func TestAuthServiceTestSuite(t *testing.T) {
+	suite.Run(t, new(AuthServiceTestSuite))
 }
