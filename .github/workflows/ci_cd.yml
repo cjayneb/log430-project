@@ -19,18 +19,16 @@ jobs:
         with:
           go-version: 1.24.3
 
+        working-directory: ./backend
       - name: Go Linter
-        workspace: ./backend
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
 
       - name: Build
-        workspace: ./backend
         run: go build ./...
 
       - name: Run Tests with Coverage
-        workspace: ./backend
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | tee coverage.txt
