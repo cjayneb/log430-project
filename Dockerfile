@@ -1,4 +1,4 @@
-# Build stage
+# Build stage ==================================
 FROM golang:alpine AS builder
 
 WORKDIR /app
@@ -6,19 +6,23 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # Copy Go modules and download dependencies
-COPY go.mod go.sum ./
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
 # Copy backend source code
-COPY . .
+COPY backend/ ./backend
 
 # Build the binary
-RUN go build -o brokerx .
+WORKDIR /app/backend
+RUN go build -o /app/brokerx .
 
-# Run stage
+# Run stage ====================================
 FROM alpine:3.22
 
 WORKDIR /app
+
+# Copy frontend for static serving
+COPY frontend ./frontend
 
 # Copy the binary
 COPY --from=builder /app/brokerx .

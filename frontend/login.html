@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BrokerX</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <div id="screen-container">
@@ -14,7 +14,7 @@
 
       <div id="main-container">
         <div id="login-form-container">
-          <form>
+          <form action="http://localhost:8080/auth/login" method="POST">
             <label for="email">Email</label><br />
             <input type="text" id="email" name="email" required /><br /><br />
 
