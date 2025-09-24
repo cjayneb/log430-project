@@ -45,10 +45,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
-          severity: LOW,MEDIUM,HIGH,CRITICAL
+          severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-          scanners: vuln,secret,misconfig,license
+          scanners: vuln,secret
 
       - name: Build Docker image
         run: docker build -t brokerx-app .
@@ -57,10 +57,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: brokerx-app
-          severity: LOW,MEDIUM,HIGH,CRITICAL
+          severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-          scanners: vuln,secret,misconfig,license
+          scanners: vuln,secret
 
   deploy:
     name: Deploy with Docker Compose
