@@ -42,25 +42,25 @@ jobs:
         working-directory: ./backend
 
       - name: Run Trivy on filesystem
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
-          severity: HIGH,CRITICAL
+          severity: LOW,MEDIUM,HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-          scanners: vuln,secret
+          scanners: vuln,secret,misconfig,license
 
       - name: Build Docker image
         run: docker build -t brokerx-app .
 
       - name: Run Trivy on Docker image
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: brokerx-app
-          severity: HIGH,CRITICAL
+          severity: LOW,MEDIUM,HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-          scanners: vuln,secret
+          scanners: vuln,secret,misconfig,license
 
   deploy:
     name: Deploy with Docker Compose
