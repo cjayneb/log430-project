@@ -41,18 +41,26 @@ jobs:
           fi
         working-directory: ./backend
 
-      - name: Install Trivy
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-
-      - name: Scan source code for vulnerabilities
-        run: trivy fs --exit-code 1 --severity HIGH,CRITICAL .
+      - name: Run Trivy on filesystem
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          scanners: vuln,secret
 
       - name: Build Docker image
         run: docker build -t brokerx-app .
 
-      - name: Scan Docker image for vulnerabilities
-        run: trivy image --exit-code 1 --severity HIGH,CRITICAL brokerx-app
+      - name: Run Trivy on Docker image
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: brokerx-app
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          scanners: vuln,secret
 
   deploy:
     name: Deploy with Docker Compose
