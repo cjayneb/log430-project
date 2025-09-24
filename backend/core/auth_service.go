@@ -53,6 +53,9 @@ func (authService *AuthService) lockUser(user *models.User) {
 }
 
 func (authService *AuthService) resetLockout(user *models.User) {
+	if user.FailedAttempts == 0 {
+		return
+	}
 	user.FailedAttempts = 0
 	user.LockedUntil = sql.NullTime{Valid: false}
 	
