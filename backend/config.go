@@ -1,8 +1,6 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
-
 	"github.com/caarlos0/env"
 )
 
@@ -14,8 +12,9 @@ type Config struct {
 	IsProduction bool `env:"IS_PRODUCTION" envDefault:"false"`
 }
 
-func (config *Config) LoadConfig() {
+func (config *Config) LoadConfig() error {
 	if err := env.Parse(config); err != nil {
-		log.Fatalf("Error loading config : %v", err)
+		return err
 	}
+	return nil
 }

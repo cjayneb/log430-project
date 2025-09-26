@@ -17,26 +17,28 @@ import (
 var config Config = Config{}
 
 func main() {
-	config.LoadConfig()
-	
-	userRepo:= initDbConnection(&config)
-	authService := &core.AuthService{
-		Repo: userRepo, 
-		PasswordAllowedRetries: config.PasswordAllowedRetries, 
-		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
-	}
-	authHandler := &adapters.AuthHandler{
-		Service: authService,
-		SessionStore: sessions.NewCookieStore([]byte("very-secret-key")),
-		IsProduction: config.IsProduction,
-	}
+    if err := run(); err != nil {
+        log.Fatalf("Server error : %s", err)
+    }
+}
 
-	router := initRouter(authHandler)
+func run() error {
+    config.LoadConfig()
 
-	err := http.ListenAndServe(":"+config.Port, router)
-	if err != nil {
-		log.Fatalf("Server error : %s", err)
-	}
+    userRepo := initDbConnection(&config)
+    authService := &core.AuthService{
+        Repo:                        userRepo,
+        PasswordAllowedRetries:      config.PasswordAllowedRetries,
+        PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
+    }
+    authHandler := &adapters.AuthHandler{
+        Service:      authService,
+        SessionStore: sessions.NewCookieStore([]byte("very-secret-key")),
+        IsProduction: config.IsProduction,
+    }
+
+    router := initRouter(authHandler)
+    return http.ListenAndServe(":"+config.Port, router)
 }
 
 func initDbConnection(config *Config) (*adapters.SQLUserRepository) {
