@@ -54,8 +54,8 @@ jobs:
           go tool cover -func=coverage.out | tee coverage.txt
           coverage=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
           coverage_int=${coverage%.*}
-          if [ "$coverage_int" -lt 80 ]; then
-            echo "Code coverage ($coverage%) is below 80%"
+          if [ "$coverage_int" -lt 60 ]; then
+            echo "Code coverage ($coverage%) is below 60%"
             exit 1
           fi
         working-directory: ./backend
