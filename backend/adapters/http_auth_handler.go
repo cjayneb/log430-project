@@ -47,8 +47,8 @@ func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, 
     session.Options = &sessions.Options{
         Path:     "/",
         MaxAge:   600,
-        HttpOnly: handler.IsProduction,
-        Secure:   true,
+        HttpOnly: true,
+        Secure:   handler.IsProduction,
         SameSite: http.SameSiteLaxMode,
     }
     err := session.Save(r, w)

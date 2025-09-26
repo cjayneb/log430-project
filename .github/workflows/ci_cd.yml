@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-test:
-    name: Lint, Build, Test, Coverage, Sonar
+    name: Lint, Build, Test, Coverage, Trivy Scans
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -38,7 +38,7 @@ jobs:
       - name: Wait for MySQL
         run: |
           for i in {1..30}; do
-            if docker exec brokerx-test-db mysqladmin ping -h "127.0.0.1" --silent; then
+            if docker exec brokerx_test_db mysqladmin ping -h "127.0.0.1" --silent; then
               echo "MySQL is ready!"
               break
             fi
@@ -54,8 +54,8 @@ jobs:
           go tool cover -func=coverage.out | tee coverage.txt
           coverage=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
           coverage_int=${coverage%.*}
-          if [ "$coverage_int" -lt 20 ]; then
-            echo "Code coverage ($coverage%) is below 20%"
+          if [ "$coverage_int" -lt 80 ]; then
+            echo "Code coverage ($coverage%) is below 80%"
             exit 1
           fi
         working-directory: ./backend
@@ -89,7 +89,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker
+      - name: Deploy containers
         run: |
           docker compose down || true
           docker compose up -d --build
