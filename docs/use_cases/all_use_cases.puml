@@ -1,4 +1,4 @@
-@startuml
+@startuml all_use_cases
 left to right direction
 
 actor Client as C

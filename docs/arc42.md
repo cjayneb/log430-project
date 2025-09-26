@@ -477,6 +477,8 @@ There are many notations for describing scenarios, e.g.
 
 - …
 
+![SVG Image](use_cases/all_use_cases.svg)
+
 ## &lt;Runtime Scenario 1&gt;
 
 - _&lt;insert runtime diagram or textual description of the
@@ -811,3 +813,15 @@ measures to minimize, mitigate or avoid risks or reduce technical debts.
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **CI** | Continuous Integration: automation of the integration of new code into the main code base with checks on quality and automated tests. |
 | **CD** | Continuous Deployment: automation of the deployment of new features to the client application.                                        |
+
+```
+
+```
+
+```
+
+```
+
+```
+
+```
