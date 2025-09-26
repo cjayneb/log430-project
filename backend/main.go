@@ -23,7 +23,9 @@ func main() {
 }
 
 func run() error {
-    config.LoadConfig()
+    if err := config.LoadConfig(); err != nil {
+		log.Fatalf("Config error : %s", err)
+	}
 
     userRepo := initDbConnection(&config)
     authService := &core.AuthService{
@@ -44,7 +46,7 @@ func run() error {
 func initDbConnection(config *Config) (*adapters.SQLUserRepository) {
 	db, e := sql.Open("mysql", config.DBUrl)
 	if err := db.Ping(); err != nil || e != nil {
-		log.Fatalf("Db error : %s | %s", e, err)
+		log.Warnf("Db error : %s | %s", e, err)
 	}
 	return &adapters.SQLUserRepository{DB: db}
 }
