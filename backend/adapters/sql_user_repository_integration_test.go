@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 	"time"
 
@@ -13,7 +14,10 @@ var email string = "buyer@email.com"
 
 func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	// Run docker-compose.test.yml before executing this test
-	dbUrl := "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
+	} 
 	db, err := sql.Open("mysql", dbUrl)
 	require.NoError(t, err)
 

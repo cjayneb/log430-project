@@ -1,5 +1,5 @@
 services:
-  tes-db:
+  test-db:
     image: mysql:8.0
     container_name: brokerx_test_db
     restart: always

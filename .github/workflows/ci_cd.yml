@@ -33,6 +33,8 @@ jobs:
         run: docker compose -f docker-compose.test.yml up -d
 
       - name: Run Tests with Coverage
+        env:
+          DATABASE_URL: root:root@tcp(test-db:3307)/brokerx?parseTime=true
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | tee coverage.txt
