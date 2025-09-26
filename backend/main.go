@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/go-chi/chi/v5"
@@ -24,7 +25,11 @@ func main() {
 		PasswordAllowedRetries: config.PasswordAllowedRetries, 
 		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
 	}
-	authHandler := &adapters.AuthHandler{Service: authService, IsProduction: config.IsProduction}
+	authHandler := &adapters.AuthHandler{
+		Service: authService,
+		SessionStore: sessions.NewCookieStore([]byte("very-secret-key")),
+		IsProduction: config.IsProduction,
+	}
 
 	router := initRouter(authHandler)
 

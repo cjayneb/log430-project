@@ -7,11 +7,9 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-
-var store = sessions.NewCookieStore([]byte("very-secret-key"))
-
 type AuthHandler struct {
 	Service ports.AuthService
+    SessionStore sessions.Store
     IsProduction bool
 }
 
@@ -20,9 +18,15 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 		http.Error(writer, "badly formed user", http.StatusBadRequest)
 		return
 	}
+
 	user, e := handler.Service.Authenticate(request.FormValue("email"), request.FormValue("password"))
 	if e != nil {
 		http.Error(writer, "unauthorized: " + e.Error(), http.StatusUnauthorized)
+		return
+	}
+
+    if err := handler.initSession(request, writer, user.Email); err != nil {
+		http.Error(writer, "failed to save session: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -32,7 +36,7 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 
 func (handler *AuthHandler) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        session, _ := store.Get(r, "brokerx-session")
+        session, _ := handler.SessionStore.Get(r, "brokerx-session")
         if session.Values["user_id"] == nil {
             http.Redirect(w, r, "/login", http.StatusFound)
             return
@@ -41,8 +45,8 @@ func (handler *AuthHandler) Middleware(next http.Handler) http.Handler {
     })
 }
 
-func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userEmail string) {
-	session, _ := store.Get(r, "brokerx-session")
+func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userEmail string) error {
+	session, _ := handler.SessionStore.Get(r, "brokerx-session")
     session.Values["user_id"] = userEmail
     session.Options = &sessions.Options{
         Path:     "/",
@@ -51,8 +55,10 @@ func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, 
         Secure:   handler.IsProduction,
         SameSite: http.SameSiteLaxMode,
     }
-    err := session.Save(r, w)
-    if err != nil {
-        http.Error(w, "Failed to save session", http.StatusInternalServerError)
+
+    if err := session.Save(r, w); err != nil {
+        return err
     }
+    
+    return nil
 }

@@ -47,8 +47,6 @@ jobs:
           done
 
       - name: Run Tests with Coverage
-        # env:
-        #   DATABASE_URL: root:root@tcp(test-db:3307)/brokerx?parseTime=true
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | tee coverage.txt
