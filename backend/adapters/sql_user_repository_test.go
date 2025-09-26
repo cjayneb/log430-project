@@ -19,6 +19,8 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	if dbUrl == "" {
 		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
 	} 
+	defer os.Clearenv()
+	
 	log.Printf("Using DATABASE_URL: %s", dbUrl)
 	db, err := sql.Open("mysql", dbUrl)
 	require.NoError(t, err)

@@ -17,12 +17,13 @@ import (
 var config Config = Config{}
 
 func main() {
-    if err := run(); err != nil {
-        log.Fatalf("Server error : %s", err)
-    }
+    router := run()
+	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
+    	log.Fatalf("Server error : %s", err)
+	}
 }
 
-func run() error {
+func run() http.Handler {
     if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Config error : %s", err)
 	}
@@ -40,7 +41,7 @@ func run() error {
     }
 
     router := initRouter(authHandler)
-    return http.ListenAndServe(":"+config.Port, router)
+    return router
 }
 
 func initDbConnection(config *Config) (*adapters.SQLUserRepository) {
