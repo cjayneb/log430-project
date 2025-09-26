@@ -64,3 +64,5 @@ func (authService *AuthService) resetLockout(user *models.User) {
 		log.Errorf("Failed to update user lock status: %v", err)
 	}
 }
+
+var _ ports.AuthService = (*AuthService)(nil) // Ensure interface is implemented at compile time

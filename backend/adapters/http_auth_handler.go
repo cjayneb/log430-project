@@ -1,7 +1,7 @@
 package adapters
 
 import (
-	"brokerx/core"
+	"brokerx/ports"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -11,7 +11,8 @@ import (
 var store = sessions.NewCookieStore([]byte("very-secret-key"))
 
 type AuthHandler struct {
-	Service core.AuthService
+	Service ports.AuthService
+    IsProduction bool
 }
 
 func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Request) {
@@ -25,7 +26,7 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	initSession(request, writer, user.Email)
+	handler.initSession(request, writer, user.Email)
 	http.Redirect(writer, request, "/", http.StatusFound)
 }
 
@@ -40,13 +41,13 @@ func (handler *AuthHandler) Middleware(next http.Handler) http.Handler {
     })
 }
 
-func initSession(r *http.Request, w http.ResponseWriter, userEmail string) {
+func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userEmail string) {
 	session, _ := store.Get(r, "brokerx-session")
     session.Values["user_id"] = userEmail
     session.Options = &sessions.Options{
         Path:     "/",
         MaxAge:   600,
-        HttpOnly: true,
+        HttpOnly: handler.IsProduction,
         Secure:   true,
         SameSite: http.SameSiteLaxMode,
     }

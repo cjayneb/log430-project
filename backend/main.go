@@ -24,7 +24,7 @@ func main() {
 		PasswordAllowedRetries: config.PasswordAllowedRetries, 
 		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
 	}
-	authHandler := &adapters.AuthHandler{Service: *authService}
+	authHandler := &adapters.AuthHandler{Service: authService, IsProduction: config.IsProduction}
 
 	router := initRouter(authHandler)
 
