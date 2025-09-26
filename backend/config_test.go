@@ -11,8 +11,9 @@ func TestLoadConfigDefaults(t *testing.T) {
 	os.Clearenv() // remove all env vars
 
 	cfg := Config{}
-	cfg.LoadConfig()
+	err := cfg.LoadConfig()
 
+	assert.Nil(t, err)
 	assert.Equal(t, "8080", cfg.Port)
 	assert.Equal(t, "root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true", cfg.DBUrl)
 	assert.Equal(t, 5, cfg.PasswordAllowedRetries)
@@ -26,8 +27,9 @@ func TestLoadConfigCustomValues(t *testing.T) {
 	defer os.Clearenv()
 
 	cfg := Config{}
-	cfg.LoadConfig()
+	err := cfg.LoadConfig()
 
+	assert.Nil(t, err)
 	assert.Equal(t, "9999", cfg.Port)
 	assert.Equal(t, 10, cfg.PasswordAllowedRetries)
 }

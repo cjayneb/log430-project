@@ -29,8 +29,7 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 		http.Error(writer, "failed to save session: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	handler.initSession(request, writer, user.Email)
+    
 	http.Redirect(writer, request, "/", http.StatusFound)
 }
 
