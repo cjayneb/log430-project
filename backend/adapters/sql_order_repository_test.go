@@ -3,53 +3,28 @@ package adapters
 import (
 	"brokerx/models"
 	"database/sql"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
+var symbol string = "AAPL"
 var userId string = uuid.New().String()
 
-func setupTestDBOrder(t *testing.T) (*sql.DB, func()) {
-	// Run docker-compose.test.yml before executing this test
-	dbUrl := os.Getenv("DATABASE_URL")
-	if dbUrl == "" {
-		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
-	} 
-	defer os.Clearenv()
-	
-	log.Printf("Using DATABASE_URL: %s", dbUrl)
-	db, err := sql.Open("mysql", dbUrl)
-	require.NoError(t, err)
-
-	err = db.Ping()
-	require.NoError(t, err)
-
-	_, err = db.Exec("DELETE FROM orders")
-    require.NoError(t, err)
-
-	_, err = db.Exec("DELETE FROM users")
-    require.NoError(t, err)
-
-    _, err = db.Query(`INSERT INTO users (id, email, password) 
+func insertOrderTestData(t *testing.T, db *sql.DB) {
+	_, err := db.Query(`INSERT INTO users (id, email, password) 
                       VALUES (?, 'email', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
     _, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, 
-		userId, "AAPL", "buy", "market", 10, 150.00, "day", "open")
+		userId, symbol, "buy", "market", 10, 150.00, "day", "open")
     require.NoError(t, err)
-
-	cleanup := func() {
-		db.Close()
-	}
-	return db, cleanup
 }
 
 func TestSQLOrderRepositoryIntegration(t *testing.T) {
-	db, cleanup := setupTestDBOrder(t)
+	db, cleanup := setupTestDB(t)
+	insertOrderTestData(t, db)
 	defer cleanup()
 
 	repo := &SQLOrderRepository{DB: db}

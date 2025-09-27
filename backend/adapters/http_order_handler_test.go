@@ -3,6 +3,7 @@ package adapters
 import (
 	"brokerx/models"
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -65,6 +66,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderSuccess() {
 
 	req := httptest.NewRequest(http.MethodPost, PLACE_ORDER_ENDPOINT, bytes.NewBufferString(s.RequestString))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), USER_ID_KEY, s.UserID))
 	w := httptest.NewRecorder()
 
 	s.handler.PlaceOrder(w, req)
@@ -79,6 +81,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderBadRequest() {
 
 	req := httptest.NewRequest(http.MethodPost, PLACE_ORDER_ENDPOINT, bytes.NewBufferString("quantity=ten"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), USER_ID_KEY, s.UserID))
 	w := httptest.NewRecorder()
 
 	s.handler.PlaceOrder(w, req)
@@ -94,6 +97,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderInternalError() {
 
 	req := httptest.NewRequest(http.MethodPost, PLACE_ORDER_ENDPOINT, bytes.NewBufferString(s.RequestString))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), USER_ID_KEY, s.UserID))
 	w := httptest.NewRecorder()
 
 	s.handler.PlaceOrder(w, req)

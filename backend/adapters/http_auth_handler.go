@@ -2,10 +2,15 @@ package adapters
 
 import (
 	"brokerx/ports"
+	"context"
 	"net/http"
 
 	"github.com/gorilla/sessions"
 )
+
+type contextKey string
+
+const USER_ID_KEY contextKey = "user_id"
 
 type AuthHandler struct {
 	Service ports.AuthService
@@ -25,7 +30,7 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-    if err := handler.initSession(request, writer, user.Email); err != nil {
+    if err := handler.initSession(request, writer, user.ID); err != nil {
 		http.Error(writer, "failed to save session: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -36,17 +41,22 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 func (handler *AuthHandler) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         session, _ := handler.SessionStore.Get(r, "brokerx-session")
-        if session.Values["user_id"] == nil {
+        userID, ok := session.Values["user_id"].(string)
+        if !ok || userID == "" {
             http.Redirect(w, r, "/login", http.StatusFound)
             return
         }
+        
+        context := context.WithValue(r.Context(), USER_ID_KEY, userID)
+        r = r.WithContext(context)
+
         next.ServeHTTP(w, r)
     })
 }
 
-func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userEmail string) error {
+func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userId string) error {
 	session, _ := handler.SessionStore.Get(r, "brokerx-session")
-    session.Values["user_id"] = userEmail
+    session.Values["user_id"] = userId
     session.Options = &sessions.Options{
         Path:     "/",
         MaxAge:   600,

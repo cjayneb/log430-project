@@ -36,7 +36,10 @@ func (handler *OrderHandler) PlaceOrder(writer http.ResponseWriter, request *htt
 func validateOrderForm(request *http.Request) (*models.Order, error) {
 	var order models.Order
 	decoder := schema.NewDecoder()
-	if err := decoder.Decode(&order, request.PostForm); err != nil || !isValidOrder(&order) {
+	err := decoder.Decode(&order, request.PostForm);
+	order.UserID = request.Context().Value(USER_ID_KEY).(string)
+	
+	if err != nil || !isValidOrder(&order) {
 		return nil, err
 	}
 	return &order, nil

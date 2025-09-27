@@ -30,11 +30,11 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 
 	_, err = db.Exec("DELETE FROM orders")
 	require.NoError(t, err)
-	_, err = db.Exec("DELETE FROM users")
+	_, err = db.Exec("DELETE FROM positions")
     require.NoError(t, err)
-
-    _, err = db.Query(`INSERT INTO users (id, email, password) 
-                      VALUES (UUID(), ?, 'hashedpw')`, email)
+	_, err = db.Exec("DELETE FROM wallets")
+    require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM users")
     require.NoError(t, err)
 
 	cleanup := func() {
@@ -43,8 +43,15 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	return db, cleanup
 }
 
+func insertUserTestData(t *testing.T, db *sql.DB) {
+	_, err := db.Query(`INSERT INTO users (id, email, password) 
+                      VALUES (UUID(), ?, 'hashedpw')`, email)
+    require.NoError(t, err)
+}
+
 func TestSQLUserRepositoryIntegration(t *testing.T) {
 	db, cleanup := setupTestDB(t)
+	insertUserTestData(t, db)
 	defer cleanup()
 
 	repo := &SQLUserRepository{DB: db}

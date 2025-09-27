@@ -7,10 +7,16 @@ import (
 
 type OrderService struct {
 	Repo ports.OrderRepository
+	ComplianceService ports.ComplianceService
 }
 
 func (service * OrderService) PlaceOrder(order *models.Order) error {
-	_, err := service.Repo.CreateOrder(order)
+	err := service.ComplianceService.VerifyOrderCompliance(order)
+	if err != nil {
+		return err
+	}
+
+	_, err = service.Repo.CreateOrder(order)
 	if err != nil {
 		return err
 	}

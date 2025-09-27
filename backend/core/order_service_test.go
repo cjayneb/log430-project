@@ -22,6 +22,15 @@ func (m *MockOrderRepo) CreateOrder(order *models.Order) (int, error) {
 	return args.Get(0).(int), args.Error(1)
 }
 
+type MockComplianceService struct {
+	mock.Mock
+}
+
+func (m *MockComplianceService) VerifyOrderCompliance(order *models.Order) error {
+	args := m.Called(order)
+	return args.Error(0)
+}
+
 func makeOrder() *models.Order {
 	return &models.Order{
 		UserID: uuid.New().String(),
@@ -42,12 +51,14 @@ func makeOrder() *models.Order {
 type OrderServiceTestSuite struct {
 	suite.Suite
 	repo    *MockOrderRepo
+	complianceService *MockComplianceService
 	service *OrderService
 }
 
 func (s *OrderServiceTestSuite) SetupTest() {
 	s.repo = new(MockOrderRepo)
-	s.service = &OrderService{Repo: s.repo}
+	s.complianceService = new(MockComplianceService)
+	s.service = &OrderService{Repo: s.repo, ComplianceService: s.complianceService}
 }
 
 // ---------------------------
@@ -56,6 +67,7 @@ func (s *OrderServiceTestSuite) SetupTest() {
 
 func (s *OrderServiceTestSuite) TestPlaceOrderSuccess() {
 	order := makeOrder()
+	s.complianceService.On("VerifyOrderCompliance", order).Return(nil)
 	s.repo.On("CreateOrder", order).Return(1, nil)
 
 	err := s.service.PlaceOrder(order)
@@ -63,8 +75,18 @@ func (s *OrderServiceTestSuite) TestPlaceOrderSuccess() {
 	s.Require().NoError(err)
 }
 
+func (s *OrderServiceTestSuite) TestPlaceOrderNonCompliance() {
+	order := makeOrder()
+	s.complianceService.On("VerifyOrderCompliance", order).Return(assert.AnError)
+
+	err := s.service.PlaceOrder(order)
+
+	s.Error(err)
+}
+
 func (s *OrderServiceTestSuite) TestPlaceOrderFailure() {
 	order := makeOrder()
+	s.complianceService.On("VerifyOrderCompliance", order).Return(nil)
 	s.repo.On("CreateOrder", order).Return(0, assert.AnError)
 
 	err := s.service.PlaceOrder(order)
