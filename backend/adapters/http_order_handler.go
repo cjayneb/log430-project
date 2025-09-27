@@ -17,17 +17,20 @@ func (handler *OrderHandler) PlaceOrder(writer http.ResponseWriter, request *htt
 	err := request.ParseForm()
 	order, decodeErr := validateOrderForm(request)
 	if err != nil || decodeErr != nil {
-		http.Redirect(writer, request, "/order/failed", http.StatusFound)
+		writer.WriteHeader(http.StatusBadRequest)
+		http.ServeFile(writer, request, "./frontend/order_failed.html")
 		return
 	}
 
 	err = handler.Service.PlaceOrder(order)
 	if err != nil {
-		http.Redirect(writer, request, "/order/failed", http.StatusFound)
+		writer.WriteHeader(http.StatusInternalServerError)
+		http.ServeFile(writer, request, "./frontend/order_failed.html")
 		return
 	}
 
-	http.Redirect(writer, request, "/order/created", http.StatusCreated)
+	writer.WriteHeader(http.StatusCreated)
+	http.ServeFile(writer, request, "./frontend/order_created.html")
 }
 
 func validateOrderForm(request *http.Request) (*models.Order, error) {

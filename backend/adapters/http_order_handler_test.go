@@ -72,7 +72,6 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderSuccess() {
 	defer res.Body.Close()
 
 	s.Equal(http.StatusCreated, res.StatusCode)
-	s.Equal("/order/created", res.Header.Get("Location"))
 }
 
 func (s *HttpOrderHandlerTestSuite) TestPlaceOrderBadRequest() {
@@ -86,8 +85,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderBadRequest() {
 	res := w.Result()
 	defer res.Body.Close()
 
-	s.Equal(http.StatusFound, res.StatusCode)
-	s.Equal("/order/failed", res.Header.Get("Location"))
+	s.Equal(http.StatusBadRequest, res.StatusCode)
 }
 
 func (s *HttpOrderHandlerTestSuite) TestPlaceOrderInternalError() {
@@ -102,8 +100,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderInternalError() {
 	res := w.Result()
 	defer res.Body.Close()
 
-	s.Equal(http.StatusFound, res.StatusCode)
-	s.Equal("/order/failed", res.Header.Get("Location"))
+	s.Equal(http.StatusInternalServerError, res.StatusCode)
 }
 
 // ---------------------------

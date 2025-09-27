@@ -61,7 +61,14 @@ func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderH
 
 	// Public static assets
     fs := http.StripPrefix("/static/", http.FileServer(http.Dir("./frontend/static")))
-    router.Handle("/static/*", fs)
+    noCacheHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Prevent browser from using cached version
+        w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+        w.Header().Set("Pragma", "no-cache")
+        w.Header().Set("Expires", "0")
+        fs.ServeHTTP(w, r)
+    })
+    router.Handle("/static/*", noCacheHandler)
     router.Get("/login", func(w http.ResponseWriter, r *http.Request) {
         http.ServeFile(w, r, "./frontend/login.html")
     })
@@ -86,12 +93,6 @@ func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderH
         r.Get("/order", func(w http.ResponseWriter, r *http.Request) {
             w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
             http.ServeFile(w, r, "./frontend/order.html")
-        })
-        r.Get("/order/created", func(w http.ResponseWriter, r *http.Request) {
-            http.ServeFile(w, r, "./frontend/order_created.html")
-        })
-        r.Get("/order/failed", func(w http.ResponseWriter, r *http.Request) {
-            http.ServeFile(w, r, "./frontend/order_failed.html")
         })
 
         r.Post("/order/place", orderHandler.PlaceOrder)
