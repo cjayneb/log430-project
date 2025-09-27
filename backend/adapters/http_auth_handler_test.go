@@ -123,7 +123,7 @@ func (s *HttpAuthHandlerTestSuite) TestMiddlewareAuthenticated() {
 
 	protected := s.handler.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write(expectedMessage)
+		_, _ = w.Write(expectedMessage)
 	}))
 	protected.ServeHTTP(w, req)
 
