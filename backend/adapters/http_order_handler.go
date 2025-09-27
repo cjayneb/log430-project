@@ -23,7 +23,7 @@ func (handler *OrderHandler) PlaceOrder(writer http.ResponseWriter, request *htt
 
 	err = handler.Service.PlaceOrder(order)
 	if err != nil {
-		http.Redirect(writer, request, "/order/failed", http.StatusInternalServerError)
+		http.Redirect(writer, request, "/order/failed", http.StatusFound)
 		return
 	}
 
