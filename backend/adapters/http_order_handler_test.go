@@ -44,19 +44,6 @@ type HttpOrderHandlerTestSuite struct {
 	RequestString string
 }
 
-func (s *HttpOrderHandlerTestSuite) makeOrder() *models.Order {
-	return &models.Order{
-		UserID: s.UserID,
-		Symbol: s.Symbol,
-		Type:   s.Type,
-		Action: s.Action,
-		Quantity:  s.Quantity,
-		UnitPrice: s.UnitPrice,
-		Timing:    s.Timing,
-		Status:    s.Status,
-	}
-}
-
 func (s *HttpOrderHandlerTestSuite) SetupTest() {
 	s.mockService = new(MockOrderService)
 	s.handler = &OrderHandler{Service: s.mockService}
