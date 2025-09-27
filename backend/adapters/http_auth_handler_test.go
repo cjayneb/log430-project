@@ -110,21 +110,25 @@ func (s *HttpAuthHandlerTestSuite) TestMiddlewareUnauthenticated() {
 }
 
 func (s *HttpAuthHandlerTestSuite) TestMiddlewareAuthenticated() {
+	expectedMessage := []byte("user is authenticated!")
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 
 	session, _ := s.handler.SessionStore.Get(req, "brokerx-session")
     session.Values["user_id"] = "test@example.com"
+	session.Values["email"] = "email.com"
     require.NoError(s.T(), session.Save(req, w))
 
 	req.AddCookie(w.Result().Cookies()[0])
 
 	protected := s.handler.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		w.Write(expectedMessage)
 	}))
 	protected.ServeHTTP(w, req)
 
 	s.Equal(http.StatusOK, w.Result().StatusCode)
+	s.Equal(expectedMessage, w.Body.Bytes())
 }
 
 func (s *HttpAuthHandlerTestSuite) TestInitSessionFailure() {
