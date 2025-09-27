@@ -12,7 +12,8 @@ type ComplianceService struct {
 }
 
 func (service *ComplianceService) VerifyOrderCompliance(order *models.Order) error {
-
+	order.Status = "open"
+	
 	if order.Action == "buy" {
 		if err := service.verifyBuyOrderCompliance(order); err != nil {
 			return err
