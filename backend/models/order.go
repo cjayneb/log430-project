@@ -11,7 +11,7 @@ type Order struct {
 	Quantity  int `schema:"quantity"`
 	UnitPrice float64 `schema:"unit_price"`
 	Timing	  string  `schema:"timing"` // day, ioc 	
-	Status	  string `schema:"status"` // open, partially filled, filled, canceled
+	Status	  string  // open, partially filled, filled, canceled
 	CreatedAt  sql.NullTime
 	UpdatedAt  sql.NullTime 
 }

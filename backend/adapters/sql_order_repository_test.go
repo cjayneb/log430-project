@@ -18,7 +18,7 @@ func insertOrderTestData(t *testing.T, db *sql.DB) {
 	require.NoError(t, err)
 
     _, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, 
-		userId, symbol, "buy", "market", 10, 150.00, "day", "open")
+		userId, symbol, "market", "buy", 10, 150.00, "day", "open")
     require.NoError(t, err)
 }
 
@@ -33,8 +33,8 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 	order := &models.Order{
 		UserID:    userId,
 		Symbol:    "AAPL",
-		Type:      "buy",
-		Action:    "market",
+		Type:      "market",
+		Action:    "buy",
 		Quantity:  10,
 		UnitPrice: 150.00,
 		Timing:    "day",
@@ -42,7 +42,6 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 	}
 
 	id, err := repo.CreateOrder(order)
-
 	require.Nil(t, err)
 	require.Greater(t, id, 0)
 
@@ -59,7 +58,6 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 	}
 
 	id, err = repo.CreateOrder(badOrder)
-
 	require.NotNil(t, err)
 	require.Equal(t, 0, id)
 }

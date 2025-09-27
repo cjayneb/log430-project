@@ -26,6 +26,14 @@ func (m *MockOrderService) PlaceOrder(order *models.Order) error {
 	return args.Error(0)
 }
 
+func (m *MockOrderService) GetOrdersForUser(userId string) ([]*models.Order, error) {
+	args := m.Called(userId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Order), args.Error(1)
+}
+
 // ---------------------------
 // Test Suite
 // ---------------------------
@@ -47,7 +55,7 @@ type HttpOrderHandlerTestSuite struct {
 
 func (s *HttpOrderHandlerTestSuite) SetupTest() {
 	s.mockService = new(MockOrderService)
-	s.handler = &OrderHandler{Service: s.mockService}
+	s.handler = &OrderHandler{Service: s.mockService, FrontendPath: "../frontend"}
 	s.UserID = uuid.New().String()
 	s.Symbol = "AAPL"
 	s.Type = "market"
@@ -82,6 +90,7 @@ func (s *HttpOrderHandlerTestSuite) TestPlaceOrderBadRequest() {
 	req := httptest.NewRequest(http.MethodPost, PLACE_ORDER_ENDPOINT, bytes.NewBufferString("quantity=ten"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req = req.WithContext(context.WithValue(req.Context(), USER_ID_KEY, s.UserID))
+	req = req.WithContext(context.WithValue(req.Context(), USER_EMAIL_KEY, "anEmail"))
 	w := httptest.NewRecorder()
 
 	s.handler.PlaceOrder(w, req)

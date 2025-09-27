@@ -22,6 +22,14 @@ func (m *MockOrderRepo) CreateOrder(order *models.Order) (int, error) {
 	return args.Get(0).(int), args.Error(1)
 }
 
+func (m *MockOrderRepo) FindByUserId(userId string) ([]*models.Order, error){
+	args := m.Called(userId)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Order), args.Error(1)
+}
+
 type MockComplianceService struct {
 	mock.Mock
 }

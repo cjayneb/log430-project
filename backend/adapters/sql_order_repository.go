@@ -23,4 +23,28 @@ func (repo * SQLOrderRepository) CreateOrder(order *models.Order) (int, error) {
 	return int(id), nil
 }
 
+func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
+	rows, err := repo.DB.Query("SELECT symbol, type, action, quantity, unit_price, timing, status FROM brokerx.orders WHERE user_id=?", userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []*models.Order
+
+	for rows.Next() {
+		var order models.Order
+		if err := rows.Scan(&order.Symbol, &order.Type, &order.Action, &order.Quantity, &order.UnitPrice, &order.Timing, &order.Status); err != nil {
+			return nil, err
+		}
+		orders = append(orders, &order)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 var _ ports.OrderRepository = (*SQLOrderRepository)(nil) // Ensure interface is implemented at compile time

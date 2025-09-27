@@ -4,17 +4,63 @@
 
 {{ define "title" }}Place Order{{ end }} 
 {{ define "content"}}
+<h2>Your Orders</h2>
+
+{{ if .Orders }}
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Quantity</th>
+        <th>Action</th>
+        <th>Type</th>
+        <th>Timing</th>
+        <th>Unit Price</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range .Orders }}
+        <tr>
+          <td>{{ .Symbol }}</td>
+          <td>{{ .Quantity }}</td>
+          <td>{{ .Action }}</td>
+          <td>{{ .Type }}</td>
+          <td>{{ .Timing }}</td>
+          <td>{{ .UnitPrice }}</td>
+          <td>{{ .Status }}</td>
+        </tr>
+      {{ end }}
+    </tbody>
+  </table>
+{{ else }}
+  <p>No orders yet.</p>
+{{ end }}
+
 <h2>Place Order</h2>
 <form action="/order/place" method="post">
-  <label for="stock">Stock Symbol:</label>
-  <input type="text" id="stock" name="stock" required /><br /><br />
+  <label for="symbol">Stock Symbol:</label>
+  <input type="text" id="symbol" name="symbol" required /><br /><br />
   <label for="quantity">Quantity:</label>
   <input type="number" id="quantity" name="quantity" required /><br /><br />
-  <label for="orderType">Order Type:</label>
-  <select id="orderType" name="orderType">
+  <label for="action">Order Action:</label>
+  <select id="action" name="action">
     <option value="buy">Buy</option>
-    <option value="sell">Sell</option></select
-  ><br /><br />
+    <option value="sell">Sell</option>
+  </select><br /><br />
+  <label for="type">Order Action:</label>
+  <select id="type" name="type">
+    <option value="market">Market</option>
+    <option value="limit">Limit</option>
+  </select><br /><br />
+  <label for="timing">Timing:</label>
+  <select id="timing" name="timing">
+    <option value="day">DAY</option>
+    <option value="ioc">IOC</option>
+  </select><br /><br />
+  <label for="unit_price">Price per stock:</label>
+  <input type="number" id="unit_price" name="unit_price" min="0.01" step="0.01"><br/><br/>
   <button type="submit">Submit Order</button>
 </form>
+<h3>{{ if .Error }}{{.Error}}{{else}}{{.Success}}{{end}}</h3>
 {{ end }}

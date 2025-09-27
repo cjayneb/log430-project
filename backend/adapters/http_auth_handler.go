@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
+	log "github.com/sirupsen/logrus"
 )
 
 type contextKey string
@@ -72,6 +73,8 @@ func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, 
     if err := session.Save(r, w); err != nil {
         return err
     }
+    
+    log.Printf("start session user : %v", userId)
     
     return nil
 }

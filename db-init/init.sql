@@ -35,19 +35,19 @@ CREATE TABLE IF NOT EXISTS orders (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id CHAR(36) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
-    type ENUM('buy', 'sell') NOT NULL,
-    action ENUM('market', 'limit') NOT NULL,
+    type ENUM('market', 'limit') NOT NULL,
+    action ENUM('buy', 'sell') NOT NULL,
     quantity INT NOT NULL,
     unit_price DECIMAL(10, 2) NOT NULL,
     timing ENUM('day', 'ioc') NOT NULL,
-    status VARCHAR(50) NOT NULL,
+    status ENUM('open', 'partially filled', 'filled', 'canceled') NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 INSERT INTO orders (user_id, symbol, type, action, quantity, unit_price, timing, status) VALUES
-((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'buy', 'market', 10, 150.00, 'day', 'open');
+((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'market', 'buy', 10, 150.00, 'day', 'open');
 
 CREATE TABLE IF NOT EXISTS positions (
     id INT PRIMARY KEY AUTO_INCREMENT,
