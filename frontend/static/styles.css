@@ -54,6 +54,11 @@ NAV BAR
   padding: 2vh;
 }
 
+#nav-container p {
+  margin-left: auto;
+  padding-right: 1em;
+}
+
 /****************
 MAIN CONTENT
 *****************/

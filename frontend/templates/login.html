@@ -1,0 +1,18 @@
+{{define "login.html"}} 
+{{ template "base.html" . }} 
+{{ end }} 
+
+{{ define "title"}}Login{{ end }} 
+{{ define "content" }}
+<div id="login-form-container">
+  <form action="/auth/login" method="POST">
+    <label for="email">Email</label><br />
+    <input type="text" id="email" name="email" required /><br /><br />
+
+    <label for="password">Password</label><br />
+    <input type="password" id="password" name="password" required /><br /><br />
+
+    <input type="submit" value="Login" />
+  </form>
+</div>
+{{ end }}

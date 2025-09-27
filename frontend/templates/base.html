@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BrokerX</title>
+    <title>BrokerX - {{ block "title" . }}{{ end }}</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -13,17 +13,13 @@
         <nav>
           <ul>
             <li>Add funds</li>
-            <li><a href="/order">Orders</a></li>
+            <a href="/order"><li>Orders</li></a>
           </ul>
         </nav>
+        <p>{{if .Email}}Welcome {{.Email}}!{{end}}</p>
       </div>
 
-      <div id="main-container">
-        <ul id="stocks">
-          <li>AAPL</li>
-          <li>IBM</li>
-        </ul>
-      </div>
+      <div id="main-container">{{ block "content" . }}{{ end }}</div>
 
       <div id="footer-container">
         <footer>

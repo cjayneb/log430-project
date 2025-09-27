@@ -9,6 +9,7 @@ type Config struct {
 	DBUrl string `env:"DATABASE_URL" envDefault:"root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true"`
 	PasswordAllowedRetries int	`env:"PASSWORD_ALLOWED_RETRIES" envDefault:"3"`
 	PasswordLockDurationMinutes int `env:"PASSWORD_LOCK_DURATION_MINUTES" envDefault:"30"`
+	FrontendPath string `env:"FRONTEND_PATH" envDefault:"../frontend"`
 	IsProduction bool `env:"IS_PRODUCTION" envDefault:"false"`
 }
 

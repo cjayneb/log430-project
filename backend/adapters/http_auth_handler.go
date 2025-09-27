@@ -11,6 +11,7 @@ import (
 type contextKey string
 
 const USER_ID_KEY contextKey = "user_id"
+const USER_EMAIL_KEY contextKey = "email"
 
 type AuthHandler struct {
 	Service ports.AuthService
@@ -30,7 +31,7 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-    if err := handler.initSession(request, writer, user.ID); err != nil {
+    if err := handler.initSession(request, writer, user.ID, user.Email); err != nil {
 		http.Error(writer, "failed to save session: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -41,22 +42,25 @@ func (handler *AuthHandler) Login(writer http.ResponseWriter, request *http.Requ
 func (handler *AuthHandler) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         session, _ := handler.SessionStore.Get(r, "brokerx-session")
-        userID, ok := session.Values["user_id"].(string)
-        if !ok || userID == "" {
+        userID, idOk := session.Values["user_id"].(string)
+        userEmail, ok := session.Values["email"].(string)
+        if !idOk || !ok || userID == "" {
             http.Redirect(w, r, "/login", http.StatusFound)
             return
         }
         
-        context := context.WithValue(r.Context(), USER_ID_KEY, userID)
-        r = r.WithContext(context)
+        ctx := context.WithValue(r.Context(), USER_ID_KEY, userID)
+        ctx = context.WithValue(ctx, USER_EMAIL_KEY, userEmail)
+        r = r.WithContext(ctx)
 
         next.ServeHTTP(w, r)
     })
 }
 
-func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userId string) error {
+func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, userId string, userEmail string) error {
 	session, _ := handler.SessionStore.Get(r, "brokerx-session")
     session.Values["user_id"] = userId
+    session.Values["email"] = userEmail
     session.Options = &sessions.Options{
         Path:     "/",
         MaxAge:   600,
