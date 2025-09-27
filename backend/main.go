@@ -16,7 +16,6 @@ import (
 )
 
 var config Config = Config{}
-var templates *template.Template
 
 func main() {
     router := run()
