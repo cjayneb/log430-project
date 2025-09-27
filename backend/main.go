@@ -28,7 +28,7 @@ func run() http.Handler {
 		log.Fatalf("Config error : %s", err)
 	}
 
-    userRepo := initDbConnection(&config)
+    userRepo, orderRepo := initDbConnection(&config)
     authService := &core.AuthService{
         Repo:                        userRepo,
         PasswordAllowedRetries:      config.PasswordAllowedRetries,
@@ -40,19 +40,22 @@ func run() http.Handler {
         IsProduction: config.IsProduction,
     }
 
-    router := initRouter(authHandler)
+    orderService := &core.OrderService{Repo: orderRepo}
+    orderHandler := &adapters.OrderHandler{Service: orderService}
+
+    router := initRouter(authHandler, orderHandler)
     return router
 }
 
-func initDbConnection(config *Config) (*adapters.SQLUserRepository) {
+func initDbConnection(config *Config) (*adapters.SQLUserRepository, *adapters.SQLOrderRepository) {
 	db, e := sql.Open("mysql", config.DBUrl)
 	if err := db.Ping(); err != nil || e != nil {
 		log.Warnf("Db error : %s | %s", e, err)
 	}
-	return &adapters.SQLUserRepository{DB: db}
+	return &adapters.SQLUserRepository{DB: db}, &adapters.SQLOrderRepository{DB: db}
 }
 
-func initRouter(authHandler *adapters.AuthHandler) (*chi.Mux) {
+func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) (*chi.Mux) {
 	router := chi.NewRouter()
     router.Use(middleware.Logger)
 
@@ -79,6 +82,19 @@ func initRouter(authHandler *adapters.AuthHandler) (*chi.Mux) {
         r.Get("/", func(w http.ResponseWriter, r *http.Request) {
             http.ServeFile(w, r, "./frontend/index.html")
         })
+
+        r.Get("/order", func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+            http.ServeFile(w, r, "./frontend/order.html")
+        })
+        r.Get("/order/created", func(w http.ResponseWriter, r *http.Request) {
+            http.ServeFile(w, r, "./frontend/order_created.html")
+        })
+        r.Get("/order/failed", func(w http.ResponseWriter, r *http.Request) {
+            http.ServeFile(w, r, "./frontend/order_failed.html")
+        })
+
+        r.Post("/order/place", orderHandler.PlaceOrder)
     })
 
     return router

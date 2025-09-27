@@ -16,7 +16,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "8080", cfg.Port)
 	assert.Equal(t, "root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true", cfg.DBUrl)
-	assert.Equal(t, 5, cfg.PasswordAllowedRetries)
+	assert.Equal(t, 3, cfg.PasswordAllowedRetries)
 	assert.Equal(t, 30, cfg.PasswordLockDurationMinutes)
 	assert.False(t, cfg.IsProduction)
 }

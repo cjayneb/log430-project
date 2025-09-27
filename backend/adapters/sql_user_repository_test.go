@@ -28,6 +28,8 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	err = db.Ping()
 	require.NoError(t, err)
 
+	_, err = db.Exec("DELETE FROM orders")
+	require.NoError(t, err)
 	_, err = db.Exec("DELETE FROM users")
     require.NoError(t, err)
 
