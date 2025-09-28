@@ -30,6 +30,11 @@ func (m *MockOrderRepo) FindByUserId(userId string) ([]*models.Order, error){
 	return args.Get(0).([]*models.Order), args.Error(1)
 }
 
+func (m *MockOrderRepo) Update(order []*models.Order) error {
+	args := m.Called(order)
+	return args.Error(0)
+}
+
 type MockComplianceService struct {
 	mock.Mock
 }
@@ -37,6 +42,18 @@ type MockComplianceService struct {
 func (m *MockComplianceService) VerifyOrderCompliance(order *models.Order) error {
 	args := m.Called(order)
 	return args.Error(0)
+}
+
+type MockMatchingEngine struct {
+	mock.Mock
+}
+
+func (m *MockMatchingEngine) SubmitOrder(order *models.Order) ([]*models.Order, error) {
+	args := m.Called(order)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Order), args.Error(1)
 }
 
 func makeOrder() *models.Order {
@@ -60,13 +77,15 @@ type OrderServiceTestSuite struct {
 	suite.Suite
 	repo    *MockOrderRepo
 	complianceService *MockComplianceService
+	matchingEngine *MockMatchingEngine
 	service *OrderService
 }
 
 func (s *OrderServiceTestSuite) SetupTest() {
 	s.repo = new(MockOrderRepo)
 	s.complianceService = new(MockComplianceService)
-	s.service = &OrderService{Repo: s.repo, ComplianceService: s.complianceService}
+	s.matchingEngine = new(MockMatchingEngine)
+	s.service = &OrderService{Repo: s.repo, ComplianceService: s.complianceService, MatchingEngine: s.matchingEngine}
 }
 
 // ---------------------------
@@ -76,6 +95,7 @@ func (s *OrderServiceTestSuite) SetupTest() {
 func (s *OrderServiceTestSuite) TestPlaceOrderSuccess() {
 	order := makeOrder()
 	s.complianceService.On("VerifyOrderCompliance", order).Return(nil)
+	s.matchingEngine.On("SubmitOrder", mock.AnythingOfType("*models.Order")).Return([]*models.Order{}, nil)
 	s.repo.On("CreateOrder", order).Return(1, nil)
 
 	err := s.service.PlaceOrder(order)

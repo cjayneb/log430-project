@@ -10,6 +10,7 @@ import (
 type OrderService struct {
 	Repo ports.OrderRepository
 	ComplianceService ports.ComplianceService
+	MatchingEngine ports.MatchingEngine
 }
 
 func (service * OrderService) PlaceOrder(order *models.Order) error {
@@ -23,6 +24,16 @@ func (service * OrderService) PlaceOrder(order *models.Order) error {
 	if err != nil {
 		return err
 	}
+
+	matchedOrders, err := service.MatchingEngine.SubmitOrder(order)
+	if err != nil {
+		return err
+	}
+
+	if len(matchedOrders) > 0 {
+		service.Repo.Update(matchedOrders)
+	}
+
 	return nil
 }
 

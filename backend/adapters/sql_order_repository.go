@@ -47,4 +47,8 @@ func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, er
 	return orders, nil
 }
 
+func (repo *SQLOrderRepository) Update(order []*models.Order) error {
+	return nil
+}
+
 var _ ports.OrderRepository = (*SQLOrderRepository)(nil) // Ensure interface is implemented at compile time
