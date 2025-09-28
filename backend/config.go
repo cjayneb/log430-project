@@ -10,6 +10,7 @@ type Config struct {
 	PasswordAllowedRetries int	`env:"PASSWORD_ALLOWED_RETRIES" envDefault:"3"`
 	PasswordLockDurationMinutes int `env:"PASSWORD_LOCK_DURATION_MINUTES" envDefault:"30"`
 	FrontendPath string `env:"FRONTEND_PATH" envDefault:"../frontend"`
+	ResourcePath string `env:"RESOURCES_PATH" envDefault:"adapters/resources/"`
 	IsProduction bool `env:"IS_PRODUCTION" envDefault:"false"`
 }
 

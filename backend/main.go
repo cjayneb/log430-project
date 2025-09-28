@@ -41,7 +41,7 @@ func run() http.Handler {
         IsProduction: config.IsProduction,
     }
 
-    complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo}
+    complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
     orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService}
     orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
 

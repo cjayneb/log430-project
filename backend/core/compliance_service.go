@@ -50,7 +50,6 @@ func (service *ComplianceService) VerifyOrderCompliance(order *models.Order) err
 		return err
 	}
 
-
 	return nil
 }
 
@@ -109,6 +108,10 @@ func (service *ComplianceService) verifyTickSizeAndPriceBand(order *models.Order
 	price, err := service.MarketDataProvider.GetCurrentStockPriceBySymbol(order.Symbol)
 	if err != nil {
 		return fmt.Errorf("error when fetching stock price {%v}: %v", order.Symbol, err)
+	}
+
+	if order.Type == "market" {
+		order.UnitPrice = price
 	}
 
 	if !isValidTick(order.UnitPrice, instrument.TickSize) {

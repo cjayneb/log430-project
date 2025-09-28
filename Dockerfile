@@ -24,6 +24,8 @@ WORKDIR /app
 # Copy frontend for static serving
 COPY frontend ./frontend
 
+COPY backend/adapters/resources ./resources
+
 # Copy the binary
 COPY --from=builder /app/brokerx .
 

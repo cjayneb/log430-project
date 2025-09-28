@@ -3,6 +3,7 @@ package core
 import (
 	"brokerx/adapters"
 	"brokerx/models"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +63,7 @@ type ComplianceServiceTestSuite struct {
 func (s *ComplianceServiceTestSuite) SetupTest() {
 	s.walletRepo = new(MockWalletRepo)
 	s.positionRepo = new(MockPositionsRepo)
-	s.service = &ComplianceService{WalletRepo: s.walletRepo, PositionRepo: s.positionRepo, MarketDataProvider: adapters.NewMarketDataProvider()}
+	s.service = &ComplianceService{WalletRepo: s.walletRepo, PositionRepo: s.positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(os.Getenv("RESOURCES_PATH"))}
 }
 
 // ---------------------------

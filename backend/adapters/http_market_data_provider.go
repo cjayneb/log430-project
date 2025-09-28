@@ -9,8 +9,8 @@ import (
 	"os"
 )
 
-const INSTRUMENT_SOURCE_FILE_PATH string = "../../ressources/instruments.json"
-const PRICES_SOURCE_FILE_PATH string = "../../ressources/prices.json"
+const INSTRUMENT_SOURCE_FILE string = "instruments.json"
+const PRICES_SOURCE_FILE string = "prices.json"
 
 type Price struct {
 	Symbol string `json:"Symbol"`
@@ -22,25 +22,28 @@ type MarketDataProvider struct {
 	Prices []Price
 }
 
-func NewMarketDataProvider() *MarketDataProvider {
-	fileContent, err := os.ReadFile(INSTRUMENT_SOURCE_FILE_PATH)
+func NewMarketDataProvider(resourcesPath string) *MarketDataProvider {
+	if resourcesPath == "" {
+		resourcesPath = "../adapters/resources/"
+	}
+	fileContent, err := os.ReadFile(resourcesPath+INSTRUMENT_SOURCE_FILE)
 	if err != nil {
-		log.Fatalf("error reading file (%s): %v", INSTRUMENT_SOURCE_FILE_PATH, err)
+		log.Fatalf("error reading file : %v", err)
 	}
 	var instruments []models.Instrument
 	err = json.Unmarshal(fileContent, &instruments)
 	if err != nil {
-		log.Fatalf("error unmarshaling JSON (%s): %v", INSTRUMENT_SOURCE_FILE_PATH, err)
+		log.Fatalf("error unmarshaling JSON : %v", err)
 	}
 
-	fileContent, err = os.ReadFile(PRICES_SOURCE_FILE_PATH)
+	fileContent, err = os.ReadFile(resourcesPath+PRICES_SOURCE_FILE)
 	if err != nil {
-		log.Fatalf("error reading file (%s): %v", PRICES_SOURCE_FILE_PATH, err)
+		log.Fatalf("error reading file : %v", err)
 	}
 	var prices []Price
 	err = json.Unmarshal(fileContent, &prices)
 	if err != nil {
-		log.Fatalf("error unmarshaling JSON (%s): %v", PRICES_SOURCE_FILE_PATH, err)
+		log.Fatalf("error unmarshaling JSON : %v", err)
 	}
 
 	return &MarketDataProvider{Instruments: instruments, Prices: prices}
@@ -53,7 +56,7 @@ func (provider * MarketDataProvider) GetInstrumentBySymbol(symbol string) (*mode
 		}
 	}
 
-	return nil, fmt.Errorf("error : instrument for symbol {%s} not found", symbol)
+	return nil, fmt.Errorf("instrument for symbol {%s} not found", symbol)
 }
 
 func (provider * MarketDataProvider) GetCurrentStockPriceBySymbol(symbol string) (float64, error) {
@@ -63,7 +66,7 @@ func (provider * MarketDataProvider) GetCurrentStockPriceBySymbol(symbol string)
 		}
 	}
 
-	return 0.0, fmt.Errorf("error : price for symbol {%s} not found", symbol)
+	return 0.0, fmt.Errorf("price for symbol {%s} not found", symbol)
 }
 
 var _ ports.MarketDataProvider = (*MarketDataProvider)(nil) // Ensure interface is implemented at compile time
