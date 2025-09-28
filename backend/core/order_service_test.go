@@ -46,7 +46,7 @@ func makeOrder() *models.Order {
 		Type:   "market",
 		Action: "buy",
 		Quantity:  10,
-		UnitPrice: 150.00,
+		UnitPrice: 170.00,
 		Timing:    "day",
 		Status:    "open",
 	}

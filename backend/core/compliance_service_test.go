@@ -1,6 +1,7 @@
 package core
 
 import (
+	"brokerx/adapters"
 	"brokerx/models"
 	"testing"
 
@@ -61,7 +62,7 @@ type ComplianceServiceTestSuite struct {
 func (s *ComplianceServiceTestSuite) SetupTest() {
 	s.walletRepo = new(MockWalletRepo)
 	s.positionRepo = new(MockPositionsRepo)
-	s.service = &ComplianceService{WalletRepo: s.walletRepo, PositionRepo: s.positionRepo}
+	s.service = &ComplianceService{WalletRepo: s.walletRepo, PositionRepo: s.positionRepo, MarketDataProvider: adapters.NewMarketDataProvider()}
 }
 
 // ---------------------------
