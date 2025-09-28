@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
 
@@ -29,7 +30,7 @@ func run() http.Handler {
 		log.Fatalf("Config error : %s", err)
 	}
 
-    userRepo, orderRepo, walletRepo, positionRepo := initDbConnection()
+    userRepo, orderRepo, walletRepo, positionRepo, transactionManager := initDbConnection()
     authService := &core.AuthService{
         Repo:                        userRepo,
         PasswordAllowedRetries:      config.PasswordAllowedRetries,
@@ -37,24 +38,28 @@ func run() http.Handler {
     }
     authHandler := &adapters.AuthHandler{
         Service:      authService,
-        SessionStore: sessions.NewCookieStore([]byte("very-secret-key")),
+        SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
         IsProduction: config.IsProduction,
     }
 
     complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
-    orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService}
+    orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: &core.MatchingEngine{TransactionManager: transactionManager}}
     orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
 
     router := initRouter(authHandler, orderHandler)
     return router
 }
 
-func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository) {
+func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
 	if err := db.Ping(); err != nil || e != nil {
 		log.Warnf("Db error : %s | %s", e, err)
 	}
-	return &adapters.SQLUserRepository{DB: db}, &adapters.SQLOrderRepository{DB: db}, &adapters.SQLWalletRepository{DB: db}, &adapters.SQLPositionRepository{DB: db}
+	return &adapters.SQLUserRepository{DB: db},
+        &adapters.SQLOrderRepository{DB: db}, 
+        &adapters.SQLWalletRepository{DB: db}, 
+        &adapters.SQLPositionRepository{DB: db},
+        &adapters.SQLTransactionManager{DB: db}
 }
 
 func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) (*chi.Mux) {

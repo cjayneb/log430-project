@@ -38,16 +38,17 @@ CREATE TABLE IF NOT EXISTS orders (
     type ENUM('market', 'limit') NOT NULL,
     action ENUM('buy', 'sell') NOT NULL,
     quantity INT NOT NULL,
+    remaining_quantity int NOT NULL,
     unit_price DECIMAL(10, 2) NOT NULL,
     timing ENUM('day', 'ioc') NOT NULL,
-    status ENUM('open', 'partially filled', 'filled', 'canceled') NOT NULL,
+    status ENUM('open', 'partially_filled', 'filled', 'canceled') NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-INSERT INTO orders (user_id, symbol, type, action, quantity, unit_price, timing, status) VALUES
-((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'market', 'buy', 10, 150.00, 'day', 'open');
+INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES
+((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'market', 'buy', 10, 10, 150.00, 'day', 'open');
 
 CREATE TABLE IF NOT EXISTS positions (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -62,3 +63,16 @@ CREATE TABLE IF NOT EXISTS positions (
 
 INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES
 ((SELECT id FROM users WHERE email = 'seller@email.com'), 'AAPL', 15, 400.00);
+
+CREATE TABLE IF NOT EXISTS executions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    buy_order_id INT NOT NULL,
+    sell_order_id INT NOT NULL,
+    symbol VARCHAR(10) NOT NULL,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (buy_order_id) REFERENCES orders(id),
+    FOREIGN KEY (sell_order_id) REFERENCES orders(id)
+);

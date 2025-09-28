@@ -22,8 +22,6 @@ type ComplianceService struct {
 }
 
 func (service *ComplianceService) VerifyOrderCompliance(order *models.Order) error {
-	order.Status = "open"
-
 	if order.Quantity < MIN_ORDER_QUANTITY {
 		return fmt.Errorf("order quantity must be at least %v", MIN_ORDER_QUANTITY)
 	}
@@ -31,8 +29,13 @@ func (service *ComplianceService) VerifyOrderCompliance(order *models.Order) err
 	if order.Quantity > MAX_ORDER_QUANTITY {
 		return fmt.Errorf("order quantity surpasses maximum quantity allowed by BrokerX (%v)", MAX_ORDER_QUANTITY)
 	}
+
+	currentPrice, err := service.MarketDataProvider.GetCurrentStockPriceBySymbol(order.Symbol)
+	if err != nil {
+		return fmt.Errorf("error when fetching stock price {%v}: %v", order.Symbol, err)
+	}
 	
-	if err := service.verifyBuyingPower(order); err != nil {
+	if err := service.verifyBuyingPower(order, currentPrice); err != nil {
 		return err
 	}
 
@@ -45,15 +48,16 @@ func (service *ComplianceService) VerifyOrderCompliance(order *models.Order) err
 		return err
 	}
 
-	err = service.verifyTickSizeAndPriceBand(order, instrument)
+	err = service.verifyTickSizeAndPriceBand(order, instrument, currentPrice)
 	if err != nil {
 		return err
 	}
 
+	order.Status = "open"
 	return nil
 }
 
-func (service *ComplianceService) verifyBuyingPower(order *models.Order) error {
+func (service *ComplianceService) verifyBuyingPower(order *models.Order, currentPrice float64) error {
 	if order.Action == "sell" {
 		return nil
 	}
@@ -63,7 +67,7 @@ func (service *ComplianceService) verifyBuyingPower(order *models.Order) error {
 		return err
 	}
 
-	if wallet.AvailableFunds < (order.UnitPrice * float64(order.Quantity)) {
+	if wallet.AvailableFunds < (currentPrice * float64(order.Quantity)) {
 		return errors.New("not enough available funds")
 	}
 
@@ -104,14 +108,9 @@ func (service *ComplianceService) verifyInstrumentValidity(order *models.Order) 
 	return instrument, nil
 }
 
-func (service *ComplianceService) verifyTickSizeAndPriceBand(order *models.Order, instrument *models.Instrument) error {
-	price, err := service.MarketDataProvider.GetCurrentStockPriceBySymbol(order.Symbol)
-	if err != nil {
-		return fmt.Errorf("error when fetching stock price {%v}: %v", order.Symbol, err)
-	}
-
+func (service *ComplianceService) verifyTickSizeAndPriceBand(order *models.Order, instrument *models.Instrument, price float64) error {
 	if order.Type == "market" {
-		order.UnitPrice = price
+		return nil
 	}
 
 	if !isValidTick(order.UnitPrice, instrument.TickSize) {

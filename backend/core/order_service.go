@@ -20,19 +20,19 @@ func (service * OrderService) PlaceOrder(order *models.Order) error {
 		return err
 	}
 
-	_, err = service.Repo.CreateOrder(order)
+	createdOrderId, err := service.Repo.CreateOrder(order)
 	if err != nil {
 		return err
 	}
+	order.ID = createdOrderId
 
-	matchedOrders, err := service.MatchingEngine.SubmitOrder(order)
-	if err != nil {
-		return err
-	}
+	go func() {
+		if err := service.MatchingEngine.SubmitOrder(order); err != nil {
+			log.Errorf("matching failed for order #%d: %v", order.ID, err)
+		}
+	}()
 
-	if len(matchedOrders) > 0 {
-		service.Repo.Update(matchedOrders)
-	}
+	log.Printf("Order #%v was submitted to the internal matching engine", createdOrderId)
 
 	return nil
 }

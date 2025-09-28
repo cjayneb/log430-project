@@ -3,6 +3,7 @@ package adapters
 import (
 	"brokerx/models"
 	"brokerx/ports"
+	"fmt"
 	"html/template"
 	"net/http"
 
@@ -87,20 +88,21 @@ func validateOrderForm(request *http.Request) (*models.Order, error) {
 	decoder := schema.NewDecoder()
 	err := decoder.Decode(&order, request.PostForm);
 	order.UserID = request.Context().Value(USER_ID_KEY).(string)
+	order.RemainingQuantity = order.Quantity
 	
-	if err != nil || !isValidOrder(&order) {
-		return nil, err
+	if err != nil || orderFieldsInvalid(&order) {
+		return nil, fmt.Errorf("invalid order : %v", err)
 	}
 	return &order, nil
 }
 
-func isValidOrder(order *models.Order) bool {
+func orderFieldsInvalid(order *models.Order) bool {
 	log.Printf("Validating order: %+v", order)
-    return order.UserID != "" &&
-        order.Symbol != "" &&
-        order.Type != "" &&
-        order.Action != "" &&
-        order.Quantity > 0 &&
-        order.UnitPrice > 0 &&
-        order.Timing != ""
+    return order.UserID == "" ||
+        order.Symbol == "" ||
+        order.Type == "" ||
+        order.Action == "" ||
+        order.Quantity <= 0 ||
+		order.RemainingQuantity <= 0 ||
+        order.Timing == ""
 }

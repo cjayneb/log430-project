@@ -17,8 +17,8 @@ func insertOrderTestData(t *testing.T, db *sql.DB) {
                       VALUES (?, 'email', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
-    _, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, 
-		userId, symbol, "market", "buy", 10, 150.00, "day", "open")
+    _, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+		userId, symbol, "market", "buy", 10, 10, 150.00, "day", "open")
     require.NoError(t, err)
 }
 

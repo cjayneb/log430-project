@@ -84,6 +84,8 @@ A production-ready deployment would likely use Kubernetes or cloud-based service
 
 Refer to the architectural documentation [here](https://github.com/cjayneb/log430-project/blob/main/docs/arc42.md).
 
+https://threedots.tech/post/database-transactions-in-go/
+
 ## Authors
 
 - [Jean-Christophe Benoît](https://github.com/cjayneb)
