@@ -92,7 +92,7 @@ func (repo * SQLOrderRepository) CreateOrder(order *models.Order) (int, error) {
 }
 
 func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
-	rows, err := repo.DB.Query("SELECT symbol, type, action, quantity, unit_price, timing, status FROM brokerx.orders WHERE user_id=?", userId)
+	rows, err := repo.DB.Query("SELECT symbol, type, action, quantity, remaining_quantity, unit_price, timing, status FROM brokerx.orders WHERE user_id=?", userId)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, er
 
 	for rows.Next() {
 		var order models.Order
-		if err := rows.Scan(&order.Symbol, &order.Type, &order.Action, &order.Quantity, &order.UnitPrice, &order.Timing, &order.Status); err != nil {
+		if err := rows.Scan(&order.Symbol, &order.Type, &order.Action, &order.Quantity, &order.RemainingQuantity, &order.UnitPrice, &order.Timing, &order.Status); err != nil {
 			return nil, err
 		}
 		orders = append(orders, &order)
