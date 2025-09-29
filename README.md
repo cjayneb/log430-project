@@ -28,7 +28,7 @@ To run this project locally, you need the following tools installed:
     DBUrl string `env:"DATABASE_URL" envDefault:"user:pass@tcp(127.0.0.1:3306)/brokerx"`
    ```
 
-   > The environnement variables set in the `docker-compose.yml` will override the values set in `backend/config.go` when running the project with Docker Compose.
+   > The variables in `config.go` are used when running the app locally. The environnement variables set in the `docker-compose.yml` will override the values set in `backend/config.go` when running the project with Docker Compose.
 
 ## Running the project
 
@@ -61,24 +61,39 @@ This starts:
 - The Go backend (`brokerx_app`) on [http://localhost:8080](http://localhost:8080)
 - A MySQL database (`brokerx_db`) on port `3306`
 
-### Run tests
+## Running tests
+
+**Important** : Before running all tests, you must have the test database up, because some of the tests are integration tests needing a real database.
+
+Run the following command to start the test database:
+
+```bash
+//From the root of the project
+docker compose -f docker-compose.test.yml up -d
+```
+
+### Running all tests (with coverage report)
 
 Inside the `backend` folder:
 
 ```bash
-go test ./...
+go test ./... -coverprofile=coverage
 ```
 
-### Generate coverage report
+### Generate HTML coverage report
 
 ```bash
-go test ./... -cover
+go tool cover -html=coverage
 ```
 
 ## Deployment
 
-At this stage, the application is deployed manually using Docker Compose.  
+At this stage, the application is deployed locally or remotely using Docker Compose.
 A production-ready deployment would likely use Kubernetes or cloud-based services, but that is outside the current scope.
+
+### Deploying locally
+
+### Deploying remotely
 
 ## Documentation
 

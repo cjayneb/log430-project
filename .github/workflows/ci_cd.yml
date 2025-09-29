@@ -67,6 +67,8 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           scanners: vuln,secret
+        env:
+          TRIVY_SKIP_DB_UPDATE: true
 
       - name: Build Docker image
         run: docker build -t brokerx-app .
@@ -79,6 +81,8 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           scanners: vuln,secret
+        env:
+          TRIVY_SKIP_DB_UPDATE: true
 
   deploy:
     name: Deploy with Docker Compose
