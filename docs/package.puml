@@ -1,0 +1,45 @@
+@startuml
+title BrokerX - Package level diagram
+
+package "brokerx" {
+  package "core" as core {
+    [AuthService]
+    [OrderService]
+    [ComplianceService]
+    [MatchingEngine]
+  }
+
+  package "ports" as ports {
+    [All interfaces]
+  }
+
+  package "adapters" {
+    [HttpAuthHandler]
+    [HttpOrderHandler]
+    [HttpMarketDataProvider]
+    [SQLOrderRepo]
+    [SQLUserRepo]
+    [SQLPositionRepo]
+    [SQLTransactionManager]
+    [SQLWalletRepo]
+    [SQLExecutionRepo]
+  }
+
+  package "models" {
+    [Order]
+    [Instrument]
+    [Position]
+    [User]
+    [Wallet]
+    [ExecutionRecord]
+  }
+}
+
+' Relationships
+core --> models : uses
+ports --> models : references
+core --> ports : references
+adapters --> ports : implements
+
+@enduml
+

@@ -13,799 +13,359 @@ Hruschka & Dr. Gernot Starke.
 
 # 1. Introduction and Goals
 
-## Requirements Overview
+## 1.1 Requirements Overview
 
-The BrokerX project is an online brokerage platform targeting individual investors, developed in response to the rapidly evolving financial services sector.
+The BrokerX project is an online brokerage platform targeting individual investors, developed in response to the rapidly evolving financial services sector. It is made to allow retail investors to trade stocks securely and rapidly from the comfort of their home.
 
-The system **must** support the following functionalities:
+### The system **must** support the following core functionalities:
 
-- **Authentication**
-  - Justification:
-- **Order placement**
-  - Justification:
-- **Matching & Execution**
-  - Justification:
-- **Market data subscription**
-  - Justififcation:
+- **Authentication** : Secure login with session cookies.
+  - Justification: Secure access to the system is mandatory, especially considering the sensitivity of the data residing on BrokerX.
+- **Order placement** : Allow users to place market or limit orders on various stocks.
+  - Justification: This is a core business function. Without order placement, Brokerx has no reason to exist.
+- **Matching & Execution** : Ensure matching of buy and sell orders using an internal matching engine, generating an execution report.
+  - Justification: This is another feature that is too important to be ignored, placing an order to buy stocks is a must, but it is not useful if the order cannot be matched with a corresponding selling order.
 
-The system **should** support the following functionalities:
+### The system **should** support the following functionalities:
 
-- **Registration**
-  - Justification:
-- **Wallet funding**
-  - Justification:
-- **Order modification/cancellation**
-  - Justification:
+- **Market data subscription** : Realtime market data updates (top-of-book, trades, OHLC).
+  - Justififcation: This feature should definitely be a part of BrokerX, so that users do not have to use another platform to consult stock prices, but it is not a necessity to have a brokerage system that works.
+- **Registration** : Account creation and identity verification via an OTP sent by email.
+  - Justification: For now, user accounts can be manually added to the system and tests of the whole system can still be done without a registration page.
+- **Wallet funding** : Allow users to add money to their BrokerX wallet in order to buy stocks and get compensated for selling stocks.
+  - Justification: For now, wallets can be also be manually created and given any amount as a test balance, since the system does not yet interact with the real stock market.
+- **Order modification/cancellation** : Allow users to modify or cancel order that have been placed.
+  - Justification: This is not a necessity as it does not pose any real risk to lack the ability to modify or cancel orders during this phase. However, a brokerage platform should definitely have this feature in order to rectify input errors.
 
-The system **could** support the following functionalities:
+### The system **could** support the following functionalities:
 
-- **Notifications**
-  - Justification:
+- **Notifications** : Send email notifications to the user when and order is confirmed.
+  - Justification: This is a nice-to-have and in no way necessary to a working brokerage platform.a
 
-These functions cover the core trading workflow and will be expanded in later iterations.
+> These functions cover the core trading workflow and will be expanded in later iterations.
 
 [LOG430 - 2025.3 - Projet - Cahier de Charge.pdf](Other%20docs/cahier_de_charge.pdf)
 
-## Quality Goals
+## 1.2 Quality Goals
 
 | Priority | Quality goal | Scenario                                                   |
 | -------- | ------------ | ---------------------------------------------------------- |
 | 1        | Latency      | ≤ 500 ms to get an acknowledgement after placing an order. |
 | 2        | Throughput   | ≥ 300 orders successfully placed per second.               |
-| 3        | Availability | The system mus tbe available at least 90% of the time.     |
+| 3        | Availability | The system must be available at least 90% of the time.     |
 
 These goals are to be met during the first iteration (monolithic architecture) of BrokerX.
 
-**Justification** : TODO
+**Notes / roadmap:** The project specification defines phased targets (monolith → microservices → event-driven) where the latency/throughput and availability targets tighten in later phases. Observability (logs + metrics) is required from phase 2 and distributed tracing from phase 3. These constraints drive the choice of architecture and incremental migration plan
 
-## Stakeholders
+## 1.3 Stakeholders
 
 **Contents.**
 
-Explicit overview of stakeholders of the system, i.e. all person, roles
-or organizations that
-
-- should know the architecture
-
-- have to be convinced of the architecture
-
-- have to work with the architecture or with code
-
-- need the documentation of the architecture for their work
-
-- have to come up with decisions about the system or its development
-
-**Motivation.**
-
-You should know all parties involved in development of the system or
-affected by the system. Otherwise, you may get nasty surprises later in
-the development process. These stakeholders determine the extent and the
-level of detail of your work and its results.
-
-**Form.**
-
-Table with role names, person names, and their expectations with respect
-to the architecture and its documentation.
-
-| Role/Name              | Contact   | Expectations            |
-| ---------------------- | --------- | ----------------------- |
-| Clients                | Contact-1 | _&lt;Expectation-1_&gt; |
-| Developers of BrokerX  | Contact-2 | _&lt;Expectation-2_&gt; |
-| Back-Office Operations | Contact-2 | _&lt;Expectation-2_&gt; |
+| Role/Name                     | Contact                | Expectations                                                                                               |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Clients (web users)           | _N/A_                  | Fast, correct order handling; clear execution confirmations; accurate portfolio balances.                  |
+| Developers of BrokerX         | Jean-Christophe Benoit | Clear modular code structure (domain vs infra), testability, reproducible CI/CD, containerized deployment. |
+| Back-Office Operations        | _N/A_                  | Accurate execution records, trustworthy reports for accounting.                                            |
+| Compliance /Risk Employees    | _N/A_                  | Control over pre-trade checks, post-trade surveillance, immutable logs, idempotency guarantees.            |
+| External Market Data Provider | _N/A_                  | Well-defined streaming API (subscribe/unsubscribe); order routing contracts for simulated exchanges.       |
 
 # 2. Architecture Constraints
 
-**Contents.**
-
-Any requirement that constrains software architects in their freedom of
-design and implementation decisions or decision about the development
-process. These constraints sometimes go beyond individual systems and
-are valid for whole organizations and companies.
-
-**Motivation.**
-
-Architects should know exactly where they are free in their design
-decisions and where they must adhere to constraints. Constraints must
-always be dealt with; they may be negotiable, though.
-
-**Form.**
-
-Simple tables of constraints with explanations. If needed you can
-subdivide them into technical constraints, organizational and political
-constraints and conventions (e.g. programming or versioning guidelines,
-documentation or naming conventions)
+| Constraint  | Description                                                                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Technology  | C#, Go, Rus or C++ permitted. Python or JavaScript/TypeScript are strongly discouraged for the backend part of the system.                                                                   |
+| Performance | The system must meet latency, throughput and availability targets.                                                                                                                           |
+| Deployment  | The system prototype must be containerized and deployed on a public or semi publicly accessible platform via an automatic CI/CD pipeline. Only one artifact must be deployed during phase 1. |
 
 # 3. System Scope and Context
 
-**Contents.**
-
-System scope and context - as the name suggests - delimits your system
-(i.e. your scope) from all its communication partners (neighboring
-systems and users, i.e. the context of your system). It thereby
-specifies the external interfaces.
-
-If necessary, differentiate the business context (domain specific inputs
-and outputs) from the technical context (channels, protocols, hardware).
-
-- **Context Diagram**
-- **Domain model sketch**
-- **Bounded Context Diagram**??
-
-**Motivation.**
-
-The domain interfaces and technical interfaces to communication partners
-are among your system’s most critical aspects. Make sure that you
-completely understand them.
-
-**Form.**
-
-Various options:
-
-- Context diagrams
-
-- Lists of communication partners and their interfaces.
-
 ## Business Context
 
-**Contents.**
-
-Specification of **all** communication partners (users, IT-systems, …)
-with explanations of domain specific inputs and outputs or interfaces.
-Optionally you can add domain specific formats or communication
-protocols.
-
-**Motivation.**
-
-All stakeholders should understand which data are exchanged with the
-environment of the system.
-
-**Form.**
-
-All kinds of diagrams that show the system as a black box and specify
-the domain interfaces to communication partners.
-
-Alternatively (or additionally) you can use a table. The title of the
-table is the name of your system, the three columns contain the name of
-the communication partner, the inputs, and the outputs.
-
-**&lt;Diagram or Table&gt;**
-
-**&lt;optionally: Explanation of external domain interfaces&gt;**
+![SVG Image](bounded_context.svg)
 
 ## Technical Context
 
-**Contents.**
-
-Technical interfaces (channels and transmission media) linking your
-system to its environment. In addition a mapping of domain specific
-input/output to the channels, i.e. an explanation with I/O uses which
-channel.
-
-**Motivation.**
-
-Many stakeholders make architectural decision based on the technical
-interfaces between the system and its context. Especially infrastructure
-or hardware designers decide these technical interfaces.
-
-**Form.**
-
-E.g. UML deployment diagram describing channels to neighboring systems,
-together with a mapping table showing the relationships between channels
-and input/output.
-
-**&lt;Diagram or Table&gt;**
-
-**&lt;optionally: Explanation of technical interfaces&gt;**
-
-**&lt;Mapping Input/Output to Channels&gt;**
-
 # 4. Solution Strategy
 
-**Contents.**
-
-A short summary and explanation of the fundamental decisions and
-solution strategies, that shape the system’s architecture. These include
-
-- technology decisions
-
-- decisions about the top-level decomposition of the system, e.g.
-  usage of an architectural pattern or design pattern
-
-- decisions on how to achieve key quality goals
-
-- relevant organizational decisions, e.g. selecting a development
-  process or delegating certain tasks to third parties.
-
-- **3+ ADRs**
-
-**Motivation.**
-
-These decisions form the cornerstones for your architecture. They are
-the basis for many other detailed decisions or implementation rules.
-
-**Form.**
-
-Keep the explanation of these key decisions short.
-
-Motivate what you have decided and why you decided that way, based upon
-your problem statement, the quality goals and key constraints. Refer to
-details in the following sections.
+| Problem                        | Solution                                                                                                                                                                                                                                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Maintainability and evolution  | Internally, the system code is organized in a modular fashion using an architecture similar to hexagonal. This isolates the domain logic from infrastructure adapters. This allows the monolithic prototype to evolve somewhat easily in later phases.                                        |
+| Data consistency and integrity | A MySQL database is used to store all data as the one source of truth. Entities and data queries and commands are managed with repositories which abstract the database specific logic into interfaces. Transactions are used in critical flows like order executions to maintain consistency |
+| Delivering data to client      | The Go server supports multiple http endpoints for server rendered html templates and data retrieval.                                                                                                                                                                                         |
+| Latency and throughput         | Using the Go language because it is well-suited for high concurrency, low latency environments. Goroutines are easily implementable for asynchronous processing, making order acknowledgement faster.                                                                                         |
+| Error Handling & Observability | The Go programming language is made for functions to return multiple return values, making it very easy to propagate errors from any layers back to the client. It also comes with a an integrated logging library, ensuring the system's behaviors and faults are observable at any point.   |
 
 # 5. Building Block View
 
-**Content.**
+![SVG Image](c4_level1.svg)
 
-The building block view shows the static decomposition of the system
-into building blocks (modules, components, subsystems, classes,
-interfaces, packages, libraries, frameworks, layers, partitions, tiers,
-functions, macros, operations, datas structures, …) as well as their
-dependencies (relationships, associations, …)
+![SVG Image](package.svg)
 
-This view is mandatory for every architecture documentation. In analogy
-to a house this is the _floor plan_.
-
-- **C4 diagrams**
-- **Class diagram**
-- **Component diagram**
-
-**Motivation.**
-
-Maintain an overview of your source code by making its structure
-understandable through abstraction.
-
-This allows you to communicate with your stakeholder on an abstract
-level without disclosing implementation details.
-
-**Form.**
-
-The building block view is a hierarchical collection of black boxes and
-white boxes (see figure below) and their descriptions.
-
-![Hierarchy of building blocks](images/05_building_blocks-EN.png)
-
-**Level 1** is the white box description of the overall system together
-with black box descriptions of all contained building blocks.
-
-**Level 2** zooms into some building blocks of level 1. Thus it contains
-the white box description of selected building blocks of level 1,
-together with black box descriptions of their internal building blocks.
-
-**Level 3** zooms into selected building blocks of level 2, and so on.
-
-## Whitebox Overall System
-
-Here you describe the decomposition of the overall system using the
-following white box template. It contains
-
-- an overview diagram
-
-- a motivation for the decomposition
-
-- black box descriptions of the contained building blocks. For these
-  we offer you alternatives:
-
-  - use _one_ table for a short and pragmatic overview of all
-    contained building blocks and their interfaces
-
-  - use a list of black box descriptions of the building blocks
-    according to the black box template (see below). Depending on
-    your choice of tool this list could be sub-chapters (in text
-    files), sub-pages (in a Wiki) or nested elements (in a modeling
-    tool).
-
-- (optional:) important interfaces, that are not explained in the
-  black box templates of a building block, but are very important for
-  understanding the white box. Since there are so many ways to specify
-  interfaces why do not provide a specific template for them. In the
-  worst case you have to specify and describe syntax, semantics,
-  protocols, error handling, restrictions, versions, qualities,
-  necessary compatibilities and many things more. In the best case you
-  will get away with examples or simple signatures.
-
-**_&lt;Overview Diagram&gt;_**
-
-Motivation
-
-: _&lt;text explanation&gt;_
-
-Contained Building Blocks
-
-: _&lt;Description of contained building block (black boxes)&gt;_
-
-Important Interfaces
-
-: _&lt;Description of important interfaces&gt;_
-
-Insert your explanations of black boxes from level 1:
-
-If you use tabular form you will only describe your black boxes with
-name and responsibility according to the following schema:
-
-| **Name**    | **Responsibility** |
-| ----------- | ------------------ |
-| Black Box 1 |  *&lt;Text&gt;*    |
-| Black Box 2 |  *&lt;Text&gt;*    |
-
-If you use a list of black box descriptions then you fill in a separate
-black box template for every important building block . Its headline is
-the name of the black box.
-
-### &lt;Name black box 1&gt;
-
-Here you describe &lt;black box 1&gt; according the the following black
-box template:
-
-- Purpose/Responsibility
-
-- Interface(s), when they are not extracted as separate paragraphs.
-  This interfaces may include qualities and performance
-  characteristics.
-
-- (Optional) Quality-/Performance characteristics of the black box,
-  e.g.availability, run time behavior, ….
-
-- (Optional) directory/file location
-
-- (Optional) Fulfilled requirements (if you need traceability to
-  requirements).
-
-- (Optional) Open issues/problems/risks
-
-_&lt;Purpose/Responsibility&gt;_
-
-_&lt;Interface(s)&gt;_
-
-_&lt;(Optional) Quality/Performance Characteristics&gt;_
-
-_&lt;(Optional) Directory/File Location&gt;_
-
-_&lt;(Optional) Fulfilled Requirements&gt;_
-
-_&lt;(optional) Open Issues/Problems/Risks&gt;_
-
-### &lt;Name black box 2&gt;
-
-_&lt;black box template&gt;_
-
-### &lt;Name black box n&gt;
-
-_&lt;black box template&gt;_
-
-### &lt;Name interface 1&gt;
-
-…
-
-### &lt;Name interface m&gt;
-
-## Level 2
-
-Here you can specify the inner structure of (some) building blocks from
-level 1 as white boxes.
-
-You have to decide which building blocks of your system are important
-enough to justify such a detailed description. Please prefer relevance
-over completeness. Specify important, surprising, risky, complex or
-volatile building blocks. Leave out normal, simple, boring or
-standardized parts of your system
-
-### White Box _&lt;building block 1&gt;_
-
-…describes the internal structure of _building block 1_.
-
-_&lt;white box template&gt;_
-
-### White Box _&lt;building block 2&gt;_
-
-_&lt;white box template&gt;_
-
-…
-
-### White Box _&lt;building block m&gt;_
-
-_&lt;white box template&gt;_
-
-## Level 3
-
-Here you can specify the inner structure of (some) building blocks from
-level 2 as white boxes.
-
-When you need more detailed levels of your architecture please copy this
-part of arc42 for additional levels.
-
-### White Box &lt;\_building block x.1\_&gt;
-
-Specifies the internal structure of _building block x.1_.
-
-_&lt;white box template&gt;_
-
-### White Box &lt;\_building block x.2\_&gt;
-
-_&lt;white box template&gt;_
-
-### White Box &lt;\_building block y.1\_&gt;
-
-_&lt;white box template&gt;_
+![SVG Image](class_diagram.svg)
 
 # 6. Runtime View
 
-**Contents.**
-
-The runtime view describes concrete behavior and interactions of the
-system’s building blocks in form of scenarios from the following areas:
-
-- important use cases or features: how do building blocks execute
-  them?
-
-- interactions at critical external interfaces: how do building blocks
-  cooperate with users and neighboring systems?
-
-- operation and administration: launch, start-up, stop
-
-- error and exception scenarios
-
-- **Use cases diagram**
-- **Minimum 3 Use case descriptions (validated with client?)**
-  - Sequence diagram
-  - Activity diagram
-
-Remark: The main criterion for the choice of possible scenarios
-(sequences, workflows) is their **architectural relevance**. It is
-**not** important to describe a large number of scenarios. You should
-rather document a representative selection.
-
-**Motivation.**
-
-You should understand how (instances of) building blocks of your system
-perform their job and communicate at runtime. You will mainly capture
-scenarios in your documentation to communicate your architecture to
-stakeholders that are less willing or able to read and understand the
-static models (building block view, deployment view).
-
-**Form.**
-
-There are many notations for describing scenarios, e.g.
-
-- numbered list of steps (in natural language)
-
-- activity diagrams or flow charts
-
-- sequence diagrams
-
-- BPMN or EPCs (event process chains)
-
-- state machines
-
-- …
+## General Use Case Diagram
 
 ![SVG Image](use_cases/all_use_cases.svg)
 
-## &lt;Runtime Scenario 1&gt;
+> The use cases colored in green are the ones that are currently implemented in the system
 
-- _&lt;insert runtime diagram or textual description of the
-  scenario&gt;_
+## UC-02 Login
 
-- _&lt;insert description of the notable aspects of the interactions
-  between the building block instances depicted in this diagram.&gt;_
+### Goal:
 
-## &lt;Runtime Scenario 2&gt;
+Allow a registered user to securely authenticate into the BrokerX system.
 
-## … {#\_}
+### Actors:
 
-## &lt;Runtime Scenario n&gt;
+- Primary: Client (user)
+- Supporting: MySQL DB
+
+### Preconditions:
+
+- The user is already registered in the system.
+- Credentials (email, password hash) are stored in the database.
+
+### Main Flow:
+
+**1.** The Client submits email and password to the system.
+
+**2.** The system receives the credentials and validates them.
+
+**3.** The system returns the home page, along with a signed session cookie to the client
+
+### Postconditions:
+
+- User is authenticated and can call secured endpoints with the cookie.
+
+### Exceptions / Alternatives:
+
+**E2.** Database unavailable → The system returns an error 500 Internal Server Error.
+
+**A3.** Invalid credentials → The system returns an error 401 Unauthorized.
+
+**A3.** Third failed authentication attempt → The system returns an error 401 Unauthorized and locks the account for 30 minutes.
+
+![SVG Image](use_cases/uc02_sequence.svg)
+
+## UC-05 Place order
+
+### Goal:
+
+Allow a user to place a buy or sell order on a stock.
+
+### Actors:
+
+- Primary: Client (user)
+- Supporting: Market Data Provider
+
+### Preconditions:
+
+- The user is logged in.
+- The Market Data Provider is up and running.
+- The client is on the Orders page
+
+### Main Flow:
+
+**1.** The Client completes the form to place an order containing the symbol, quantity, action, type, timing and unit price.
+
+**2.** The system receives the order data and validates that the inputs are not empty.
+
+**3.** The system starts verification the compliance of the order.
+
+**4.** The system requests instrument and price data from the Market Data Provider.
+
+**5.** The Market Data Provider responds with instrument tick size and price band.
+
+**6.** The system finishes verifying the compliance of the order.
+
+**7.** The system creates an order.
+
+**8.** The system submits the order to the internal matching engine.
+
+**9.** The system send an acknowledgement to the client that the order has been placed.
+
+**10.** The client receives the acknowledgement.
+
+### Postconditions:
+
+- The order is stored in the database with open status.
+- The client can see the new placed order with all its information.
+
+### Exceptions / Alternatives:
+
+**E3.** The order has an invalid quantity → The system propagates the error back to the client. The order is not created.
+
+**E5.** The Market Data Provider does not respond → The system propagates the error back to the client. The order is not created.
+
+**E5.** The user does not have enough funds → The system propagates the error back to the client. The order is not created.
+
+**E5.** The user does not have enough stocks → The system propagates the error back to the client. The order is not created.
+
+**E5.** The order tick size or price band does not match the instrument's required tick size or price band → The system propagates the error back to the client. The order is not created.
+
+![SVG Image](use_cases/uc05_sequence.svg)
+
+## UC-07 Find match and execute order
+
+Match incoming buy and sell orders and generates execution records.
+
+### Actors:
+
+- Primary: Client (user)
+- Supporting: _None_
+
+### Preconditions:
+
+- A valid order was placed by the client and submitted to the internal matching engine
+
+### Main Flow:
+
+**1.** The matching engine receives the order.
+
+**2.** The matching engine fetches all matching orders (symbol, action, type) from the database.
+
+**3.** The matching engine finds a match or multiple matches for the submitted order.
+
+**4.** The matching engine generates execution records for each match order.
+
+**5.** The matching engine updates order(s) quantities and status.
+
+**5.** The matching engine saves the execution records to the database.
+
+### Postconditions:
+
+- The order changes are saved to the database.
+- The client can see the submitted order with all its information and the status and quantities updated.
+- The client can see each execution record for the order
+
+### Exceptions / Alternatives:
+
+**E2.** There is a database error when fetching the orders → The system logs the error. The order stays in the database. The order is not updated.
+
+**A2.** The systeme finds no match for the order → The order stays in the database. The order is not updated. No execution records are saved.
+
+**E5.** There is a database error when updating the order(s) → The system logs the error. The order stays in the database. The order is not updated. The execution records are not saved.
+
+**E6.** There is a database error when saving the execution records → The system logs the error. The order stays in the database. The order is not updated. The execution records are not saved.
+
+![SVG Image](use_cases/uc07_sequence.svg)
 
 # 7. Deployment View
 
-**Content.**
-
-The deployment view describes:
-
-1.  the technical infrastructure used to execute your system, with
-    infrastructure elements like geographical locations, environments,
-    computers, processors, channels and net topologies as well as other
-    infrastructure elements and
-
-2.  the mapping of (software) building blocks to that infrastructure
-    elements.
-
-Often systems are executed in different environments, e.g. development
-environment, test environment, production environment. In such cases you
-should document all relevant environments.
-
-Especially document the deployment view when your software is executed
-as distributed system with more then one computer, processor, server or
-container or when you design and construct your own hardware processors
-and chips.
-
-From a software perspective it is sufficient to capture those elements
-of the infrastructure that are needed to show the deployment of your
-building blocks. Hardware architects can go beyond that and describe the
-infrastructure to any level of detail they need to capture.
-
-- **Deployment Diagram**
-
-**Motivation.**
-
-Software does not run without hardware. This underlying infrastructure
-can and will influence your system and/or some cross-cutting concepts.
-Therefore, you need to know the infrastructure.
-
-Maybe the highest level deployment diagram is already contained in
-section 3.2. as technical context with your own infrastructure as ONE
-black box. In this section you will zoom into this black box using
-additional deployment diagrams:
-
-- UML offers deployment diagrams to express that view. Use it,
-  probably with nested diagrams, when your infrastructure is more
-  complex.
-
-- When your (hardware) stakeholders prefer other kinds of diagrams
-  rather than the deployment diagram, let them use any kind that is
-  able to show nodes and channels of the infrastructure.
-
-## Infrastructure Level 1
-
-Describe (usually in a combination of diagrams, tables, and text):
-
-- the distribution of your system to multiple locations, environments,
-  computers, processors, .. as well as the physical connections
-  between them
-
-- important justification or motivation for this deployment structure
-
-- Quality and/or performance features of the infrastructure
-
-- the mapping of software artifacts to elements of the infrastructure
-
-For multiple environments or alternative deployments please copy that
-section of arc42 for all relevant environments.
-
-**_&lt;Overview Diagram&gt;_**
-
-Motivation
-
-: _&lt;explanation in text form&gt;_
-
-Quality and/or Performance Features
-
-: _&lt;explanation in text form&gt;_
-
-Mapping of Building Blocks to Infrastructure
-
-: _&lt;description of the mapping&gt;_
-
-## Infrastructure Level 2
-
-Here you can include the internal structure of (some) infrastructure
-elements from level 1.
-
-Please copy the structure from level 1 for each selected element.
-
-### _&lt;Infrastructure Element 1&gt;_
-
-_&lt;diagram + explanation&gt;_
-
-### _&lt;Infrastructure Element 2&gt;_
-
-_&lt;diagram + explanation&gt;_
-
-…
-
-### _&lt;Infrastructure Element n&gt;_
-
-_&lt;diagram + explanation&gt;_
+![SVG Image](deployment.svg)
 
 # 8. Cross-cutting Concepts
 
-**Content.**
-
-This section describes overall, principal regulations and solution ideas
-that are relevant in multiple parts (= cross-cutting) of your system.
-Such concepts are often related to multiple building blocks. They can
-include many different topics, such as
-
-- domain models
-
-- architecture patterns or design patterns
-
-- rules for using specific technology
-
-- principal, often technical decisions of overall decisions
-
-- implementation rules
-
-- **choix de style (Hexagonal ou MVC + ports/adapters), couches & dépendances.**
-
-**Motivation.**
-
-Concepts form the basis for _conceptual integrity_ (consistency,
-homogeneity) of the architecture. Thus, they are an important
-contribution to achieve inner qualities of your system.
-
-Some of these concepts cannot be assigned to individual building blocks
-(e.g. security or safety). This is the place in the template that we
-provided for a cohesive specification of such concepts.
-
-**Form.**
-
-The form can be varied:
-
-- concept papers with any kind of structure
-
-- cross-cutting model excerpts or scenarios using notations of the
-  architecture views
-
-- sample implementations, especially for technical concepts
-
-- reference to typical usage of standard frameworks (e.g. using
-  Hibernate for object/relational mapping)
-
-**Structure.**
-
-A potential (but not mandatory) structure for this section could be:
-
-- Domain concepts
-
-- User Experience concepts (UX)
-
-- Safety and security concepts
-
-- Architecture and design patterns
-
-- "Under-the-hood"
-
-- development concepts
-
-- operational concepts
-
-Note: it might be difficult to assign individual concepts to one
-specific topic on this list.
-
-![Possible topics for crosscutting concepts](images/08-Crosscutting-Concepts-Structure-EN.png)
-
-## _&lt;Concept 1&gt;_
-
-_&lt;explanation&gt;_
-
-## _&lt;Concept 2&gt;_
-
-_&lt;explanation&gt;_
-
-…
-
-## _&lt;Concept n&gt;_
-
-_&lt;explanation&gt;_
+- Architecture semi-hexagonale
+- Server-side HTML rendring
+- Interfaces
+- MySQL relational database
+- Repository pattern
+- Transaction pattern
 
 # 9. Design Decisions
 
-**Contents.**
+---
 
-Important, expensive, large scale or risky architecture decisions
-including rationals. With "decisions" we mean selecting one alternative
-based on given criteria.
+## ADR-01: Hexagonal architecture
 
-Please use your judgement to decide whether an architectural decision
-should be documented here in this central section or whether you better
-document it locally (e.g. within the white box template of one building
-block).
+### Context
 
-Avoid redundancy. Refer to section 4, where you already captured the
-most important decisions of your architecture.
+BrokerX must be evolvable across phases: from monolithic prototype to micro-services and eventually event-driven. A tightly coupled MVC design would limit flexibility. We need an architecture that clearly separates domain logic from infrastructure to make refactoring manageable.
 
-**Motivation.**
+### Decision
 
-Stakeholders of your system should be able to comprehend and retrace
-your decisions.
+Adopt a hexagonal style architecture (ports and adapters):
 
-**Form.**
+- **Core domain layer**: entities, matching engine, business rules
+- **Ports**: interfaces for any internal/external service, data access objects
+- **Adapters**: implementations of the interfaces (REST API handlers, SQL repositories, mock data provider)
 
-Various options:
+### Status
 
-- List or table, ordered by importance and consequences or:
+Accepted
 
-- more detailed in form of separate sections per decision
+### Consequences
 
-- ADR (architecture decision record) for every important decision
+- Domain logic is independent of delivery and persitence mechanisms
+- Easier to swap infrastructure (database, APIs) without touching core logic
+- Simplifies testing (domain logic can be tested in isolation)
+- Slightly higher complexity (more abstractions, interfaces, files)
+- May be over engineering for phase 1 but will most likely pay off in later phases
+
+---
+
+## ADR-02: Persistence with MySQL and Repository/Transaction Manager Pattern
+
+### Context
+
+BrokerX must maintain strong consistency for orders, executions and balances. Persistent storage was required by the project and we want to avoid spreading raw SQL queries across the codebase.
+
+### Decision
+
+Use MySQL relational database as the system of record, accessed through repository interfaces in the ports layers. Repositories abstract database-specific logic into adapters. Transactions are applied for critical operations (order matching).
+
+### Status
+
+Accepted
+
+### Consequences
+
+- Centralized persistence logic, easier to maintain
+- Enforces data integrity using SQL constraints and transactions
+- Repository interfaces decouple domain logic from data access details, allowing easier replacement of persistent storage in the future.
+- Less flexibility in schema evolution if requirements change rapidly
+
+---
+
+## ADR-03: Use of Go as Implementation Language
+
+### Context
+
+The backend must support low latency and high throughput for order placement and matching. It must also be portable across environments (developer laptops, CI/CD pipelines, VMs). The following languages were considered :
+
+- Java/C#
+- Python/Node.js
+- Rust/C
+
+### Decision
+
+Implement BrokerX backend API server in Go (Golang)
+
+### Status
+
+Accepted
+
+### Consequences
+
+- Very fast compilation and deployment cycle.
+- Excellent concurrency support for handling many requests/orders.
+- Small memory footprint, portable binaries.
+- Clean error handling via multiple return values.
+- Newer language, meaning lack of libraries in certain domains
 
 # 10. Quality Requirements
 
-**Content.**
+## Latency
 
-This section contains all quality requirements as quality tree with
-scenarios. The most important ones have already been described in
-section 1.2. (quality goals)
+## Throughput
 
-Here you can also capture quality requirements with lesser priority,
-which will not create high risks when they are not fully achieved.
+## Data Integrity
 
-**Motivation.**
+## Security
 
-Since quality requirements will have a lot of influence on architectural
-decisions you should know for every stakeholder what is really important
-to them, concrete and measurable.
+## Testability
 
-## Quality Tree
-
-**Content.**
-
-The quality tree (as defined in ATAM – Architecture Tradeoff Analysis
-Method) with quality/evaluation scenarios as leafs.
-
-**Motivation.**
-
-The tree structure with priorities provides an overview for a sometimes
-large number of quality requirements.
-
-**Form.**
-
-The quality tree is a high-level overview of the quality goals and
-requirements:
-
-- tree-like refinement of the term "quality". Use "quality" or
-  "usefulness" as a root
-
-- a mind map with quality categories as main branches
-
-In any case the tree should include links to the scenarios of the
-following section.
-
-## Quality Scenarios
-
-**Contents.**
-
-Concretization of (sometimes vague or implicit) quality requirements
-using (quality) scenarios.
-
-These scenarios describe what should happen when a stimulus arrives at
-the system.
-
-For architects, two kinds of scenarios are important:
-
-- Usage scenarios (also called application scenarios or use case
-  scenarios) describe the system’s runtime reaction to a certain
-  stimulus. This also includes scenarios that describe the system’s
-  efficiency or performance. Example: The system reacts to a user’s
-  request within one second.
-
-- Change scenarios describe a modification of the system or of its
-  immediate environment. Example: Additional functionality is
-  implemented or requirements for a quality attribute change.
-
-**Motivation.**
-
-Scenarios make quality requirements concrete and allow to more easily
-measure or decide whether they are fulfilled.
-
-Especially when you want to assess your architecture using methods like
-ATAM you need to describe your quality goals (from section 1.2) more
-precisely down to a level of scenarios that can be discussed and
-evaluated.
-
-**Form.**
-
-Tabular or free form text.
+## Interoperability
 
 # 11. Risks and Technical Debts
 
-**Contents.**
-
-A list of identified technical risks or technical debts, ordered by
-priority
-
-**Motivation.**
-
-“Risk management is project management for grown-ups” (Tim Lister,
-Atlantic Systems Guild.)
-
-This should be your motto for systematic detection and evaluation of
-risks and technical debts in the architecture, which will be needed by
-management stakeholders (e.g. project managers, product owners) as part
-of the overall risk analysis and measurement planning.
-
-**Form.**
-
-List of risks and/or technical debts, probably including suggested
-measures to minimize, mitigate or avoid risks or reduce technical debts.
+- Writing a lot of code in a short amount of time can lead to lack of unit testing and therefore, quality degradation.
+- Lack of code review due to the project being individually developped.
+- There is a risk of long refactoring time between phases depending on the evolvability of the system.
 
 # 12. Glossary
 
@@ -813,15 +373,3 @@ measures to minimize, mitigate or avoid risks or reduce technical debts.
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **CI** | Continuous Integration: automation of the integration of new code into the main code base with checks on quality and automated tests. |
 | **CD** | Continuous Deployment: automation of the deployment of new features to the client application.                                        |
-
-```
-
-```
-
-```
-
-```
-
-```
-
-```

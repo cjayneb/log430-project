@@ -1,0 +1,26 @@
+@startuml
+title UC-07 Matching & Execution
+
+participant "MatchingEngine (core)" as MatchEngine
+participant "TransactionManager (ports)" as tx
+participant "OrderRepository (ports)" as Repo
+database "MySQL" as DB
+participant "ExecutionRepository (ports)" as ExecRepo
+
+
+== Asynchronous (in Goroutine) ==
+->> MatchEngine : SubmitOrder(order)
+MatchEngine -> tx : Do(ctx, func(orderRepo, execRepo))
+== Transaction start ==
+MatchEngine -> Repo : err := FindMatches(order)
+Repo -> DB : SELECT * FROM orders ... FOR UPDATE
+DB --> Repo : List of matching orders
+Repo --> MatchEngine : Orders
+
+MatchEngine -> Repo : err := Update(order)
+Repo -> DB : UPDATE order...
+MatchEngine -> ExecRepo : err := Create(execution)
+ExecRepo -> DB : INSERT INTO executions ...
+== Transaction end (commit) ==
+
+@enduml

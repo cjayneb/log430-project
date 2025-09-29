@@ -1,0 +1,21 @@
+@startuml
+title UC-02 Login (Authentication)
+
+actor Client
+
+participant "AuthHandler (adapters)" as Handler
+participant "AuthService (core)" as Service
+participant "UserRepository (ports)" as Repo
+database "MySQL" as DB
+
+Client -> Handler : POST /login (email, password)
+Handler -> Service : Authenticate(email, password)
+Service -> Repo : FindByEmail(email)
+Repo -> DB : SELECT id, email, password FROM users WHERE email=?
+DB --> Repo : User record (with password hash)
+Repo --> Service : user, error
+Service -> Service : Verify password hash
+Service --> Handler : user, error
+Handler --> Client : 200 OK + Session cookie / 500 / 401 / 400
+
+@enduml

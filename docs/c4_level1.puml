@@ -1,0 +1,17 @@
+@startuml C4 Level 1
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title BrokerX - C4 Container Diagram
+
+Person(client, "Client", "End user interacting via web browser")
+
+System_Boundary(bx, "BrokerX System") {
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
+  ContainerDb(db, "MySQL Database", "MySQL", "Stores users, wallets, orders, executions")
+}
+
+Rel(client, api, "Uses", "HTTP/REST")
+Rel(api, db, "Reads/writes", "SQL driver")
+
+
+@enduml

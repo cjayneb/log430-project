@@ -1,0 +1,35 @@
+@startuml
+title BrokerX - Deployment Diagram
+
+node "ETS VM (Linux)" as VM {
+  
+  node "Self-hosted GitHub Actions Runner" as Runner {
+    artifact "CI/CD Jobs" as CICD
+  }
+
+  node "Docker Engine" as Docker {
+    node "BrokerX API Container (brokerx_app)" as API {
+      artifact "Go API Server\n(brokerx.exe)" as GoApp
+    }
+
+    node "MySQL Container (brokerx_db)" as DB {
+      artifact "MySQL Database\n(brokerx)" as MySQL
+    }
+  }
+}
+
+' External systems
+node "Client Machine" as ClientMachine {
+    node "Web browser (Edge, Firefox, Chrome, Safari)" as browser {
+        artifact "HTML pages\n(index.html, login.html,...)"
+    }
+}
+
+' Relationships
+browser --> GoApp : sends HTTP requests
+browser <-- GoApp : Serves rendred HTML pages and data
+GoApp --> MySQL : SQL queries over TCP
+
+Runner --> Docker : Deploys containers (docker-compose up)
+
+@enduml

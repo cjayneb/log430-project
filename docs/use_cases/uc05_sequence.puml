@@ -1,0 +1,25 @@
+@startuml
+title UC-05 Place Order
+
+actor Client
+
+participant "OrderHandler (adapters)" as Handler
+participant "OrderService (core)" as Service
+participant "ComplianceService (core)" as compliance
+participant "OrderRepository (ports)" as Repo
+participant "WalletRepository (ports)" as wallet
+participant "PositionRepository (ports)" as position
+participant "MarketDataProvider (adapters)" as mdp
+database "MySQL" as DB
+participant "MatchingEngine (core)" as MatchEngine
+
+Client -> Handler : POST /order/place (order payload)
+Handler -> Service : PlaceOrder(order)
+Service -> compliance : error := VerifyOrderCompliance(order)
+Service -> Repo : id, err := Create(order)
+Repo -> DB : rowId := INSERT INTO orders ...
+Service ->> MatchEngine : SubmitOrder(order)
+Service --> Handler : error || nil
+Handler --> Client : 201 Created
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml
+title BrokerX - Domain Model
+
+class User {
+  +userId: UUID
+  +name: string
+  +email: string
+  +password: string
+}
+
+class Position {
+  +quantity: int
+  +avgPrice: decimal
+}
+
+class Instrument {
+  +symbol: string
+  +name: string
+  +tickSize: decimal
+  +priceBandPercent: int
+}
+
+class Order {
+  +orderId: UUID
+  +type: enum {market, limit}
+  +action: enum {buy, sell}
+  +timing: enum {ioc, day}
+  +quantity: int
+  +remainingQty: int
+  +unitPrice: decimal
+  +status: enum {open, filled, partially_filled, cancelled}
+}
+
+class ExecutionRecord {
+  +executionId: UUID
+  +price: decimal
+  +quantity: int
+  +timestamp: datetime
+}
+
+class Price {
+  +symbol: string
+  +price: decimal
+  +timestamp: datetime
+}
+
+' Relationships
+User "1" --> "*" Position
+Position "*" --> "1" Instrument
+Order "*" <-- "1" User
+Order "*" --> "1" Instrument
+ExecutionRecord "*" --> "1" Order
+Instrument "1" --> "*" Price
+
+@enduml
