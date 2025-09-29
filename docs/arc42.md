@@ -70,6 +70,8 @@ These goals are to be met during the first iteration (monolithic architecture) o
 | Compliance /Risk Employees    | _N/A_                  | Control over pre-trade checks, post-trade surveillance, immutable logs, idempotency guarantees.            |
 | External Market Data Provider | _N/A_                  | Well-defined streaming API (subscribe/unsubscribe); order routing contracts for simulated exchanges.       |
 
+\newpage
+
 # 2. Architecture Constraints
 
 | Constraint  | Description                                                                                                                                                                                  |
@@ -78,6 +80,8 @@ These goals are to be met during the first iteration (monolithic architecture) o
 | Performance | The system must meet latency, throughput and availability targets.                                                                                                                           |
 | Deployment  | The system prototype must be containerized and deployed on a public or semi publicly accessible platform via an automatic CI/CD pipeline. Only one artifact must be deployed during phase 1. |
 
+\newpage
+
 # 3. System Scope and Context
 
 ## Business Context
@@ -85,6 +89,8 @@ These goals are to be met during the first iteration (monolithic architecture) o
 ![SVG Image](bounded_context.svg)
 
 ## Technical Context
+
+\newpage
 
 # 4. Solution Strategy
 
@@ -95,6 +101,8 @@ These goals are to be met during the first iteration (monolithic architecture) o
 | Delivering data to client      | The Go server supports multiple http endpoints for server rendered html templates and data retrieval.                                                                                                                                                                                         |
 | Latency and throughput         | Using the Go language because it is well-suited for high concurrency, low latency environments. Goroutines are easily implementable for asynchronous processing, making order acknowledgement faster.                                                                                         |
 | Error Handling & Observability | The Go programming language is made for functions to return multiple return values, making it very easy to propagate errors from any layers back to the client. It also comes with a an integrated logging library, ensuring the system's behaviors and faults are observable at any point.   |
+
+\newpage
 
 # 5. Building Block View
 
@@ -253,9 +261,13 @@ Match incoming buy and sell orders and generates execution records.
 
 ![SVG Image](use_cases/uc07_sequence.svg)
 
+\newpage
+
 # 7. Deployment View
 
 ![SVG Image](deployment.svg)
+
+\newpage
 
 # 8. Cross-cutting Concepts
 
@@ -265,6 +277,8 @@ Match incoming buy and sell orders and generates execution records.
 - MySQL relational database
 - Repository pattern
 - Transaction pattern
+
+\newpage
 
 # 9. Design Decisions
 
@@ -347,6 +361,8 @@ Accepted
 - Clean error handling via multiple return values.
 - Newer language, meaning lack of libraries in certain domains
 
+\newpage
+
 # 10. Quality Requirements
 
 ## Latency
@@ -361,15 +377,43 @@ Accepted
 
 ## Interoperability
 
+\newpage
+
 # 11. Risks and Technical Debts
 
 - Writing a lot of code in a short amount of time can lead to lack of unit testing and therefore, quality degradation.
 - Lack of code review due to the project being individually developped.
 - There is a risk of long refactoring time between phases depending on the evolvability of the system.
 
+\newpage
+
 # 12. Glossary
 
-| Term   | Definition                                                                                                                            |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI** | Continuous Integration: automation of the integration of new code into the main code base with checks on quality and automated tests. |
-| **CD** | Continuous Deployment: automation of the deployment of new features to the client application.                                        |
+| Term                       | Definition                                                                                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ADR**                    | Architecture Decision Record: a short document that captures an important architectural choice, its context, and consequences.                     |
+| **Broker**                 | An intermediary that executes buy/sell orders on behalf of investors. BrokerX acts as an online broker for retail clients.                         |
+| **CI**                     | Continuous Integration: automation of integrating new code into the main branch with quality checks and automated tests.                           |
+| **CD**                     | Continuous Deployment: automation of delivering tested code to production environments.                                                            |
+| **Execution**              | The successful match of a buy and sell order, resulting in a trade and an execution report.                                                        |
+| **Execution Report**       | A message generated by the matching engine that details the outcome of an order execution (price, quantity, time).                                 |
+| **Hexagonal Architecture** | Also called Ports and Adapters: an architectural style that separates the domain logic (core) from external systems (DB, UI, APIs).                |
+| **Latency**                | The time it takes for a user action (e.g., placing an order) to receive an acknowledgement from the system.                                        |
+| **Limit Order**            | An order to buy or sell a stock at a specified price or better.                                                                                    |
+| **Market Data Provider**   | External or simulated service that supplies price and instrument data to BrokerX.                                                                  |
+| **Market Order**           | An order to buy or sell immediately at the current market price.                                                                                   |
+| **Matching Engine**        | The core system component that pairs buy and sell orders and generates execution records.                                                          |
+| **Monolith**               | An application built as a single deployable unit. BrokerX phase 1 is implemented as a Go monolith.                                                 |
+| **MySQL**                  | Relational database used by BrokerX to persist orders, executions, users, and balances.                                                            |
+| **Order**                  | A request placed by a user to buy or sell a stock (can be market or limit, buy or sell, ioc or day).                                               |
+| **IOC**                    | Immediate Or Cancel. Refers to the timing of an order that must be immediately fully filled, if not, it must be cancelled                          |
+| **DAY**                    | Refers to the timing of an order that is open until the end of the trading day.                                                                    |
+| **Order Book**             | The collection of all open buy and sell orders for a given instrument, managed by the matching engine.                                             |
+| **Port**                   | Interface in hexagonal architecture that represents an entry/exit point for the core domain logic (e.g., repository interface, service interface). |
+| **Adapter**                | Implementation of a port, connecting the domain logic to infrastructure (e.g., SQL repository, HTTP services).                                     |
+| **Pre-trade Checks**       | Compliance rules applied before accepting an order (e.g., tick size validation, price bands, sufficient balance/holdings).                         |
+| **Session Cookie**         | Small piece of data stored on the client after login, used to authenticate subsequent requests.                                                    |
+| **Tick Size**              | The minimum price movement allowed for a given instrument.                                                                                         |
+| **Throughput**             | Number of orders the system can successfully handle per second.                                                                                    |
+| **Transaction**            | A group of one or more database operations executed as a single unit of work, ensuring atomicity and consistency.                                  |
+| **Wallet**                 | Virtual balance associated with a user account, used to fund purchases and receive proceeds from sales.                                            |
