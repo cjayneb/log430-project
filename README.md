@@ -44,8 +44,10 @@ This will start the API server on http://127.0.0.1:8080.
 
 - Health endpoint: http://127.0.0.1:8080/health (GET)
 - Login endpoint: http://127.0.0.1:8080/login (POST)
+- Home page endpoint: http://127.0.0.1:8080/ (GET)
+- Orders page endpoint: http://127.0.0.1:8080/order (GET)
 
-> You must have a MySQL instance running on your machine for this to work
+> You must have a MySQL instance running on your machine for all uses cases to work
 
 ### Run with Docker Compose
 
@@ -68,7 +70,7 @@ This starts:
 Run the following command to start the test database:
 
 ```bash
-//From the root of the project
+#From the root of the project
 docker compose -f docker-compose.test.yml up -d
 ```
 
@@ -93,13 +95,32 @@ A production-ready deployment would likely use Kubernetes or cloud-based service
 
 ### Deploying locally
 
+To deploy locally, you just have to run the following commands
+
+```bash
+docker compose down -v # Ensure Docker is clean with no previous deployment
+docker compose up --build -d # Build the Docker image and run docker compose in detached mode
+```
+
 ### Deploying remotely
+
+The GitHub Actions Workflow should take care of deploying the application to the ETS Virtual Machine self hosted runner automatically on every push. See `.github/workflows/ci_cd.yml`
+
+_The current deployment pipeline is broken because of issues with the storage on the ETS VM._
+
+> To access the remote deployment, you must be connected to the ETS Cisco Secure Client via accesvpn.etsmtl.ca
+
+## Using BrokerX
+
+See `docs/Runbook.md` for information on how to use BrokerX when it is deployed.
 
 ## Documentation
 
 Refer to the architectural documentation [here](https://github.com/cjayneb/log430-project/blob/main/docs/arc42.md).
 
-https://threedots.tech/post/database-transactions-in-go/
+### Refs
+
+- https://threedots.tech/post/database-transactions-in-go/
 
 ## Authors
 
