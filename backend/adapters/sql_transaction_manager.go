@@ -15,6 +15,7 @@ func (manager *SQLTransactionManager) Do(ctx context.Context, fn func(ports.Orde
 	if err != nil {
         return err
     }
+    //nolint
     defer tx.Rollback()
 
     orderRepo := NewOrderRepo(tx)
