@@ -90,10 +90,6 @@ jobs:
           docker compose -f docker-compose.test.yml down -v || true
           docker rm -f brokerx_test_db || true
 
-      - name: Docker image prune
-        if: always()
-        run: docker system prune -a --volumes -f
-
   deploy:
     name: Deploy with Docker Compose
     runs-on: self-hosted
@@ -106,3 +102,7 @@ jobs:
         run: |
           docker compose down || true
           docker compose up -d --build
+
+      - name: Docker image prune
+        if: always()
+        run: docker system prune -a --volumes -f
