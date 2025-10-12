@@ -108,6 +108,7 @@ The GitHub Actions Workflow should take care of deploying the application to the
 
 _The current deployment pipeline is broken because of issues with the storage on the ETS VM._
 
+> [!NOTE]
 > To access the remote deployment, you must be connected to the ETS Cisco Secure Client via accesvpn.etsmtl.ca
 
 ## Using BrokerX
