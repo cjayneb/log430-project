@@ -1,7 +1,8 @@
 services:
-  app:
+  brokerx:
     build:
       context: .
+      target: runtime
     container_name: brokerx_app
     ports:
       - "8080:8080"
@@ -10,12 +11,14 @@ services:
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
       - FRONTEND_PATH=frontend
       - RESOURCES_PATH=resources/
+    networks:
+      - brokerx-network
     depends_on:
       db:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://app:8080/health"]
+      test: ["CMD", "wget", "-qO-", "http://brokerx:8080/health"]
       timeout: 5s
       retries: 5
 
@@ -35,3 +38,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - brokerx-network
+
+  locust:
+    build:
+      context: .
+      target: locust
+    image: locustio/locust
+    container_name: brokerx_locust
+    ports:
+      - "8089:8089"
+    depends_on:
+      - brokerx
+    networks:
+      - brokerx-network
+
+networks:
+  brokerx-network:
+    driver: bridge
+    external: true
