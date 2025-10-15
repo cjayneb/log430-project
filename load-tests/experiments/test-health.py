@@ -1,10 +1,9 @@
 """
 Locustfile for load testing BrokerX
 """
-import random
 from locust import HttpUser, task, between
 
-class FlaskAPIUser(HttpUser):
+class BrokerXUser(HttpUser):
     wait_time = between(1, 3)
     
     @task(1) 

@@ -15,7 +15,7 @@ class BrokerXUser(HttpUser):
             "email": "buyer@email.com",
             "password": "password"
         }
-        response = self.client.post("/auth/login", data=login_data)
+        response = self.client.post("auth/login", data=login_data)
         if response.status_code == 200:
             print("Logged in successfully")
         else:
