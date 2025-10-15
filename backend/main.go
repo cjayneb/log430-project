@@ -77,7 +77,8 @@ func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderH
 	// Public API routes
     router.Post("/auth/login", authHandler.Login)
     router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-        _, err := w.Write([]byte("OK"))
+        w.Header().Set("Content-Type", "application/json")
+        _, err := w.Write([]byte("{\"message\": \"OK\"}"))
 		if err != nil {
 			log.Errorf("Health check response error: %v", err)
 		}
