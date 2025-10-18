@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX idx_wallets_id ON wallets(id);
 
 INSERT INTO wallets (id, user_id, available_funds) VALUES
 (UUID(), (SELECT id FROM users WHERE email = 'email'), 0),
-(UUID(), (SELECT id FROM users WHERE email = 'buyer@email.com'), 1000),
+(UUID(), (SELECT id FROM users WHERE email = 'buyer@email.com'), 10000000),
 (UUID(), (SELECT id FROM users WHERE email = 'seller@email.com'), 300);
 
 CREATE TABLE IF NOT EXISTS orders (

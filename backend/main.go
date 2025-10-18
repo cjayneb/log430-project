@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
@@ -19,84 +20,90 @@ import (
 var config Config = Config{}
 
 func main() {
-    router := run()
+	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
-    	log.Fatalf("Server error : %s", err)
+		log.Fatalf("Server error : %s", err)
 	}
 }
 
 func run() http.Handler {
-    if err := config.LoadConfig(); err != nil {
+	if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Config error : %s", err)
 	}
 
-    userRepo, orderRepo, walletRepo, positionRepo, transactionManager := initDbConnection()
-    authService := &core.AuthService{
-        Repo:                        userRepo,
-        PasswordAllowedRetries:      config.PasswordAllowedRetries,
-        PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
-    }
-    authHandler := &adapters.AuthHandler{
-        Service:      authService,
-        SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
-        IsProduction: config.IsProduction,
-    }
+	userRepo, orderRepo, walletRepo, positionRepo, transactionManager := initDbConnection()
+	authService := &core.AuthService{
+		Repo:                        userRepo,
+		PasswordAllowedRetries:      config.PasswordAllowedRetries,
+		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
+	}
+	authHandler := &adapters.AuthHandler{
+		Service:      authService,
+		SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
+		IsProduction: config.IsProduction,
+	}
 
-    complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
-    orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: &core.MatchingEngine{TransactionManager: transactionManager}}
-    orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
+	complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
+	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: &core.MatchingEngine{TransactionManager: transactionManager}}
+	orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
 
-    router := initRouter(authHandler, orderHandler)
-    return router
+	router := initRouter(authHandler, orderHandler)
+	return router
 }
 
 func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
+
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(20)
+	db.SetConnMaxLifetime(time.Minute * 5)
+	db.SetConnMaxIdleTime(time.Minute * 1)
+
 	if err := db.Ping(); err != nil || e != nil {
 		log.Warnf("Db error : %s | %s", e, err)
 	}
 	return &adapters.SQLUserRepository{DB: db},
-        &adapters.SQLOrderRepository{DB: db}, 
-        &adapters.SQLWalletRepository{DB: db}, 
-        &adapters.SQLPositionRepository{DB: db},
-        &adapters.SQLTransactionManager{DB: db}
+		&adapters.SQLOrderRepository{DB: db},
+		&adapters.SQLWalletRepository{DB: db},
+		&adapters.SQLPositionRepository{DB: db},
+		&adapters.SQLTransactionManager{DB: db}
 }
 
-func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) (*chi.Mux) {
+func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) *chi.Mux {
 	router := chi.NewRouter()
-    router.Use(middleware.Logger)
-    router.Use(noCacheMiddleware)
+	router.Use(middleware.Logger)
+	router.Use(noCacheMiddleware)
 
 	// Public static assets
-    fs := http.StripPrefix("/static/", http.FileServer(http.Dir(config.FrontendPath+"/static")))
-    router.Handle("/static/*", fs)
-    router.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-        renderTemplate(w, r, "login.html", nil)
-    })
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(config.FrontendPath+"/static")))
+	router.Handle("/static/*", fs)
+	router.Get("/login", func(w http.ResponseWriter, r *http.Request) {
+		renderTemplate(w, r, "login.html", nil)
+	})
 
 	// Public API routes
-    router.Post("/auth/login", authHandler.Login)
-    router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        _, err := w.Write([]byte("{\"message\": \"OK\"}"))
+	router.Post("/auth/login", authHandler.Login)
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte("{\"message\": \"OK\"}"))
 		if err != nil {
 			log.Errorf("Health check response error: %v", err)
 		}
-    })
+	})
 
-    // Protected routes
-    router.Group(func(r chi.Router) {
-        r.Use(authHandler.Middleware)
+	// Protected routes
+	router.Group(func(r chi.Router) {
+		r.Use(authHandler.Middleware)
 		r.Use(middleware.Logger)
-        r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-            renderTemplate(w, r, "index.html", nil)
-        })
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			renderTemplate(w, r, "index.html", nil)
+		})
 
-        r.Get("/order", orderHandler.GetOrders)
-        r.Post("/order/place", orderHandler.PlaceOrder)
-    })
+		r.Get("/order", orderHandler.GetOrders)
+		r.Post("/order/place", orderHandler.PlaceOrder)
+	})
 
-    return router
+	return router
 }
 
 func noCacheMiddleware(next http.Handler) http.Handler {
@@ -109,20 +116,20 @@ func noCacheMiddleware(next http.Handler) http.Handler {
 }
 
 func renderTemplate(w http.ResponseWriter, r *http.Request, name string, data map[string]string) {
-    tpl, err := template.ParseFiles(config.FrontendPath+"/templates/base.html", config.FrontendPath+"/templates/"+name)
-    if err != nil {
-        http.Error(w, "Template parse error: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
+	tpl, err := template.ParseFiles(config.FrontendPath+"/templates/base.html", config.FrontendPath+"/templates/"+name)
+	if err != nil {
+		http.Error(w, "Template parse error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    if data == nil {
+	if data == nil {
 		data = make(map[string]string)
 	}
 
-    userEmail := r.Context().Value(adapters.USER_EMAIL_KEY)
-    if userEmail != nil {
-        data["Email"] = userEmail.(string)
-    }
+	userEmail := r.Context().Value(adapters.USER_EMAIL_KEY)
+	if userEmail != nil {
+		data["Email"] = userEmail.(string)
+	}
 
 	err = tpl.ExecuteTemplate(w, "base.html", data)
 	if err != nil {
