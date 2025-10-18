@@ -54,8 +54,8 @@ func run() http.Handler {
 func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
 
-	db.SetMaxOpenConns(50)
-	db.SetMaxIdleConns(20)
+	db.SetMaxOpenConns(130)
+	db.SetMaxIdleConns(65)
 	db.SetConnMaxLifetime(time.Minute * 5)
 	db.SetConnMaxIdleTime(time.Minute * 1)
 

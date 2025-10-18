@@ -30,4 +30,4 @@ COPY load-tests/ /mnt/locust/
 COPY load-tests/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["locust", "-f", "/mnt/locust/locustfile.py", "--host", "http://brokerx:8080"]
+CMD ["locust", "-f", "/mnt/locust/locustfile.py", "--host", "http://brokerx:8080", "--processes", "-1"]

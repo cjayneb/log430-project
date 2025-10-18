@@ -64,7 +64,7 @@ def get_sell_order():
     }
 
 class BrokerXBuyerUser(HttpUser):
-    wait_time = between(0.02, 0.04)
+    wait_time = between(1, 2)
 
     def on_start(self):
         if shared_sessions["buyer"]:
@@ -87,7 +87,7 @@ class BrokerXBuyerUser(HttpUser):
                 response.failure(f"Invalid response: {response.text}")
 
 class BrokerXSellerUser(HttpUser):
-    wait_time = between(0.02, 0.04)
+    wait_time = between(1, 2)
 
     def on_start(self):
         if shared_sessions["seller"]:
