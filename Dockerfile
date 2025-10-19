@@ -20,6 +20,7 @@ COPY backend/adapters/resources ./resources
 
 COPY --from=builder /app/brokerx .
 EXPOSE 8080
+EXPOSE 6060
 CMD ["./brokerx"]
 
 # Locust stage =================================
@@ -30,4 +31,4 @@ COPY load-tests/ /mnt/locust/
 COPY load-tests/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["locust", "-f", "/mnt/locust/locustfile.py", "--host", "http://brokerx:8080", "--processes", "-1"]
+CMD ["locust", "-f", "/mnt/locust/locustfile.py", "--host", "http://nginx:80", "--processes", "-1"]

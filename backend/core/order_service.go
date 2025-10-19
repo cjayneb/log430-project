@@ -4,16 +4,40 @@ import (
 	"brokerx/models"
 	"brokerx/ports"
 
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
-type OrderService struct {
-	Repo ports.OrderRepository
-	ComplianceService ports.ComplianceService
-	MatchingEngine ports.MatchingEngine
+var orderQueueLen = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "order_queue_length",
+	Help: "Current number of orders in the matching queue",
+})
+
+func init() { prometheus.MustRegister(orderQueueLen) }
+
+var orderQueue chan *models.Order
+
+func StartMatchingWorkers(matchingEngine ports.MatchingEngine) {
+	orderQueue = make(chan *models.Order, 1000)
+	for i := 0; i < 8; i++ {
+		go func() {
+			for order := range orderQueue {
+				if err := matchingEngine.SubmitOrder(order); err != nil {
+					log.Errorf("matching failed for order #%d: %v", order.ID, err)
+				}
+			}
+		}()
+	}
+	log.Infof("Started %d matching workers", 8)
 }
 
-func (service * OrderService) PlaceOrder(order *models.Order) error {
+type OrderService struct {
+	Repo              ports.OrderRepository
+	ComplianceService ports.ComplianceService
+	MatchingEngine    ports.MatchingEngine
+}
+
+func (service *OrderService) PlaceOrder(order *models.Order) error {
 	err := service.ComplianceService.VerifyOrderCompliance(order)
 	if err != nil {
 		log.Errorf("Error when verifying order compliance : %v", err)
@@ -26,14 +50,9 @@ func (service * OrderService) PlaceOrder(order *models.Order) error {
 	}
 	order.ID = createdOrderId
 
-	go func() {
-		if err := service.MatchingEngine.SubmitOrder(order); err != nil {
-			log.Errorf("matching failed for order #%d: %v", order.ID, err)
-		}
-	}()
-
-	log.Printf("Order #%v was submitted to the internal matching engine", createdOrderId)
-
+	orderQueueLen.Set(float64(len(orderQueue)))
+	orderQueue <- order
+	log.Infof("Order #%v queued for matching", order.ID)
 	return nil
 }
 

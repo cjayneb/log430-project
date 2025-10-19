@@ -20,7 +20,7 @@ def on_test_start(environment, **kwargs):
     Logs in as buyer and seller once before users are spawned,
     and stores their session cookies globally.
     """
-    base_url = "http://brokerx:8080"
+    base_url = "http://nginx:80"
 
     # Buyer login
     session = requests.Session()
@@ -79,11 +79,11 @@ class BrokerXBuyerUser(HttpUser):
             try:
                 data = response.text
                 if response.status_code == 201:
-                    if  "order placed sucessfully!" in response:
+                    if  "order placed" in response:
                         response.success()
                 else:
                     response.failure(f"Erreur : {response.status_code} - {data.split('h3')[1]}")
-            except ValueError:
+            except Exception:
                 response.failure(f"Invalid response: {response.text}")
 
 class BrokerXSellerUser(HttpUser):
@@ -102,9 +102,9 @@ class BrokerXSellerUser(HttpUser):
             try:
                 data = response.text
                 if response.status_code == 201:
-                    if  "order placed sucessfully!" in response:
+                    if  "order placed" in response:
                         response.success()
                 else:
                     response.failure(f"Erreur : {response.status_code} - {data.split('h3')[1]}")
-            except ValueError:
+            except Exception:
                 response.failure(f"Invalid response: {response.text}")

@@ -25,12 +25,12 @@ func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order) ([]*model
 		priceOrdering = "DESC"
 	}
 	query := fmt.Sprintf(`
-    SELECT id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
+    SELECT id, user_id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
         FROM orders
-        WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND user_id <> ? AND type <> 'market'
+        WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND type <> 'market'
         ORDER BY unit_price %s, created_at ASC
         FOR UPDATE`, priceOrdering)
-	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, order.UserID)
+	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order) ([]*model
 	var result []*models.Order
 	for rows.Next() {
 		var o models.Order
-		if err := rows.Scan(&o.ID, &o.Symbol, &o.Action, &o.Type, &o.Timing, &o.Status, &o.UnitPrice, &o.RemainingQuantity, &o.Quantity); err != nil {
+		if err := rows.Scan(&o.ID, &o.UserID, &o.Symbol, &o.Action, &o.Type, &o.Timing, &o.Status, &o.UnitPrice, &o.RemainingQuantity, &o.Quantity); err != nil {
 			return nil, err
 		}
 		result = append(result, &o)
@@ -55,12 +55,12 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
 		priceOrdering = "DESC"
 	}
 	query := fmt.Sprintf(`
-    SELECT id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
+    SELECT id, user_id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
         FROM orders
-        WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND unit_price %s ? AND user_id <> ?
+        WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND unit_price %s ?
         ORDER BY unit_price %s, created_at ASC
         FOR UPDATE`, priceComparison, priceOrdering)
-	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, price, order.UserID)
+	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, price)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
 	var result []*models.Order
 	for rows.Next() {
 		var o models.Order
-		if err := rows.Scan(&o.ID, &o.Symbol, &o.Action, &o.Type, &o.Timing, &o.Status, &o.UnitPrice, &o.RemainingQuantity, &o.Quantity); err != nil {
+		if err := rows.Scan(&o.ID, &o.UserID, &o.Symbol, &o.Action, &o.Type, &o.Timing, &o.Status, &o.UnitPrice, &o.RemainingQuantity, &o.Quantity); err != nil {
 			return nil, err
 		}
 		result = append(result, &o)
@@ -78,7 +78,6 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
 }
 
 func (repo *SQLOrderRepository) Update(order *models.Order) error {
-	log.Printf("updating order #%d : %v", order.ID, order)
 	_, err := repo.tx.ExecContext(context.Background(),
 		`UPDATE orders SET remaining_quantity=?, status=?, unit_price=? WHERE id=?`,
 		order.RemainingQuantity, order.Status, order.UnitPrice, order.ID,

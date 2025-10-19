@@ -31,9 +31,16 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			return err
 		}
 
-		chosenOrders := make([]*models.Order, 0, len(matchedOrders))
-		executionRecords := make([]*models.ExecutionRecord, 0, len(matchedOrders))
+		var matchedOrdersFiltered []*models.Order
 		for _, m := range matchedOrders {
+			if m.UserID != order.UserID {
+				matchedOrdersFiltered = append(matchedOrdersFiltered, m)
+			}
+		}
+
+		chosenOrders := make([]*models.Order, 0, len(matchedOrdersFiltered))
+		executionRecords := make([]*models.ExecutionRecord, 0, len(matchedOrdersFiltered))
+		for _, m := range matchedOrdersFiltered {
 			if order.RemainingQuantity == 0 {
 				break
 			}

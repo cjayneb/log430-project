@@ -8,18 +8,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
+
+	_ "net/http/pprof"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var config Config = Config{}
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) // Expose pprof on port 6060
+	}()
+
 	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
 		log.Fatalf("Server error : %s", err)
@@ -39,13 +45,16 @@ func run() http.Handler {
 	}
 	authHandler := &adapters.AuthHandler{
 		Service:      authService,
-		SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
+		SessionStore: sessions.NewCookieStore([]byte("my-very-secret-key")),
 		IsProduction: config.IsProduction,
 	}
 
 	complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
-	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: &core.MatchingEngine{TransactionManager: transactionManager}}
+	matchingEngine := &core.MatchingEngine{TransactionManager: transactionManager}
+	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: matchingEngine}
 	orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
+
+	core.StartMatchingWorkers(matchingEngine)
 
 	router := initRouter(authHandler, orderHandler)
 	return router
@@ -54,8 +63,8 @@ func run() http.Handler {
 func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
 
-	db.SetMaxOpenConns(130)
-	db.SetMaxIdleConns(65)
+	db.SetMaxOpenConns(60)
+	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(time.Minute * 5)
 	db.SetConnMaxIdleTime(time.Minute * 1)
 
@@ -90,6 +99,7 @@ func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderH
 			log.Errorf("Health check response error: %v", err)
 		}
 	})
+	router.Handle("/metrics", promhttp.Handler())
 
 	// Protected routes
 	router.Group(func(r chi.Router) {
