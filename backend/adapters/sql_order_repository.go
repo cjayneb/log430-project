@@ -79,15 +79,24 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
 
 func (repo *SQLOrderRepository) ClaimOrder(orderID int, unitPrice float64, qty int) (int64, error) {
 	res, err := repo.tx.ExecContext(context.Background(), `
+		WITH updated AS (
+			SELECT id,
+				GREATEST(remaining_quantity - ?, 0) AS new_remaining
+			FROM orders
+			WHERE id = ? AND remaining_quantity >= ? 
+			AND status IN ('open','partially_filled')
+		)
 		UPDATE orders
-		SET remaining_quantity = remaining_quantity - ?,
-			status = CASE
-				WHEN remaining_quantity - ? = 0 THEN 'filled'
-				WHEN remaining_quantity - ? > 0 THEN 'partially_filled'
-				ELSE status END,
-			unit_price = ?
-		WHERE id = ? AND remaining_quantity >= ? AND status IN ('open','partially_filled');`,
-		qty, qty, qty, unitPrice, orderID, qty)
+		JOIN updated USING (id)
+		SET 
+			orders.remaining_quantity = updated.new_remaining,
+			orders.status = CASE
+				WHEN updated.new_remaining = 0 THEN 'filled'
+				WHEN updated.new_remaining > 0 THEN 'partially_filled'
+				ELSE orders.status
+			END,
+			orders.unit_price = ?;`,
+		qty, orderID, qty, unitPrice)
 	if err != nil {
 		return 0, err
 	}

@@ -148,9 +148,9 @@ func determineUnitPrice(order *models.Order, qty int, otherOrderUnitPrice float6
 	}
 
 	totalQty := order.Quantity - order.RemainingQuantity
-	totalValue := ((float64(totalQty) - float64(qty)) * order.UnitPrice) + (float64(qty) * otherOrderUnitPrice)
+	totalValue := (float64(totalQty) * order.UnitPrice) + (float64(qty) * otherOrderUnitPrice)
 
-	return totalValue / float64(totalQty)
+	return totalValue / float64(totalQty+qty)
 }
 
 func pickID(a, b *models.Order, side string) int {
