@@ -47,12 +47,9 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-CREATE INDEX idx_orders_match_asc ON orders(symbol, action, status, unit_price ASC, created_at ASC);
-CREATE INDEX idx_orders_match_desc ON orders(symbol, action, status, unit_price DESC, created_at ASC);
+CREATE INDEX idx_orders_match_asc ON orders(symbol, action, status, type ASC, unit_price ASC, created_at ASC);
+CREATE INDEX idx_orders_match_desc ON orders(symbol, action, status, type ASC, unit_price DESC, created_at ASC);
 CREATE INDEX idx_orders_user ON orders(user_id);
-
-INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES
-((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'market', 'buy', 10, 10, 150.00, 'day', 'open');
 
 CREATE TABLE IF NOT EXISTS positions (
     id INT PRIMARY KEY AUTO_INCREMENT,
