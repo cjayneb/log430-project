@@ -13,7 +13,11 @@ type MatchingEngine struct {
 }
 
 func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
-	var claimedOrders []*models.Order
+	var (
+		claimedOrders []*models.Order
+		offset        = 0
+		batchSize     = 10
+	)
 
 	for order.RemainingQuantity > 0 {
 		var (
@@ -23,10 +27,10 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 
 		switch order.Type {
 		case "market":
-			matchedOrders, err = engine.fetchCandidatesMarket(order)
+			matchedOrders, err = engine.fetchCandidatesMarket(order, batchSize, offset)
 
 		case "limit":
-			matchedOrders, err = engine.fetchCandidatesLimit(order)
+			matchedOrders, err = engine.fetchCandidatesLimit(order, batchSize, offset)
 		}
 		if err != nil {
 			log.Errorf("Error when fetching candidate matches: %v", err)
@@ -51,10 +55,10 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 				continue
 			}
 			if success {
-				order.RemainingQuantity -= qty
 				claimedOrders = append(claimedOrders, candidate)
 			}
 		}
+		offset += batchSize
 	}
 
 	if order.Timing == "ioc" && order.RemainingQuantity > 0 {
@@ -68,6 +72,7 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 		}
 
 		order.Status = "canceled"
+		order.RemainingQuantity = order.Quantity
 		return engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, exec ports.ExecutionRepository) error {
 			return orders.Update(order)
 		})
@@ -76,15 +81,15 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 	return nil
 }
 
-func (engine *MatchingEngine) fetchCandidatesLimit(order *models.Order) ([]*models.Order, error) {
+func (engine *MatchingEngine) fetchCandidatesLimit(order *models.Order, batchSize int, offset int) ([]*models.Order, error) {
 	return engine.TransactionManager.DoReadOnly(context.Background(), func(orders ports.OrderRepository) ([]*models.Order, error) {
-		return orders.FindMatchesLimit(order, order.UnitPrice, 10)
+		return orders.FindMatchesLimit(order, order.UnitPrice, batchSize, offset)
 	})
 }
 
-func (engine *MatchingEngine) fetchCandidatesMarket(order *models.Order) ([]*models.Order, error) {
+func (engine *MatchingEngine) fetchCandidatesMarket(order *models.Order, batchSize int, offset int) ([]*models.Order, error) {
 	return engine.TransactionManager.DoReadOnly(context.Background(), func(orders ports.OrderRepository) ([]*models.Order, error) {
-		return orders.FindMatchesMarket(order, 10)
+		return orders.FindMatchesMarket(order, batchSize, offset)
 	})
 }
 

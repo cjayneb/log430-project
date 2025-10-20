@@ -19,7 +19,7 @@ func NewOrderRepo(tx *sql.Tx) ports.OrderRepository {
 	return &SQLOrderRepository{tx: tx}
 }
 
-func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order, limit int) ([]*models.Order, error) {
+func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order, limit int, offset int) ([]*models.Order, error) {
 	priceOrdering := "ASC"
 	if order.Action == "sell" {
 		priceOrdering = "DESC"
@@ -29,8 +29,8 @@ func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order, limit int
         FROM orders
         WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND type <> 'market'
         ORDER BY unit_price %s, created_at ASC
-        LIMIT ?`, priceOrdering)
-	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, limit)
+        LIMIT ? OFFSET ?`, priceOrdering)
+	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order, limit int
 	return result, nil
 }
 
-func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price float64, limit int) ([]*models.Order, error) {
+func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price float64, limit int, offset int) ([]*models.Order, error) {
 	priceComparison := "<="
 	priceOrdering := "ASC"
 	if order.Action == "sell" {
@@ -59,8 +59,8 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
         FROM orders
         WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND (type = 'market' OR unit_price %s ?)
         ORDER BY type ASC, unit_price %s, created_at ASC
-        LIMIT ?`, priceComparison, priceOrdering)
-	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, price, limit)
+        LIMIT ? OFFSET ?`, priceComparison, priceOrdering)
+	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, price, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +105,21 @@ func (repo *SQLOrderRepository) ClaimOrder(orderID int, unitPrice float64, qty i
 
 func (repo *SQLOrderRepository) RevertClaim(orderID int, unitPrice float64, qty int) error {
 	_, err := repo.tx.ExecContext(context.Background(), `
-        UPDATE orders
-        SET remaining_quantity = remaining_quantity + ?,
-            status = CASE
-                WHEN remaining_quantity + ? = quantity THEN 'open'
-                ELSE 'partially_filled' END
-			unit_price = ?
-        WHERE id = ?;`, qty, qty, unitPrice, orderID)
+		WITH updated AS (
+			SELECT id,
+				LEAST(remaining_quantity + ?, quantity) AS new_remaining
+			FROM orders
+			WHERE id = ?
+		)
+		UPDATE orders
+		JOIN updated USING (id)
+		SET 
+			orders.remaining_quantity = updated.new_remaining,
+			orders.status = CASE
+				WHEN updated.new_remaining = quantity THEN 'open'
+				ELSE 'partially_filled'
+			END,
+			orders.unit_price = ?;`, qty, orderID, unitPrice)
 	return err
 }
 
@@ -135,7 +143,7 @@ func (repo *SQLOrderRepository) CreateOrder(order *models.Order) (int, error) {
 }
 
 func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
-	rows, err := repo.DB.Query("SELECT id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status, created_at FROM brokerx.orders WHERE user_id=? ORDER BY created_at DESC LIMIT 100", userId)
+	rows, err := repo.DB.Query("SELECT id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status, created_at FROM brokerx.orders WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 100", userId)
 	if err != nil {
 		return nil, err
 	}
