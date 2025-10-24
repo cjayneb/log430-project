@@ -31,7 +31,7 @@ func (repo *SQLExecutionRepository) CreateBatch(execs []*models.ExecutionRecord)
 		return nil
 	}
 
-	query := "INSERT INTO executions (buy_order_id, sell_order_id, symbol, price, quantity) VALUES "
+	query := "INSERT INTO executions (buy_order_id, sell_order_id, symbol, unit_price, quantity) VALUES "
 	args := []interface{}{}
 	placeholders := []string{}
 

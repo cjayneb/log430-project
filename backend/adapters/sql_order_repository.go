@@ -28,7 +28,7 @@ func (repo *SQLOrderRepository) FindMatchesMarket(order *models.Order, limit int
     SELECT id, user_id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
         FROM orders
         WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND type <> 'market'
-        ORDER BY unit_price %s, created_at ASC
+        ORDER BY unit_price %s, created_at ASC, id ASC
         LIMIT ? OFFSET ?`, priceOrdering)
 	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, limit, offset)
 	if err != nil {
@@ -58,7 +58,7 @@ func (repo *SQLOrderRepository) FindMatchesLimit(order *models.Order, price floa
     SELECT id, user_id, symbol, action, type, timing, status, unit_price, remaining_quantity, quantity
         FROM orders
         WHERE symbol = ? AND action <> ? AND status IN ('open','partially_filled') AND (type = 'market' OR unit_price %s ?)
-        ORDER BY type ASC, unit_price %s, created_at ASC
+        ORDER BY type ASC, unit_price %s, created_at ASC, id ASC
         LIMIT ? OFFSET ?`, priceComparison, priceOrdering)
 	rows, err := repo.tx.QueryContext(context.Background(), query, order.Symbol, order.Action, price, limit, offset)
 	if err != nil {
