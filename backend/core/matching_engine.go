@@ -12,11 +12,18 @@ type MatchingEngine struct {
 	TransactionManager ports.TransactionManager
 }
 
+type claimedCandidate struct {
+    ID        int
+    Qty       int
+    UnitPrice float64
+}
+
 func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 	var (
-		claimedOrders []*models.Order
+		claimedOrders []*claimedCandidate
 		offset        = 0
 		batchSize     = 10
+		executionBuffer []*models.ExecutionRecord
 	)
 
 	for order.RemainingQuantity > 0 {
@@ -49,13 +56,18 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			}
 
 			qty := min(order.RemainingQuantity, candidate.RemainingQuantity)
-			success, err := engine.tryMatch(order, candidate, qty)
+			success, err := engine.tryMatch(order, candidate, qty, &executionBuffer)
 			if err != nil {
 				log.Errorf("Matching error for order #%d with candidate #%d: %v", order.ID, candidate.ID, err)
 				continue
 			}
 			if success {
-				claimedOrders = append(claimedOrders, candidate)
+				order.RemainingQuantity -= qty
+				claimedOrders = append(claimedOrders, &claimedCandidate{
+					ID: candidate.ID,
+					UnitPrice: candidate.UnitPrice,
+					Qty: qty,
+				})
 			}
 		}
 		offset += batchSize
@@ -64,7 +76,7 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 	if order.Timing == "ioc" && order.RemainingQuantity > 0 {
 		for _, c := range claimedOrders {
 			err := engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, _ ports.ExecutionRepository) error {
-				return orders.RevertClaim(c.ID, c.UnitPrice, c.Quantity)
+				return orders.RevertClaim(c.ID, c.UnitPrice, c.Qty)
 			})
 			if err != nil {
 				log.Errorf("error when reverting claim on order #%d when cancelling order #%d", c.ID, order.ID)
@@ -77,6 +89,14 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			return orders.Update(order)
 		})
 	}
+
+    if len(executionBuffer) > 0 {
+        if err := engine.TransactionManager.Do(context.Background(), func(_ ports.OrderRepository, exec ports.ExecutionRepository) error {
+            return exec.CreateBatch(executionBuffer)
+        }); err != nil {
+            log.Errorf("error flushing execution buffer: %v", err)
+        }
+    }
 
 	return nil
 }
@@ -93,7 +113,9 @@ func (engine *MatchingEngine) fetchCandidatesMarket(order *models.Order, batchSi
 	})
 }
 
-func (engine *MatchingEngine) tryMatch(incoming *models.Order, candidate *models.Order, qty int) (bool, error) {
+func (engine *MatchingEngine) tryMatch(incoming *models.Order, candidate *models.Order, qty int, executionBuffer *[]*models.ExecutionRecord) (bool, error) {
+	// TODO: Fix remaining quantity resetting candidate order when incoming is ioc and fix incoming ioc getting canceled when it should be filled
+	
 	returnValue := false
 
 	err := engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
@@ -107,7 +129,20 @@ func (engine *MatchingEngine) tryMatch(incoming *models.Order, candidate *models
 			return nil
 		}
 
-		// 2. Record execution
+		// 2. Try to atomically claim qty from incoming order
+		affected, err = orders.ClaimOrder(incoming.ID, determineUnitPrice(incoming, qty, candidate.UnitPrice), qty)
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			// Someone else matched the incoming order already. We must revert candidate claim.
+			if rerr := orders.RevertClaim(candidate.ID, candidate.UnitPrice, qty); rerr != nil {
+                log.Errorf("failed to revert candidate claim after incoming claim lost race: %v", rerr)
+            }
+			return nil
+		}
+
+		// 3. Record execution
 		exec := &models.ExecutionRecord{
 			BuyOrderID:  pickID(incoming, candidate, "buy"),
 			SellOrderID: pickID(incoming, candidate, "sell"),
@@ -115,17 +150,7 @@ func (engine *MatchingEngine) tryMatch(incoming *models.Order, candidate *models
 			Price:       pickUnitPrice(incoming, candidate),
 			Quantity:    qty,
 		}
-		if err := executions.Create(exec); err != nil {
-			return err
-		}
-
-		// 3. Update the incoming order’s status in DB (partial fill or filled)
-		incoming.RemainingQuantity -= qty
-		incoming = updateStatus(incoming)
-		incoming.UnitPrice = determineUnitPrice(incoming, qty, candidate.UnitPrice)
-		if err := orders.Update(incoming); err != nil {
-			return err
-		}
+		*executionBuffer = append(*executionBuffer, exec)
 
 		returnValue = true
 		return nil
