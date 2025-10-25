@@ -41,7 +41,7 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 		Status:    "open",
 	}
 
-	id, err := repo.CreateOrder(order)
+	id, err := repo.Create(order)
 	require.Nil(t, err)
 	require.Greater(t, id, 0)
 
@@ -57,7 +57,7 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 		Status:    "open",
 	}
 
-	id, err = repo.CreateOrder(badOrder)
+	id, err = repo.Create(badOrder)
 	require.NotNil(t, err)
 	require.Equal(t, 0, id)
 }
