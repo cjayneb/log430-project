@@ -20,7 +20,6 @@ COPY backend/adapters/resources ./resources
 
 COPY --from=builder /app/brokerx .
 EXPOSE 8080
-EXPOSE 6060
 CMD ["./brokerx"]
 
 # Locust stage =================================

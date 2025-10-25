@@ -12,8 +12,6 @@ import (
 	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
 
-	_ "net/http/pprof"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/go-sql-driver/mysql"
@@ -27,10 +25,6 @@ var cancel = context.CancelFunc(nil)
 var config Config = Config{}
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) // Expose pprof on port 6060
-	}()
-
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 
