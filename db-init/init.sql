@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS wallets (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE UNIQUE INDEX idx_wallets_id ON wallets(id);
+CREATE INDEX idx_wallets_user ON wallets(user_id);
 
 INSERT INTO wallets (id, user_id, available_funds) VALUES
 (UUID(), (SELECT id FROM users WHERE email = 'email'), 0),
@@ -32,12 +33,12 @@ INSERT INTO wallets (id, user_id, available_funds) VALUES
 (UUID(), (SELECT id FROM users WHERE email = 'seller@email.com'), 300);
 
 CREATE TABLE IF NOT EXISTS orders (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT PRIMARY KEY UNIQUE AUTO_INCREMENT,
     user_id CHAR(36) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
     type ENUM('market', 'limit') NOT NULL,
     action ENUM('buy', 'sell') NOT NULL,
-    quantity INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
     remaining_quantity int NOT NULL,
     unit_price DECIMAL(10, 2) NOT NULL,
     timing ENUM('day', 'ioc') NOT NULL,
@@ -46,9 +47,7 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
-INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES
-((SELECT id FROM users WHERE email = 'email'), 'AAPL', 'market', 'buy', 10, 10, 150.00, 'day', 'open');
+CREATE INDEX idx_orders_user ON orders(user_id);
 
 CREATE TABLE IF NOT EXISTS positions (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -60,6 +59,7 @@ CREATE TABLE IF NOT EXISTS positions (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+CREATE INDEX idx_positions_user ON positions(user_id);
 
 INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES
 ((SELECT id FROM users WHERE email = 'seller@email.com'), 'AAPL', 15, 400.00);

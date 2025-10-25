@@ -11,6 +11,18 @@ shared_sessions = {
     "seller": None,
 }
 
+def make_random_order(action):
+    order_type = random.choice(["market", "limit"])
+    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
+    return {
+        "symbol": "AAPL",
+        "type": order_type,
+        "action": action,
+        "quantity": random.choice(range(1,10)),
+        "timing": random.choice(["day", "ioc"]),
+        "unit_price": unit_price
+    }
+
 # ------------------------------------------------------
 # GLOBAL SETUP — Runs once before any users are spawned
 # ------------------------------------------------------
@@ -20,7 +32,7 @@ def on_test_start(environment, **kwargs):
     Logs in as buyer and seller once before users are spawned,
     and stores their session cookies globally.
     """
-    base_url = "http://brokerx:8080"
+    base_url = "http://nginx:80"
 
     # Buyer login
     session = requests.Session()
@@ -38,31 +50,6 @@ def on_test_start(environment, **kwargs):
     )
     shared_sessions["seller"] = session.cookies
 
-
-def get_buy_order():
-    order_type = random.choice(["market", "limit"])
-    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
-    return {
-        "symbol": "AAPL",
-        "type": order_type,
-        "action": "buy",
-        "quantity": random.choice(range(1,10)),
-        "timing": "day",
-        "unit_price": unit_price
-    }
-
-def get_sell_order():
-    order_type = random.choice(["market", "limit"])
-    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
-    return {
-        "symbol": "AAPL",
-        "type": order_type,
-        "action": "sell",
-        "quantity": random.choice(range(1,10)),
-        "timing": "day",
-        "unit_price": unit_price
-    }
-
 class BrokerXBuyerUser(HttpUser):
     wait_time = between(1, 2)
 
@@ -74,16 +61,15 @@ class BrokerXBuyerUser(HttpUser):
     
     @task(1) 
     def orders(self):
-        form_data = get_buy_order()
-        with self.client.post("/order/place", data=form_data, catch_response=True) as response:
+        with self.client.post("/order/place", data=make_random_order("buy"), catch_response=True) as response:
             try:
                 data = response.text
                 if response.status_code == 201:
-                    if  "order placed sucessfully!" in response:
+                    if  "order placed" in response:
                         response.success()
                 else:
                     response.failure(f"Erreur : {response.status_code} - {data.split('h3')[1]}")
-            except ValueError:
+            except Exception:
                 response.failure(f"Invalid response: {response.text}")
 
 class BrokerXSellerUser(HttpUser):
@@ -97,14 +83,13 @@ class BrokerXSellerUser(HttpUser):
     
     @task(1) 
     def orders(self):
-        form_data = get_sell_order()
-        with self.client.post("/order/place", data=form_data, catch_response=True) as response:
+        with self.client.post("/order/place", data=make_random_order("sell"), catch_response=True) as response:
             try:
                 data = response.text
                 if response.status_code == 201:
-                    if  "order placed sucessfully!" in response:
+                    if  "order placed" in response:
                         response.success()
                 else:
                     response.failure(f"Erreur : {response.status_code} - {data.split('h3')[1]}")
-            except ValueError:
+            except Exception:
                 response.failure(f"Invalid response: {response.text}")

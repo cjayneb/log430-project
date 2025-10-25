@@ -15,14 +15,14 @@ import (
 const ORDER_PAGE = "order.html"
 
 type OrderViewData struct {
-    Email   string
-    Orders  []*models.Order
-    Error   string
-    Success string
+	Email   string
+	Orders  []*models.Order
+	Error   string
+	Success string
 }
 
 type OrderHandler struct {
-	Service ports.OrderService
+	Service      ports.OrderService
 	FrontendPath string
 }
 
@@ -51,7 +51,12 @@ func (handler *OrderHandler) PlaceOrder(writer http.ResponseWriter, request *htt
 	}
 
 	writer.WriteHeader(http.StatusCreated)
-	handler.renderTemplate(writer, request, ORDER_PAGE, OrderViewData{Success: "order placed sucessfully!"})
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write([]byte("{\"message\": \"order placed\"}"))
+	if err != nil {
+		log.Errorf("Order placement response error: %v", err)
+	}
+	//handler.renderTemplate(writer, request, ORDER_PAGE, OrderViewData{Success: "order placed sucessfully!"})
 }
 
 func (handler *OrderHandler) GetOrders(writer http.ResponseWriter, request *http.Request) {
@@ -59,20 +64,20 @@ func (handler *OrderHandler) GetOrders(writer http.ResponseWriter, request *http
 }
 
 func (handler *OrderHandler) renderTemplate(w http.ResponseWriter, r *http.Request, name string, data OrderViewData) {
-    tpl, err := template.ParseFiles(handler.FrontendPath+"/templates/base.html", handler.FrontendPath+"/templates/"+name)
-    if err != nil {
-        http.Error(w, "Template parse error: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
+	tpl, err := template.ParseFiles(handler.FrontendPath+"/templates/base.html", handler.FrontendPath+"/templates/"+name)
+	if err != nil {
+		http.Error(w, "Template parse error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	userId := r.Context().Value(USER_ID_KEY).(string)
 	userEmail := r.Context().Value(USER_EMAIL_KEY).(string)
 
-    orders, err := handler.Service.GetOrdersForUser(userId)
-    if err != nil {
-        log.Errorf("Failed to fetch orders: %v", err)
-        orders = []*models.Order{}
-    }
+	orders, err := handler.Service.GetOrdersForUser(userId)
+	if err != nil {
+		log.Errorf("Failed to fetch orders: %v", err)
+		orders = []*models.Order{}
+	}
 
 	data.Email = userEmail
 	data.Orders = orders
@@ -86,10 +91,10 @@ func (handler *OrderHandler) renderTemplate(w http.ResponseWriter, r *http.Reque
 func validateOrderForm(request *http.Request) (*models.Order, error) {
 	var order models.Order
 	decoder := schema.NewDecoder()
-	err := decoder.Decode(&order, request.PostForm);
+	err := decoder.Decode(&order, request.PostForm)
 	order.UserID = request.Context().Value(USER_ID_KEY).(string)
 	order.RemainingQuantity = order.Quantity
-	
+
 	if err != nil || orderFieldsInvalid(&order) {
 		return nil, fmt.Errorf("invalid order : %v", err)
 	}
@@ -97,12 +102,11 @@ func validateOrderForm(request *http.Request) (*models.Order, error) {
 }
 
 func orderFieldsInvalid(order *models.Order) bool {
-	log.Printf("Validating order: %+v", order)
-    return order.UserID == "" ||
-        order.Symbol == "" ||
-        order.Type == "" ||
-        order.Action == "" ||
-        order.Quantity <= 0 ||
+	return order.UserID == "" ||
+		order.Symbol == "" ||
+		order.Type == "" ||
+		order.Action == "" ||
+		order.Quantity <= 0 ||
 		order.RemainingQuantity <= 0 ||
-        order.Timing == ""
+		order.Timing == ""
 }

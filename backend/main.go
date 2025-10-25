@@ -3,6 +3,7 @@ package main
 import (
 	"brokerx/adapters"
 	"brokerx/core"
+	"context"
 	"database/sql"
 	"html/template"
 	"net/http"
@@ -15,11 +16,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 )
+
+var ctx = context.Background()
+var cancel = context.CancelFunc(nil)
 
 var config Config = Config{}
 
 func main() {
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+
 	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
 		log.Fatalf("Server error : %s", err)
@@ -32,6 +41,7 @@ func run() http.Handler {
 	}
 
 	userRepo, orderRepo, walletRepo, positionRepo, transactionManager := initDbConnection()
+	orderBook, executionQueue := initRedisConnection()
 	authService := &core.AuthService{
 		Repo:                        userRepo,
 		PasswordAllowedRetries:      config.PasswordAllowedRetries,
@@ -44,8 +54,14 @@ func run() http.Handler {
 	}
 
 	complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
-	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, MatchingEngine: &core.MatchingEngine{TransactionManager: transactionManager}}
+	matchingEngine := &core.MatchingEngine{TransactionManager: transactionManager, OrderBook: orderBook, ExecutionQueue: executionQueue}
+	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, OrderBook: orderBook, MatchingEngine: matchingEngine}
 	orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
+
+	// Start async processes
+	orderService.StartMatchingWorkers()
+	core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
+	matchingEngine.PersistOrdersAndExecutions(ctx, 300*time.Millisecond)
 
 	router := initRouter(authHandler, orderHandler)
 	return router
@@ -54,8 +70,8 @@ func run() http.Handler {
 func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
 
-	db.SetMaxOpenConns(130)
-	db.SetMaxIdleConns(65)
+	db.SetMaxOpenConns(60)
+	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(time.Minute * 5)
 	db.SetConnMaxIdleTime(time.Minute * 1)
 
@@ -67,6 +83,23 @@ func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderReposito
 		&adapters.SQLWalletRepository{DB: db},
 		&adapters.SQLPositionRepository{DB: db},
 		&adapters.SQLTransactionManager{DB: db}
+}
+
+func initRedisConnection() (*adapters.RedisOrderBook, *adapters.RedisExecutionQueue) {
+	client := redis.NewClient(&redis.Options{
+		Addr: config.RedisAddr,
+		Password: "",
+		DB: 0,
+	})
+
+	ctx := context.Background()
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		log.Warnf("Redis error : %v", err)
+	}
+
+	// TODO: Initialize RedisOrderBook and RedisExecutionQueue with the client
+	return &adapters.RedisOrderBook{Rdb: client}, &adapters.RedisExecutionQueue{Rdb: client}
 }
 
 func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) *chi.Mux {
@@ -90,6 +123,7 @@ func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderH
 			log.Errorf("Health check response error: %v", err)
 		}
 	})
+	router.Handle("/metrics", promhttp.Handler())
 
 	// Protected routes
 	router.Group(func(r chi.Router) {

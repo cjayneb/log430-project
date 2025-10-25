@@ -14,7 +14,7 @@ type MockOrderRepo struct {
 	mock.Mock
 }
 
-func (m *MockOrderRepo) CreateOrder(order *models.Order) (int, error) {
+func (m *MockOrderRepo) Create(order *models.Order) (int, error) {
 	args := m.Called(order)
 	if args.Get(0) == nil {
 		return 0, args.Error(1)
@@ -35,20 +35,9 @@ func (m *MockOrderRepo) Update(order *models.Order) error {
 	return args.Error(0)
 }
 
-func (m *MockOrderRepo) FindMatchesMarket(order *models.Order) ([]*models.Order, error) {
+func (m *MockOrderRepo) UpdateBatch(order []*models.Order) error {
 	args := m.Called(order)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Order), args.Error(1)
-}
-
-func (m *MockOrderRepo) FindMatchesLimit(order *models.Order, price float64) ([]*models.Order, error) {
-	args := m.Called(order, price)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Order), args.Error(1)
+	return args.Error(0)
 }
 
 type MockComplianceService struct {
@@ -64,8 +53,8 @@ type MockMatchingEngine struct {
 	mock.Mock
 }
 
-func (m *MockMatchingEngine) SubmitOrder(order *models.Order) error {
-	args := m.Called(order)
+func (m *MockMatchingEngine) SubmitOrder(orderId int) error {
+	args := m.Called(orderId)
 	return args.Error(0)
 }
 

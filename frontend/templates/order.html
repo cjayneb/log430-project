@@ -4,40 +4,6 @@
 
 {{ define "title" }}Place Order{{ end }} 
 {{ define "content"}}
-<h2>Your Orders</h2>
-
-{{ if .Orders }}
-  <table>
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Quantity</th>
-        <th>Remaining quantity</th>
-        <th>Action</th>
-        <th>Type</th>
-        <th>Timing</th>
-        <th>Unit Price</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{ range .Orders }}
-        <tr>
-          <td>{{ .Symbol }}</td>
-          <td>{{ .Quantity }}</td>
-          <td>{{ .RemainingQuantity }}</td>
-          <td>{{ .Action }}</td>
-          <td>{{ .Type }}</td>
-          <td>{{ .Timing }}</td>
-          <td>{{ .UnitPrice }}</td>
-          <td>{{ .Status }}</td>
-        </tr>
-      {{ end }}
-    </tbody>
-  </table>
-{{ else }}
-  <p>No orders yet.</p>
-{{ end }}
 
 <h2>Place Order</h2>
 <form action="/order/place" method="post">
@@ -65,4 +31,46 @@
   <button type="submit">Submit Order</button>
 </form>
 <h3>{{ if .Error }}{{.Error}}{{else}}{{.Success}}{{end}}</h3>
+
+<h2>Your Orders</h2>
+
+{{ if .Orders }}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Symbol</th>
+        <th>Quantity</th>
+        <th>Remaining quantity</th>
+        <th>Action</th>
+        <th>Type</th>
+        <th>Timing</th>
+        <th>Unit Price</th>
+        <th>Status</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range .Orders }}
+        <tr>
+          <td>{{ .ID }}</td>
+          <td>{{ .Symbol }}</td>
+          <td>{{ .Quantity }}</td>
+          <td>{{ .RemainingQuantity }}</td>
+          <td>{{ .Action }}</td>
+          <td>{{ .Type }}</td>
+          <td>{{ .Timing }}</td>
+          <td>{{ .UnitPrice }}</td>
+          <td>{{ .Status }}</td>
+          <td>{{ .CreatedAt }}</td>
+        </tr>
+      {{ end }}
+    </tbody>
+  </table>
+</div>
+{{ else }}
+  <p>No orders yet.</p>
+{{ end }}
+
 {{ end }}

@@ -2,7 +2,6 @@ package adapters
 
 import (
 	"database/sql"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -18,10 +17,9 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
 		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
-	} 
+	}
 	defer os.Clearenv()
-	
-	log.Printf("Using DATABASE_URL: %s", dbUrl)
+
 	db, err := sql.Open("mysql", dbUrl)
 	require.NoError(t, err)
 
@@ -31,11 +29,11 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 	_, err = db.Exec("DELETE FROM orders")
 	require.NoError(t, err)
 	_, err = db.Exec("DELETE FROM positions")
-    require.NoError(t, err)
+	require.NoError(t, err)
 	_, err = db.Exec("DELETE FROM wallets")
-    require.NoError(t, err)
+	require.NoError(t, err)
 	_, err = db.Exec("DELETE FROM users")
-    require.NoError(t, err)
+	require.NoError(t, err)
 
 	cleanup := func() {
 		db.Close()
@@ -46,7 +44,7 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 func insertUserTestData(t *testing.T, db *sql.DB) {
 	_, err := db.Query(`INSERT INTO users (id, email, password) 
                       VALUES (UUID(), ?, 'hashedpw')`, email)
-    require.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestSQLUserRepositoryIntegration(t *testing.T) {
