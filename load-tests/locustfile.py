@@ -11,6 +11,18 @@ shared_sessions = {
     "seller": None,
 }
 
+def make_random_order():
+    order_type = random.choice(["market", "limit"])
+    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
+    return {
+        "symbol": "AAPL",
+        "type": order_type,
+        "action": random.choice(["buy", "sell"]),
+        "quantity": random.choice(range(1,10)),
+        "timing": random.choice(["day", "ioc"]),
+        "unit_price": unit_price
+    }
+
 # ------------------------------------------------------
 # GLOBAL SETUP — Runs once before any users are spawned
 # ------------------------------------------------------
@@ -38,31 +50,6 @@ def on_test_start(environment, **kwargs):
     )
     shared_sessions["seller"] = session.cookies
 
-
-def get_buy_order():
-    order_type = random.choice(["market", "limit"])
-    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
-    return {
-        "symbol": "AAPL",
-        "type": order_type,
-        "action": "buy",
-        "quantity": random.choice(range(1,10)),
-        "timing": "day",
-        "unit_price": unit_price
-    }
-
-def get_sell_order():
-    order_type = random.choice(["market", "limit"])
-    unit_price = 0.0 if order_type == "market" else random.choice(np.arange(165.0, 185.0, 0.01))
-    return {
-        "symbol": "AAPL",
-        "type": order_type,
-        "action": "sell",
-        "quantity": random.choice(range(1,10)),
-        "timing": "day",
-        "unit_price": unit_price
-    }
-
 class BrokerXBuyerUser(HttpUser):
     wait_time = between(1, 2)
 
@@ -74,8 +61,7 @@ class BrokerXBuyerUser(HttpUser):
     
     @task(1) 
     def orders(self):
-        form_data = get_buy_order()
-        with self.client.post("/order/place", data=form_data, catch_response=True) as response:
+        with self.client.post("/order/place", data=make_random_order(), catch_response=True) as response:
             try:
                 data = response.text
                 if response.status_code == 201:
@@ -97,8 +83,7 @@ class BrokerXSellerUser(HttpUser):
     
     @task(1) 
     def orders(self):
-        form_data = get_sell_order()
-        with self.client.post("/order/place", data=form_data, catch_response=True) as response:
+        with self.client.post("/order/place", data=make_random_order(), catch_response=True) as response:
             try:
                 data = response.text
                 if response.status_code == 201:
