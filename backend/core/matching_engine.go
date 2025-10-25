@@ -156,11 +156,15 @@ func (engine *MatchingEngine) saveOrdersAndExecutions(incoming *models.Order, cl
 	}
 
 	if (len(ordersToPersist) > 0) {
-		engine.OrderBook.EnqueueOrders(ordersToPersist)
+		if err := engine.OrderBook.EnqueueOrders(ordersToPersist); err != nil {
+			log.Errorf("error when enqueuing orders for saving to db")
+		}
 	}
 
 	if (len(executionBuffer) > 0) {
-		engine.ExecutionQueue.EnqueueExecutionRecords(executionBuffer)
+		if err := engine.ExecutionQueue.EnqueueExecutionRecords(executionBuffer); err != nil {
+			log.Errorf("error when enqueuing execution records for saving to db")
+		}
 	}
 	
 	return nil
@@ -220,17 +224,6 @@ func updateStatus(order *models.Order) *models.Order {
 	}
 
 	return order
-}
-
-func determineUnitPrice(order *models.Order, qty int, otherOrderUnitPrice float64) float64 {
-	if order.Type == "limit" {
-		return order.UnitPrice
-	}
-
-	totalQty := order.Quantity - order.RemainingQuantity
-	totalValue := (float64(totalQty) * order.UnitPrice) + (float64(qty) * otherOrderUnitPrice)
-
-	return totalValue / float64(totalQty+qty)
 }
 
 func pickID(a, b *models.Order, side string) int {

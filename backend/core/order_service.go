@@ -30,7 +30,9 @@ func (service *OrderService) StartMatchingWorkers() {
 					// TODO: retry? or find a way to let user know
 					log.Errorf("Order book submission failed for order #%d: %v", order.ID, err)
 					order.Status = "canceled"
-					service.Repo.Update(order)
+					if err = service.Repo.Update(order); err != nil {
+                        log.Errorf("Failed to update canceled order #%d: %v", order.ID, err)
+                    }
 					return
 				}
 				if err := service.MatchingEngine.SubmitOrder(order.ID); err != nil {

@@ -33,7 +33,7 @@ func (manager *SQLTransactionManager) DoReadOnly(ctx context.Context, fn func(po
 	if err != nil {
 		return []*models.Order{}, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	orderRepo := NewOrderRepo(tx)
 	val, err := fn(orderRepo)
