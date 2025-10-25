@@ -9,12 +9,15 @@ services:
     environment:
       - APP_PORT=8080
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - REDIS_ADDR=redis:6379
       - FRONTEND_PATH=frontend
       - RESOURCES_PATH=resources/
     networks:
       - brokerx-network
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: always
     healthcheck:
@@ -55,6 +58,21 @@ services:
       - brokerx
     networks:
       - brokerx-network
+
+  redis:
+    image: redis:7
+    restart: always
+    networks:
+      - brokerx-network
+    container_name: brokerx_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   nginx:
     image: nginx:latest

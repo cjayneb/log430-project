@@ -8,22 +8,35 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: fix ioc sell order not updating matched market buy order when match is partially filled
+// TODO: fix ioc buy order filled even though not enough remaining quantity on sell side
+
 type MatchingEngine struct {
 	TransactionManager ports.TransactionManager
+	OrderBook          ports.OrderBook
 }
 
 type claimedCandidate struct {
-    ID        int
-    Qty       int
-    UnitPrice float64
+	Order      *models.Order
+	ClaimedQty int
 }
 
-func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
+func (engine *MatchingEngine) SubmitOrder(orderId int) error {
+	// 1. Fetch order from order book
+	order, err := engine.OrderBook.GetById(orderId)
+	if err != nil {
+		return err
+	}
+	if order == (models.Order{}) {
+		log.Infof("Order #%d is already being processed as a candidate.", orderId)
+		return nil
+	}
+
 	var (
-		claimedOrders []*claimedCandidate
-		offset        = 0
-		batchSize     = 10
-		executionBuffer []*models.ExecutionRecord
+		allMatchedOrders []*models.Order
+		claimedOrders    []*claimedCandidate
+		batchSize        = 5
+		executionBuffer  []*models.ExecutionRecord
 	)
 
 	for order.RemainingQuantity > 0 {
@@ -32,12 +45,12 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			err           error
 		)
 
+		// 2. Fetch candidate matches
 		switch order.Type {
 		case "market":
-			matchedOrders, err = engine.fetchCandidatesMarket(order, batchSize, offset)
-
+			matchedOrders, err = engine.OrderBook.FindMatchesMarket(order.Symbol, order.Type, order.Action, batchSize)
 		case "limit":
-			matchedOrders, err = engine.fetchCandidatesLimit(order, batchSize, offset)
+			matchedOrders, err = engine.OrderBook.FindMatchesLimit(order.Symbol, order.Type, order.Action, order.UnitPrice, batchSize)
 		}
 		if err != nil {
 			log.Errorf("Error when fetching candidate matches: %v", err)
@@ -47,7 +60,10 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			break
 		}
 
+		// 3. Try matching each candidate
 		for _, candidate := range matchedOrders {
+			log.Infof("candidate : %v", candidate)
+			// TODO: remove this filtering and filter at order book level
 			if candidate.UserID == order.UserID {
 				continue
 			}
@@ -56,106 +72,103 @@ func (engine *MatchingEngine) SubmitOrder(order *models.Order) error {
 			}
 
 			qty := min(order.RemainingQuantity, candidate.RemainingQuantity)
-			success, err := engine.tryMatch(order, candidate, qty, &executionBuffer)
-			if err != nil {
-				log.Errorf("Matching error for order #%d with candidate #%d: %v", order.ID, candidate.ID, err)
-				continue
-			}
-			if success {
-				order.RemainingQuantity -= qty
-				claimedOrders = append(claimedOrders, &claimedCandidate{
-					ID: candidate.ID,
-					UnitPrice: candidate.UnitPrice,
-					Qty: qty,
-				})
-			}
-		}
-		offset += batchSize
-	}
+			order.RemainingQuantity -= qty
+			candidate.RemainingQuantity -= qty
 
-	if order.Timing == "ioc" && order.RemainingQuantity > 0 {
-		for _, c := range claimedOrders {
-			err := engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, _ ports.ExecutionRepository) error {
-				return orders.RevertClaim(c.ID, c.UnitPrice, c.Qty)
+			updateStatus(candidate)
+
+			claimedOrders = append(claimedOrders, &claimedCandidate{
+				Order:      candidate,
+				ClaimedQty: qty,
 			})
-			if err != nil {
-				log.Errorf("error when reverting claim on order #%d when cancelling order #%d", c.ID, order.ID)
+
+			executionBuffer = append(executionBuffer, &models.ExecutionRecord{
+				BuyOrderID:  pickID(&order, candidate, "buy"),
+				SellOrderID: pickID(&order, candidate, "sell"),
+				Symbol:      order.Symbol,
+				Price:       pickUnitPrice(&order, candidate),
+				Quantity:    qty,
+			})
+		}
+		allMatchedOrders = append(allMatchedOrders, matchedOrders...)
+	}
+
+	updateStatus(&order)
+	handleIocOrder(&order, &claimedOrders)
+
+	// Returns incomplete orders to order book
+	if err := engine.handleRemainingOrders(order, &allMatchedOrders); err != nil {
+		return err
+	}
+
+	// Persist incoming order and candidates that are complete
+	return engine.persistOrdersAndExecutions(&order, claimedOrders, executionBuffer)
+}
+
+func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate) {
+	if incoming.Timing != "ioc" {
+		return
+	}
+
+	if incoming.RemainingQuantity > 0 {
+		incoming.Status = "canceled"
+		incoming.RemainingQuantity = incoming.Quantity
+		revertClaimedOrders(claimedOrders)
+	}
+}
+
+func revertClaimedOrders(claimedOrders *[]*claimedCandidate) {
+	for _, claimed := range *claimedOrders {
+		claimed.Order.RemainingQuantity -= claimed.ClaimedQty
+		claimed.Order = updateStatus(claimed.Order)
+	}
+}
+
+func (engine *MatchingEngine) handleRemainingOrders(incoming models.Order, allMatchedOrders *[]*models.Order) error {
+	ordersToReturn := []*models.Order{}
+
+	if incoming.Status == "partially_filled" || incoming.Status == "open" {
+		ordersToReturn = append(ordersToReturn, &incoming)
+	}
+
+	for _, matched := range *allMatchedOrders {
+		if matched.Status == "partially_filled" || matched.Status == "open" {
+			ordersToReturn = append(ordersToReturn, matched)
+		}
+	}
+
+	return engine.OrderBook.Return(ordersToReturn)
+}
+
+func (engine *MatchingEngine) persistOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error {
+	return engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
+		ordersToPersist := []*models.Order{}
+		if incoming.Status == "filled" || incoming.Status == "canceled" {
+			ordersToPersist = append(ordersToPersist, incoming)
+		}
+
+		for _, claimed := range claimedOrders {
+			if claimed.Order.Status == "filled" {
+				ordersToPersist = append(ordersToPersist, claimed.Order)
 			}
 		}
 
-		order.Status = "canceled"
-		order.RemainingQuantity = order.Quantity
-		return engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, exec ports.ExecutionRepository) error {
-			return orders.Update(order)
-		})
-	}
-
-    if len(executionBuffer) > 0 {
-        if err := engine.TransactionManager.Do(context.Background(), func(_ ports.OrderRepository, exec ports.ExecutionRepository) error {
-            return exec.CreateBatch(executionBuffer)
-        }); err != nil {
-            log.Errorf("error flushing execution buffer: %v", err)
-        }
-    }
-
-	return nil
-}
-
-func (engine *MatchingEngine) fetchCandidatesLimit(order *models.Order, batchSize int, offset int) ([]*models.Order, error) {
-	return engine.TransactionManager.DoReadOnly(context.Background(), func(orders ports.OrderRepository) ([]*models.Order, error) {
-		return orders.FindMatchesLimit(order, order.UnitPrice, batchSize, offset)
-	})
-}
-
-func (engine *MatchingEngine) fetchCandidatesMarket(order *models.Order, batchSize int, offset int) ([]*models.Order, error) {
-	return engine.TransactionManager.DoReadOnly(context.Background(), func(orders ports.OrderRepository) ([]*models.Order, error) {
-		return orders.FindMatchesMarket(order, batchSize, offset)
-	})
-}
-
-func (engine *MatchingEngine) tryMatch(incoming *models.Order, candidate *models.Order, qty int, executionBuffer *[]*models.ExecutionRecord) (bool, error) {
-	// TODO: Fix remaining quantity resetting candidate order when incoming is ioc and fix incoming ioc getting canceled when it should be filled
-	
-	returnValue := false
-
-	err := engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
-		// 1. Try to atomically claim qty from the candidate order
-		affected, err := orders.ClaimOrder(candidate.ID, determineUnitPrice(candidate, qty, incoming.UnitPrice), qty)
-		if err != nil {
+		// TODO: send orders to queue and flush every x seconds to reduce IO
+		if err := orders.UpdateBatch(ordersToPersist); err != nil {
+			log.Errorf("error saving orders: %v", err)
 			return err
 		}
-		if affected == 0 {
-			// Someone else matched this candidate already
-			return nil
+
+		// TODO: send executions to queue and flush every x seconds to reduce IO
+		if len(executionBuffer) > 0 {
+			if err := executions.CreateBatch(executionBuffer); err != nil {
+				log.Errorf("error flushing execution buffer: %v", err)
+				return err
+			}
 		}
 
-		// 2. Try to atomically claim qty from incoming order
-		affected, err = orders.ClaimOrder(incoming.ID, determineUnitPrice(incoming, qty, candidate.UnitPrice), qty)
-		if err != nil {
-			return err
-		}
-		if affected == 0 {
-			// Someone else matched the incoming order already. We must revert candidate claim.
-			if rerr := orders.RevertClaim(candidate.ID, candidate.UnitPrice, qty); rerr != nil {
-                log.Errorf("failed to revert candidate claim after incoming claim lost race: %v", rerr)
-            }
-			return nil
-		}
-
-		// 3. Record execution
-		exec := &models.ExecutionRecord{
-			BuyOrderID:  pickID(incoming, candidate, "buy"),
-			SellOrderID: pickID(incoming, candidate, "sell"),
-			Symbol:      incoming.Symbol,
-			Price:       pickUnitPrice(incoming, candidate),
-			Quantity:    qty,
-		}
-		*executionBuffer = append(*executionBuffer, exec)
-
-		returnValue = true
 		return nil
 	})
-	return returnValue, err
 }
 
 func updateStatus(order *models.Order) *models.Order {
