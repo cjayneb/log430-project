@@ -18,7 +18,6 @@ type RedisExecutionQueue struct {
 func (queue *RedisExecutionQueue) EnqueueExecutionRecords(records []*models.ExecutionRecord) error {
 	for _, record := range records {
 		data, err := json.Marshal(record)
-		log.Infof("Enqueuing execution record for persistance : %v", data)
 		if err != nil {
 			log.Errorf("error marshaling execution record %v for enqueue: %v", record, err)
 			continue

@@ -21,7 +21,7 @@ type RedisOrderBook struct {
 var ctx = context.Background()
 
 func (book *RedisOrderBook) GetById(orderId int) (models.Order, error) {
-	val, err := book.Rdb.Get(ctx, keyOrder(orderId)).Result()
+	val, err := book.Rdb.GetDel(ctx, keyOrder(orderId)).Result()
 	if err == redis.Nil {
 		return models.Order{}, nil
 	}
@@ -34,8 +34,7 @@ func (book *RedisOrderBook) GetById(orderId int) (models.Order, error) {
 		return models.Order{}, err
 	}
 
-	// remove from Redis so only one worker processes it
-	book.Rdb.Del(ctx, keyOrder(orderId))
+	// remove from order book sorted set so only one worker processes it
 	book.Rdb.ZRem(ctx, keyBook(order.Symbol, order.Action, order.Type), orderId)
 
 	return order, nil
@@ -130,6 +129,11 @@ func (book *RedisOrderBook) Insert(order *models.Order) error {
 	score := order.UnitPrice
 	if order.Type == "market" {
 		score = float64(time.Now().UnixNano())
+	}
+
+	if order.Timing == "ioc" {
+		// IOC orders should not be added to order book sorted set
+		return nil
 	}
 
 	sideKey := keyBook(order.Symbol, order.Action, order.Type)

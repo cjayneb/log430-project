@@ -9,8 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: dont fetch ioc orders
-
 type MatchingEngine struct {
 	TransactionManager ports.TransactionManager
 	OrderBook          ports.OrderBook
@@ -23,7 +21,6 @@ type claimedCandidate struct {
 }
 
 func (engine *MatchingEngine) SubmitOrder(orderId int) error {
-	engine.OrderBook.LogBook()
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(orderId)
 	if err != nil {
@@ -64,7 +61,6 @@ func (engine *MatchingEngine) SubmitOrder(orderId int) error {
 
 		// 3. Try matching each candidate
 		for _, candidate := range matchedOrders {
-			log.Infof("candidate : %v", candidate)
 			// TODO: remove this filtering and filter at order book level
 			if candidate.UserID == order.UserID {
 				continue
@@ -126,10 +122,8 @@ func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate, 
 
 func revertClaimedOrders(claimedOrders *[]*claimedCandidate) {
 	for _, claimed := range *claimedOrders {
-		log.Infof("claimed order before reversing : %v", claimed.Order)
 		claimed.Order.RemainingQuantity += claimed.ClaimedQty
 		claimed.Order = updateStatus(claimed.Order)
-		log.Infof("claimed order after reversing : %v", claimed.Order)
 	}
 }
 
@@ -179,7 +173,6 @@ func (engine *MatchingEngine) PersistOrdersAndExecutions(ctx context.Context, in
         for {
             select {
             case <-ticker.C:
-				//log.Debug("Flushing Orders and Executions to database")
                 ordersToPersist, err := engine.OrderBook.DequeueOrders(100)
                 if err != nil {
                     log.Errorf("error dequeuing orders: %v", err)
@@ -203,7 +196,7 @@ func (engine *MatchingEngine) PersistOrdersAndExecutions(ctx context.Context, in
 				})
 
             case <-ctx.Done():
-                log.Info("order persistance stopped")
+                log.Info("Order and execution records persistance stopped")
                 return
             }
         }

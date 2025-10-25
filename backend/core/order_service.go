@@ -49,8 +49,7 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
         for {
             select {
             case <-ticker.C:
-				log.Debug("Syncing dirty orders to database")
-                // Step 1: pop dirty IDs from Redis
+                // Step 1: pop dirty order IDs from Redis
                 dirtyIDs, err := popDirtyIDs(ctx, orderBook, batchSize)
                 if err != nil {
                     log.Errorf("order sync: failed to pop dirty IDs: %v", err)
@@ -136,6 +135,7 @@ func (service *OrderService) PlaceOrder(order *models.Order) error {
 	orderQueueLen.Set(float64(len(orderQueue)))
 	orderQueue <- order
 	log.Infof("Order #%v queued for matching", order.ID)
+    
 	return nil
 }
 

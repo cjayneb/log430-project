@@ -74,7 +74,7 @@ func (handler *AuthHandler) initSession(r *http.Request, w http.ResponseWriter, 
 		return err
 	}
 
-	log.Printf("start session user : %v", userId)
+	log.Infof("start session user : %v", userId)
 
 	return nil
 }
