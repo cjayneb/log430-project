@@ -4,13 +4,17 @@ import (
 	"brokerx/models"
 	"brokerx/ports"
 	"context"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: dont fetch ioc orders
+
 type MatchingEngine struct {
 	TransactionManager ports.TransactionManager
 	OrderBook          ports.OrderBook
+	ExecutionQueue 	   ports.ExecutionQueue
 }
 
 type claimedCandidate struct {
@@ -92,22 +96,22 @@ func (engine *MatchingEngine) SubmitOrder(orderId int) error {
 	}
 
 	updateStatus(&order)
-	handleIocOrder(&order, &claimedOrders)
+	handleIocOrder(&order, &claimedOrders, &executionBuffer)
 
 	// Returns incomplete orders to order book
 	if err := engine.handleRemainingOrders(order, &allMatchedOrders); err != nil {
 		return err
 	}
 
-	// Persist incoming order and candidates that are complete
-	if err:= engine.persistOrdersAndExecutions(&order, claimedOrders, executionBuffer); err != nil {
+	// Send complete incoming order and candidates to queue for persistence
+	if err:= engine.saveOrdersAndExecutions(&order, claimedOrders, executionBuffer); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate) {
+func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate, executionBuffer *[]*models.ExecutionRecord) {
 	if incoming.Timing != "ioc" {
 		return
 	}
@@ -116,6 +120,7 @@ func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate) 
 		incoming.Status = "canceled"
 		incoming.RemainingQuantity = incoming.Quantity
 		revertClaimedOrders(claimedOrders)
+		*executionBuffer = nil
 	}
 }
 
@@ -144,35 +149,65 @@ func (engine *MatchingEngine) handleRemainingOrders(incoming models.Order, allMa
 	return engine.OrderBook.Return(ordersToReturn)
 }
 
-func (engine *MatchingEngine) persistOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error {
-	return engine.TransactionManager.Do(context.Background(), func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
-		ordersToPersist := []*models.Order{}
-		if incoming.Status == "filled" || incoming.Status == "canceled" {
-			ordersToPersist = append(ordersToPersist, incoming)
-		}
+func (engine *MatchingEngine) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error{
+	ordersToPersist := []*models.Order{}
+	if incoming.Status == "filled" || incoming.Status == "canceled" {
+		ordersToPersist = append(ordersToPersist, incoming)
+	}
 
-		for _, claimed := range claimedOrders {
-			if claimed.Order.Status == "filled" {
-				ordersToPersist = append(ordersToPersist, claimed.Order)
-			}
+	for _, claimed := range claimedOrders {
+		if claimed.Order.Status == "filled" {
+			ordersToPersist = append(ordersToPersist, claimed.Order)
 		}
+	}
 
-		// TODO: send orders to queue and flush every x seconds to reduce IO
-		if err := orders.UpdateBatch(ordersToPersist); err != nil {
-			log.Errorf("error saving orders: %v", err)
-			return err
-		}
+	if (len(ordersToPersist) > 0) {
+		engine.OrderBook.EnqueueOrders(ordersToPersist)
+	}
 
-		// TODO: send executions to queue and flush every x seconds to reduce IO
-		if len(executionBuffer) > 0 {
-			if err := executions.CreateBatch(executionBuffer); err != nil {
-				log.Errorf("error flushing execution buffer: %v", err)
-				return err
-			}
-		}
+	if (len(executionBuffer) > 0) {
+		engine.ExecutionQueue.EnqueueExecutionRecords(executionBuffer)
+	}
+	
+	return nil
+}
 
-		return nil
-	})
+func (engine *MatchingEngine) PersistOrdersAndExecutions(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+    go func() {
+        defer ticker.Stop()
+        for {
+            select {
+            case <-ticker.C:
+				//log.Debug("Flushing Orders and Executions to database")
+                ordersToPersist, err := engine.OrderBook.DequeueOrders(100)
+                if err != nil {
+                    log.Errorf("error dequeuing orders: %v", err)
+                }
+
+				executionsToPersist, err := engine.ExecutionQueue.DequeueExecutionRecords(200)
+				if err != nil {
+					log.Errorf("error dequeuing execution records: %v", err)
+				}
+
+				_ = engine.TransactionManager.Do(ctx, func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
+					if err := orders.UpdateBatch(ordersToPersist); err != nil {
+						log.Errorf("error saving orders: %v", err)
+						return err
+					}
+					if err := executions.CreateBatch(executionsToPersist); err != nil {
+						log.Errorf("error saving execution records: %v", err)
+						return err
+					}
+					return nil
+				})
+
+            case <-ctx.Done():
+                log.Info("order persistance stopped")
+                return
+            }
+        }
+    }()
 }
 
 func updateStatus(order *models.Order) *models.Order {

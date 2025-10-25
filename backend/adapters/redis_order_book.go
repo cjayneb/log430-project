@@ -12,27 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const ORDER_PERSISTANCE_QUEUE = "orderpersistancequeue"
+
 type RedisOrderBook struct {
 	Rdb *redis.Client
 }
 
 var ctx = context.Background()
-
-func keyOrder(id int) string {
-	return fmt.Sprintf("order:%d", id)
-}
-
-func keyOrderStr(id string) string {
-	return fmt.Sprintf("order:%s", id)
-}
-
-func keyBook(symbol, side, orderType string) string {
-	return fmt.Sprintf("orderbook:%s:%s:%s", symbol, side, orderType)
-}
-
-func (book *RedisOrderBook) MarkDirty(orderID int) error {
-	return book.Rdb.LPush(ctx, "orders:dirty", orderID).Err()
-}
 
 func (book *RedisOrderBook) GetById(orderId int) (models.Order, error) {
 	val, err := book.Rdb.Get(ctx, keyOrder(orderId)).Result()
@@ -97,7 +83,7 @@ func (book *RedisOrderBook) FindMatchesLimit(symbol string, orderType string, ac
 		book.Rdb.ZRem(ctx, marketKey, id)
 	}
 
-	return book.fetchOrders(ids)
+	return book.fetchOrders(ids, true)
 }
 
 func (book *RedisOrderBook) FindMatchesMarket(symbol string, orderType string, action string, batchSize int) ([]*models.Order, error) {
@@ -126,7 +112,7 @@ func (book *RedisOrderBook) FindMatchesMarket(symbol string, orderType string, a
 	for _, z := range popped {
 		ids = append(ids, fmt.Sprintf("%v", z.Member))
 	}
-	return book.fetchOrders(ids)
+	return book.fetchOrders(ids, true)
 }
 
 func (book *RedisOrderBook) Insert(order *models.Order) error {
@@ -162,6 +148,48 @@ func (book *RedisOrderBook) Return(orders []*models.Order) error {
 	return nil
 }
 
+func (book *RedisOrderBook) MarkDirty(orderID int) error {
+	return book.Rdb.LPush(ctx, "orders:dirty", orderID).Err()
+}
+
+func (book *RedisOrderBook) EnqueueOrders(orders []*models.Order) error {
+	for _, order := range orders {
+		data, err := json.Marshal(order)
+		if err != nil {
+			log.Errorf("error marshaling order %v for enqueue: %v", order, err)
+			continue
+		}
+		if err := book.Rdb.LPush(ctx, ORDER_PERSISTANCE_QUEUE, data).Err(); err != nil {
+			log.Errorf("error enqueueing order %v: %v", order, err)
+		}
+	}
+	return nil
+}
+
+func (book *RedisOrderBook) DequeueOrders(batchSize int) ([]*models.Order, error) {
+	var orders []*models.Order
+	for i := 0; i < batchSize; i++ {
+		val, err := book.Rdb.RPop(ctx, ORDER_PERSISTANCE_QUEUE).Result()
+		if err == redis.Nil {
+			break // queue is empty
+		}
+		if err != nil {
+			return nil, err
+		}
+		var order models.Order
+		if err := json.Unmarshal([]byte(val), &order); err != nil {
+			log.Errorf("error unmarshaling dequeued order: %v", err)
+			continue
+		}
+		orders = append(orders, &order)
+	}
+	return orders, nil
+}
+
+func (book *RedisOrderBook) FetchByIDs(ids []string) ([]*models.Order, error) {
+	return book.fetchOrders(ids, false)
+}
+
 func (book *RedisOrderBook) LogBook() {
 	orders, _ := book.fetchAll()
 	log.Info()
@@ -192,40 +220,19 @@ func (book *RedisOrderBook) fetchAll() ([]*models.Order, error) {
 	return orders, nil
 }
 
-func (book *RedisOrderBook) FetchByIDs(ids []string) ([]*models.Order, error) {
+func (book *RedisOrderBook) fetchOrders(ids []string, fetchAndDelete bool) ([]*models.Order, error) {
 	if len(ids) == 0 {
-		return nil, nil
+		return []*models.Order{}, nil
 	}
 
 	pipe := book.Rdb.Pipeline()
 	cmds := make([]*redis.StringCmd, len(ids))
 	for i, id := range ids {
-		cmds[i] = pipe.Get(ctx, keyOrderStr(id))
-	}
-	_, err := pipe.Exec(ctx)
-	if err != nil && err != redis.Nil {
-		return nil, err
-	}
-
-	results := []*models.Order{}
-	for _, cmd := range cmds {
-		val, err := cmd.Result()
-		if err != nil {
-			continue
+		if fetchAndDelete {
+			cmds[i] = pipe.GetDel(ctx, keyOrderStr(id))
+		} else {
+			cmds[i] = pipe.Get(ctx, keyOrderStr(id))
 		}
-		var o models.Order
-		if err := json.Unmarshal([]byte(val), &o); err == nil {
-			results = append(results, &o)
-		}
-	}
-	return results, nil
-}
-
-func (book *RedisOrderBook) fetchOrders(ids []string) ([]*models.Order, error) {
-	pipe := book.Rdb.Pipeline()
-	cmds := make([]*redis.StringCmd, len(ids))
-	for i, id := range ids {
-		cmds[i] = pipe.GetDel(ctx, keyOrderStr(id))
 	}
 	_, err := pipe.Exec(ctx)
 	if err != nil && err != redis.Nil {
@@ -244,6 +251,18 @@ func (book *RedisOrderBook) fetchOrders(ids []string) ([]*models.Order, error) {
 		}
 	}
 	return results, nil
+}
+
+func keyOrder(id int) string {
+	return fmt.Sprintf("order:%d", id)
+}
+
+func keyOrderStr(id string) string {
+	return fmt.Sprintf("order:%s", id)
+}
+
+func keyBook(symbol, side, orderType string) string {
+	return fmt.Sprintf("orderbook:%s:%s:%s", symbol, side, orderType)
 }
 
 var _ ports.OrderBook = (*RedisOrderBook)(nil) // Ensure interface is implemented at compile time

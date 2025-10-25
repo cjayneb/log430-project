@@ -49,7 +49,7 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
         for {
             select {
             case <-ticker.C:
-				log.Info("Ticker")
+				log.Debug("Syncing dirty orders to database")
                 // Step 1: pop dirty IDs from Redis
                 dirtyIDs, err := popDirtyIDs(ctx, orderBook, batchSize)
                 if err != nil {
@@ -82,7 +82,7 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
                 }
 
             case <-ctx.Done():
-                log.Info("order sync stopped")
+                log.Info("dirty order sync stopped")
                 return
             }
         }

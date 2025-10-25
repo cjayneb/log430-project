@@ -41,7 +41,7 @@ func run() http.Handler {
 	}
 
 	userRepo, orderRepo, walletRepo, positionRepo, transactionManager := initDbConnection()
-	orderBook := initRedisConnection()
+	orderBook, executionQueue := initRedisConnection()
 	authService := &core.AuthService{
 		Repo:                        userRepo,
 		PasswordAllowedRetries:      config.PasswordAllowedRetries,
@@ -54,12 +54,14 @@ func run() http.Handler {
 	}
 
 	complianceService := &core.ComplianceService{WalletRepo: walletRepo, PositionRepo: positionRepo, MarketDataProvider: adapters.NewMarketDataProvider(config.ResourcePath)}
-	matchingEngine := &core.MatchingEngine{TransactionManager: transactionManager, OrderBook: orderBook}
+	matchingEngine := &core.MatchingEngine{TransactionManager: transactionManager, OrderBook: orderBook, ExecutionQueue: executionQueue}
 	orderService := &core.OrderService{Repo: orderRepo, ComplianceService: complianceService, OrderBook: orderBook, MatchingEngine: matchingEngine}
 	orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
 
+	// Start async processes
 	orderService.StartMatchingWorkers()
 	core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
+	matchingEngine.PersistOrdersAndExecutions(ctx, 300*time.Millisecond)
 
 	router := initRouter(authHandler, orderHandler)
 	return router
@@ -83,7 +85,7 @@ func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderReposito
 		&adapters.SQLTransactionManager{DB: db}
 }
 
-func initRedisConnection() (*adapters.RedisOrderBook) {
+func initRedisConnection() (*adapters.RedisOrderBook, *adapters.RedisExecutionQueue) {
 	client := redis.NewClient(&redis.Options{
 		Addr: config.RedisAddr,
 		Password: "",
@@ -96,8 +98,8 @@ func initRedisConnection() (*adapters.RedisOrderBook) {
 		log.Warnf("Redis error : %v", err)
 	}
 
-	// TODO: Initialize RedisOrderBook with the client
-	return &adapters.RedisOrderBook{Rdb: client}
+	// TODO: Initialize RedisOrderBook and RedisExecutionQueue with the client
+	return &adapters.RedisOrderBook{Rdb: client}, &adapters.RedisExecutionQueue{Rdb: client}
 }
 
 func initRouter(authHandler *adapters.AuthHandler, orderHandler *adapters.OrderHandler) *chi.Mux {
