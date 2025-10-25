@@ -8,9 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: fix ioc sell order not updating matched market buy order when match is partially filled
-// TODO: fix ioc buy order filled even though not enough remaining quantity on sell side
-
 type MatchingEngine struct {
 	TransactionManager ports.TransactionManager
 	OrderBook          ports.OrderBook
