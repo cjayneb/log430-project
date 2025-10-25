@@ -5,6 +5,8 @@ import (
 	"brokerx/ports"
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -33,47 +35,26 @@ func (repo *SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
 
 	ctx := context.Background()
 
-	// Build the CASE expression dynamically
-	query := `
-		UPDATE orders
-		SET 
-			remaining_quantity = CASE id
-	`
-
-	args := make([]interface{}, 0, len(orders)*4)
-	for _, o := range orders {
-		query += ` WHEN ? THEN ?`
-		args = append(args, o.ID, o.RemainingQuantity)
-	}
-
-	query += ` END, status = CASE id`
+	valueStrings := make([]string, 0, len(orders))
+	valueArgs := make([]interface{}, 0, len(orders)*5)
 
 	for _, o := range orders {
-		query += ` WHEN ? THEN ?`
-		args = append(args, o.ID, o.Status)
+		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		valueArgs = append(valueArgs, o.ID, o.UserID, o.Symbol, o.Type, o.Action, o.RemainingQuantity, o.Status, o.UnitPrice, o.Timing)
 	}
 
-	query += ` END, unit_price = CASE id`
+	query := fmt.Sprintf(`
+		INSERT INTO orders (id, user_id, symbol, type, action, remaining_quantity, status, unit_price, timing)
+		VALUES %s
+		ON DUPLICATE KEY UPDATE
+			remaining_quantity = VALUES(remaining_quantity),
+			status = VALUES(status),
+			unit_price = VALUES(unit_price);
+	`, strings.Join(valueStrings, ","))
 
-	for _, o := range orders {
-		query += ` WHEN ? THEN ?`
-		args = append(args, o.ID, o.UnitPrice)
-	}
-
-	// Add WHERE clause with all order IDs
-	query += ` END WHERE id IN (`
-	for i, o := range orders {
-		if i > 0 {
-			query += ","
-		}
-		query += "?"
-		args = append(args, o.ID)
-	}
-	query += ");"
-
-	_, err := repo.tx.ExecContext(ctx, query, args...)
+	_, err := repo.tx.ExecContext(ctx, query, valueArgs...)
 	if err != nil {
-		log.Errorf("Error executing batch update: %v", err)
+		log.Errorf("Error executing batch upsert: %v", err)
 	}
 	return err
 }

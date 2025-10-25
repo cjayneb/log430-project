@@ -9,4 +9,5 @@ type OrderBook interface {
 	FindMatchesMarket(symbol string, orderType string, action string, batchSize int) ([]*models.Order, error)
 	Insert(order *models.Order) error
 	Return(orders []*models.Order) error
+	LogBook()
 }

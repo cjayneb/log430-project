@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	log "github.com/sirupsen/logrus"
 )
 
 type RedisOrderBook struct {
@@ -146,12 +147,7 @@ func (book *RedisOrderBook) Insert(order *models.Order) error {
 	}
 
 	sideKey := keyBook(order.Symbol, order.Action, order.Type)
-	if err := book.Rdb.ZAdd(ctx, sideKey, redis.Z{Score: score, Member: order.ID}).Err(); err != nil {
-		return err
-	}
-
-	// Mark this order as dirty for MySQL sync
-	return book.MarkDirty(order.ID)
+	return book.Rdb.ZAdd(ctx, sideKey, redis.Z{Score: score, Member: order.ID}).Err()
 }
 
 func (book *RedisOrderBook) Return(orders []*models.Order) error {
@@ -159,8 +155,41 @@ func (book *RedisOrderBook) Return(orders []*models.Order) error {
 		if err := book.Insert(order); err != nil {
 			return err
 		}
+		if err := book.MarkDirty(order.ID); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (book *RedisOrderBook) LogBook() {
+	orders, _ := book.fetchAll()
+	log.Info()
+	log.Info("Contents of Redis Set")
+	for _, order := range orders {
+		log.Infof("Redis order: %v", order)
+	}
+	log.Info("End of Redis Set---------------")
+	log.Info()
+}
+
+func (book *RedisOrderBook) fetchAll() ([]*models.Order, error) {
+	var orders []*models.Order
+	iter := book.Rdb.Scan(ctx, 0, "order:*", 0).Iterator()
+	for iter.Next(ctx) {
+		val, err := book.Rdb.Get(ctx, iter.Val()).Result()
+		if err != nil {
+			continue
+		}
+		var o models.Order
+		if err := json.Unmarshal([]byte(val), &o); err == nil {
+			orders = append(orders, &o)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
 
 func (book *RedisOrderBook) FetchByIDs(ids []string) ([]*models.Order, error) {

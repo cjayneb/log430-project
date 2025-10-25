@@ -33,12 +33,12 @@ INSERT INTO wallets (id, user_id, available_funds) VALUES
 (UUID(), (SELECT id FROM users WHERE email = 'seller@email.com'), 300);
 
 CREATE TABLE IF NOT EXISTS orders (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT PRIMARY KEY UNIQUE AUTO_INCREMENT,
     user_id CHAR(36) NOT NULL,
     symbol VARCHAR(10) NOT NULL,
     type ENUM('market', 'limit') NOT NULL,
     action ENUM('buy', 'sell') NOT NULL,
-    quantity INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
     remaining_quantity int NOT NULL,
     unit_price DECIMAL(10, 2) NOT NULL,
     timing ENUM('day', 'ioc') NOT NULL,

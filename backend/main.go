@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
 
@@ -48,7 +49,7 @@ func run() http.Handler {
 	}
 	authHandler := &adapters.AuthHandler{
 		Service:      authService,
-		SessionStore: sessions.NewCookieStore([]byte("my-very-secret-key")),
+		SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
 		IsProduction: config.IsProduction,
 	}
 
@@ -58,8 +59,7 @@ func run() http.Handler {
 	orderHandler := &adapters.OrderHandler{Service: orderService, FrontendPath: config.FrontendPath}
 
 	orderService.StartMatchingWorkers()
-	// TODO: fix and reactivate sync
-	//core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
+	core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
 
 	router := initRouter(authHandler, orderHandler)
 	return router

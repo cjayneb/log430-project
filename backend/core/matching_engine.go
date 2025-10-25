@@ -19,6 +19,7 @@ type claimedCandidate struct {
 }
 
 func (engine *MatchingEngine) SubmitOrder(orderId int) error {
+	engine.OrderBook.LogBook()
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(orderId)
 	if err != nil {
@@ -99,7 +100,11 @@ func (engine *MatchingEngine) SubmitOrder(orderId int) error {
 	}
 
 	// Persist incoming order and candidates that are complete
-	return engine.persistOrdersAndExecutions(&order, claimedOrders, executionBuffer)
+	if err:= engine.persistOrdersAndExecutions(&order, claimedOrders, executionBuffer); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate) {
@@ -116,8 +121,10 @@ func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate) 
 
 func revertClaimedOrders(claimedOrders *[]*claimedCandidate) {
 	for _, claimed := range *claimedOrders {
-		claimed.Order.RemainingQuantity -= claimed.ClaimedQty
+		log.Infof("claimed order before reversing : %v", claimed.Order)
+		claimed.Order.RemainingQuantity += claimed.ClaimedQty
 		claimed.Order = updateStatus(claimed.Order)
+		log.Infof("claimed order after reversing : %v", claimed.Order)
 	}
 }
 
@@ -176,6 +183,11 @@ func updateStatus(order *models.Order) *models.Order {
 
 	if order.RemainingQuantity == 0 {
 		order.Status = "filled"
+		return order
+	}
+
+	if order.RemainingQuantity == order.Quantity {
+		order.Status = "open"
 		return order
 	}
 
