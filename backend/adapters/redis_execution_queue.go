@@ -33,7 +33,6 @@ func (queue *RedisExecutionQueue) DequeueExecutionRecords(batchSize int) ([]*mod
 	var records []*models.ExecutionRecord
 	for i := 0; i < batchSize; i++ {
 		val, err := queue.Rdb.RPop(ctx, EXECUTION_RECORDS_PERSISTANCE_QUEUE).Result()
-		log.Infof("Dequeuing execution record for persistance : %v", val)
 		if err == redis.Nil {
 			break // queue is empty
 		}

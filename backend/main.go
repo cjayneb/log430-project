@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	log "github.com/sirupsen/logrus"
 
@@ -49,7 +48,7 @@ func run() http.Handler {
 	}
 	authHandler := &adapters.AuthHandler{
 		Service:      authService,
-		SessionStore: sessions.NewCookieStore([]byte(uuid.New().String())),
+		SessionStore: sessions.NewCookieStore([]byte(config.SessionSecret)),
 		IsProduction: config.IsProduction,
 	}
 
@@ -70,7 +69,7 @@ func run() http.Handler {
 func initDbConnection() (*adapters.SQLUserRepository, *adapters.SQLOrderRepository, *adapters.SQLWalletRepository, *adapters.SQLPositionRepository, *adapters.SQLTransactionManager) {
 	db, e := sql.Open("mysql", config.DBUrl)
 
-	db.SetMaxOpenConns(60)
+	db.SetMaxOpenConns(35)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(time.Minute * 5)
 	db.SetConnMaxIdleTime(time.Minute * 1)
