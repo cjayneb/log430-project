@@ -23,7 +23,7 @@ var orderQueue chan *models.Order
 
 type OrderService struct {
 	Repo              ports.OrderRepository
-	ComplianceService ports.ComplianceService
+	ComplianceService ComplianceService
 	OrderBook         ports.OrderBook
 	MatchingEngine    ports.MatchingEngine
 }

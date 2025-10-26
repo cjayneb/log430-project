@@ -28,10 +28,7 @@ func main() {
 	orderBook, execQueue := initRedisConnection()
 
 	matchingEngine := &ports.MatchineEngineImpl{}
-	complianceService := &core.ComplianceService{
-		PortfolioService:   &ports.PortfolioServiceImpl{},
-		MarketDataProvider: &ports.MarketDataProviderImpl{},
-	}
+	complianceService := core.NewComplianceService(&ports.PortfolioServiceImpl{}, &ports.MarketDataProviderImpl{})
 	orderService := &core.OrderService{
 		Repo:              orderRepo,
 		ComplianceService: complianceService,
