@@ -22,7 +22,11 @@ func main() {
 	}
 
 	userRepo := initDbConnection()
-	authService := &core.AuthService{Repo: userRepo}
+	authService := &core.AuthService{
+		Repo: userRepo,
+		PasswordAllowedRetries: config.PasswordAllowedRetries,
+		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
+	}
 	authHandler := &controllers.AuthHandler{
 		Service:   authService,
 		JWTSecret: []byte(config.JWTSecret),

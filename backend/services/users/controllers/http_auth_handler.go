@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"brokerx/user-service/models"
 	"brokerx/user-service/ports"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -19,11 +21,6 @@ const USER_ID_KEY contextKey = "user_id"
 type AuthHandler struct {
 	Service   ports.AuthService
 	JWTSecret []byte
-}
-
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
 }
 
 type LoginResponse struct {
@@ -47,14 +44,16 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+var validate = validator.New()
+
 func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var creds LoginRequest
+	var creds models.User
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON input"})
 		return
 	}
-	if creds.Email == "" || creds.Password == "" {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "email and password required"})
+	if err := validate.Struct(creds); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: fmt.Sprintf("missing or invalid fields: %v", err)})
 		return
 	}
 

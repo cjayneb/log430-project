@@ -13,13 +13,6 @@ import (
 
 const USER_ID_HEADER_KEY string = "X-User-Id"
 
-type OrderViewData struct {
-	Email   string
-	Orders  []*models.Order
-	Error   string
-	Success string
-}
-
 type ErrorResponse struct {
 	ErrorMessage string `json:"errorMessage"`
 }

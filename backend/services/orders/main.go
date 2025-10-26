@@ -24,8 +24,8 @@ func main() {
 		log.Fatalf("Config error : %s", err)
 	}
 
-	orderRepo := initDbConnection()
-	orderBook := initRedisConnection()
+	orderRepo, tm := initDbConnection()
+	orderBook, execQueue := initRedisConnection()
 
 	matchingEngine := &ports.MatchineEngineImpl{}
 	complianceService := &core.ComplianceService{
@@ -40,13 +40,18 @@ func main() {
 	}
 	orderHandler := controllers.NewOrderHandler(orderService)
 
+	// Start async processes
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	initAsyncProcesses(ctx, *orderService, *orderBook, *execQueue, *tm)
+
 	r := chi.NewRouter()
 	r.Get("/api/order/", orderHandler.GetOrders)
 	r.Post("/api/order/place", orderHandler.PlaceOrder)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, err := w.Write([]byte("{\"message\": \"User service OK\"}"))
+		_, err := w.Write([]byte("{\"message\": \"Order service OK\"}"))
 		if err != nil {
 			log.Errorf("Health check response error: %v", err)
 		}
@@ -56,7 +61,7 @@ func main() {
 	http.ListenAndServe(":"+config.Port, r)
 }
 
-func initDbConnection() *repositories.SQLOrderRepository {
+func initDbConnection() (*repositories.SQLOrderRepository, *repositories.SQLTransactionManager) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		log.Fatalf("Db open error : %v", err)
@@ -70,10 +75,10 @@ func initDbConnection() *repositories.SQLOrderRepository {
 	if err := db.Ping(); err != nil {
 		log.Warnf("Db error : %s ", err)
 	}
-	return &repositories.SQLOrderRepository{DB: db}
+	return &repositories.SQLOrderRepository{DB: db}, &repositories.SQLTransactionManager{DB: db}
 }
 
-func initRedisConnection() *repositories.RedisOrderBook {
+func initRedisConnection() (*repositories.RedisOrderBook, *repositories.RedisExecutionQueue) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -87,5 +92,31 @@ func initRedisConnection() *repositories.RedisOrderBook {
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &repositories.RedisOrderBook{Rdb: client}
+	return &repositories.RedisOrderBook{Rdb: client}, &repositories.RedisExecutionQueue{Rdb: client}
+}
+
+func initAsyncProcesses(
+	ctx context.Context,
+	orderService core.OrderService,
+	orderBook repositories.RedisOrderBook,
+	execQueue repositories.RedisExecutionQueue,
+	tm repositories.SQLTransactionManager,
+) {
+	orderService.StartMatchingWorkers()
+	core.StartDirtyOrderSync(
+		ctx,
+		time.Duration(config.DirtyOrderSyncIntervalInSeconds),
+		config.DirtyOrderSyncBatchSize,
+		&orderBook,
+		&tm,
+	)
+	core.PersistOrdersAndExecutions(
+		ctx,
+		time.Duration(config.OrdersExecutionsPersistIntervalInMs),
+		config.OrdersPersistBatchSize,
+		config.ExecutionsPersistBatchSize,
+		&orderBook,
+		&execQueue,
+		&tm,
+	)
 }

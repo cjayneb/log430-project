@@ -73,6 +73,28 @@ services:
     deploy:
       replicas: 1
 
+  matching-service:
+    build:
+      context: ./backend/services/matching
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://matching-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
   db:
     image: mysql:8.0
     container_name: brokerx_db
@@ -131,6 +153,7 @@ services:
       - brokerx
       - user-service
       - order-service
+      - matching-service
     networks:
       - brokerx-network
     

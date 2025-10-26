@@ -20,7 +20,7 @@ func NewOrderRepo(tx *sql.Tx) SQLOrderRepository {
 	return SQLOrderRepository{tx: tx}
 }
 
-func (repo *SQLOrderRepository) Update(order *models.Order) error {
+func (repo SQLOrderRepository) Update(order *models.Order) error {
 	_, err := repo.tx.ExecContext(context.Background(),
 		`UPDATE orders SET remaining_quantity=?, status=?, unit_price=? WHERE id=?`,
 		order.RemainingQuantity, order.Status, order.UnitPrice, order.ID,
@@ -28,7 +28,7 @@ func (repo *SQLOrderRepository) Update(order *models.Order) error {
 	return err
 }
 
-func (repo *SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
+func (repo SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
 	if len(orders) == 0 {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (repo *SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
 	return err
 }
 
-func (repo *SQLOrderRepository) Create(order *models.Order) (int, error) {
+func (repo SQLOrderRepository) Create(order *models.Order) (int, error) {
 	result, err := repo.DB.Exec("INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		order.UserID, order.Symbol, order.Type, order.Action, order.Quantity, order.RemainingQuantity, order.UnitPrice, order.Timing, order.Status)
 	if err != nil {
@@ -70,7 +70,7 @@ func (repo *SQLOrderRepository) Create(order *models.Order) (int, error) {
 	return int(id), nil
 }
 
-func (repo *SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
+func (repo SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
 	rows, err := repo.DB.Query("SELECT id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status, created_at FROM brokerx.orders WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 100", userId)
 	if err != nil {
 		return nil, err

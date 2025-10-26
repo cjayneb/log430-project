@@ -59,8 +59,8 @@ func run() http.Handler {
 
 	// Start async processes
 	orderService.StartMatchingWorkers()
-	core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
-	matchingEngine.PersistOrdersAndExecutions(ctx, 300*time.Millisecond)
+	// core.StartDirtyOrderSync(ctx, 1*time.Second, 100, orderBook, transactionManager)
+	// matchingEngine.PersistOrdersAndExecutions(ctx, 300*time.Millisecond)
 
 	router := initRouter(authHandler, orderHandler)
 	return router

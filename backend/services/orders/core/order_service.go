@@ -21,6 +21,43 @@ func init() { prometheus.MustRegister(orderQueueLen) }
 
 var orderQueue chan *models.Order
 
+type OrderService struct {
+	Repo              ports.OrderRepository
+	ComplianceService ports.ComplianceService
+	OrderBook         ports.OrderBook
+	MatchingEngine    ports.MatchingEngine
+}
+
+func (service *OrderService) PlaceOrder(order *models.Order) error {
+	err := service.ComplianceService.VerifyOrderCompliance(order)
+	if err != nil {
+		log.Errorf("Error when verifying order compliance : %v", err)
+		return err
+	}
+
+	createdOrderId, err := service.Repo.Create(order)
+	if err != nil {
+		return err
+	}
+	order.ID = createdOrderId
+
+	orderQueueLen.Set(float64(len(orderQueue)))
+	orderQueue <- order
+	log.Infof("Order #%v queued for matching", order.ID)
+
+	return nil
+}
+
+func (service *OrderService) GetOrdersForUser(userId string) ([]*models.Order, error) {
+	orders, err := service.Repo.FindByUserId(userId)
+	if err != nil {
+		log.Errorf("Error when fetching user orders : %v", err)
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 func (service *OrderService) StartMatchingWorkers() {
 	orderQueue = make(chan *models.Order, 1000)
 	for i := 0; i < 8; i++ {
@@ -113,41 +150,49 @@ func popDirtyIDs(ctx context.Context, orderBook ports.OrderBook, batchSize int) 
 	return ids, nil
 }
 
-type OrderService struct {
-	Repo              ports.OrderRepository
-	ComplianceService ports.ComplianceService
-	OrderBook         ports.OrderBook
-	MatchingEngine    ports.MatchingEngine
-}
+func PersistOrdersAndExecutions(
+	ctx context.Context, 
+	interval time.Duration, 
+	orderBatchSize int, 
+	execBatchSize int, 
+	orderBook ports.OrderBook, 
+	execQueue ports.ExecutionQueue, 
+	tm ports.TransactionManager,
+) {
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				ordersToPersist, err := orderBook.DequeueOrders(100)
+				if err != nil {
+					log.Errorf("error dequeuing orders: %v", err)
+				}
 
-func (service *OrderService) PlaceOrder(order *models.Order) error {
-	err := service.ComplianceService.VerifyOrderCompliance(order)
-	if err != nil {
-		log.Errorf("Error when verifying order compliance : %v", err)
-		return err
-	}
+				executionsToPersist, err := execQueue.DequeueExecutionRecords(200)
+				if err != nil {
+					log.Errorf("error dequeuing execution records: %v", err)
+				}
 
-	createdOrderId, err := service.Repo.Create(order)
-	if err != nil {
-		return err
-	}
-	order.ID = createdOrderId
+				_ = tm.Do(ctx, func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
+					if err := orders.UpdateBatch(ordersToPersist); err != nil {
+						log.Errorf("error saving orders: %v", err)
+						return err
+					}
+					if err := executions.CreateBatch(executionsToPersist); err != nil {
+						log.Errorf("error saving execution records: %v", err)
+						return err
+					}
+					return nil
+				})
 
-	orderQueueLen.Set(float64(len(orderQueue)))
-	orderQueue <- order
-	log.Infof("Order #%v queued for matching", order.ID)
-
-	return nil
-}
-
-func (service *OrderService) GetOrdersForUser(userId string) ([]*models.Order, error) {
-	orders, err := service.Repo.FindByUserId(userId)
-	if err != nil {
-		log.Errorf("Error when fetching user orders : %v", err)
-		return nil, err
-	}
-
-	return orders, nil
+			case <-ctx.Done():
+				log.Info("Order and execution records persistance stopped")
+				return
+			}
+		}
+	}()
 }
 
 var _ ports.OrderService = (*OrderService)(nil) // Ensure interface is implemented at compile time
