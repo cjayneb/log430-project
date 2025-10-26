@@ -1,4 +1,4 @@
-package repositories
+package dao_adapters
 
 import (
 	"brokerx/order-service/models"

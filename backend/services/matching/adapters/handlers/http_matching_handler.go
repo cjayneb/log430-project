@@ -1,7 +1,7 @@
-package controllers
+package handler_adapters
 
 import (
-	"brokerx/matching-service/ports"
+	"brokerx/matching-service/core"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,7 +26,7 @@ type ErrorResponse struct {
 }
 
 type MatchingHandler struct {
-	MatchingEngine ports.MatchingEngine
+	MatchingEngine core.MatchingEngine
 }
 
 var validate = validator.New()

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"brokerx/user-service/controllers"
+	dao_adapters "brokerx/user-service/adapters/dao"
+	handler_adapters "brokerx/user-service/adapters/handlers"
 	"brokerx/user-service/core"
-	"brokerx/user-service/repositories"
 	"database/sql"
 	"net/http"
 	"time"
@@ -22,12 +22,12 @@ func main() {
 	}
 
 	userRepo := initDbConnection()
-	authService := &core.AuthService{
+	authService := &core.AuthServiceImpl{
 		Repo: userRepo,
 		PasswordAllowedRetries: config.PasswordAllowedRetries,
 		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
 	}
-	authHandler := &controllers.AuthHandler{
+	authHandler := &handler_adapters.AuthHandler{
 		Service:   authService,
 		JWTSecret: []byte(config.JWTSecret),
 	}
@@ -49,7 +49,7 @@ func main() {
 	http.ListenAndServe(":"+config.Port, r)
 }
 
-func initDbConnection() *repositories.SQLUserRepository {
+func initDbConnection() *dao_adapters.SQLUserRepository {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		log.Fatalf("Db open error : %v", err)
@@ -63,5 +63,5 @@ func initDbConnection() *repositories.SQLUserRepository {
 	if err := db.Ping(); err != nil {
 		log.Warnf("Db error : %s ", err)
 	}
-	return &repositories.SQLUserRepository{DB: db}
+	return &dao_adapters.SQLUserRepository{DB: db}
 }

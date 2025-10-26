@@ -12,13 +12,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {
+type AuthService interface {
+	Authenticate(email, password string) (*models.User, error)
+}
+
+type AuthServiceImpl struct {
 	Repo                        ports.UserRepository
 	PasswordAllowedRetries      int
 	PasswordLockDurationMinutes int
 }
 
-func (authService *AuthService) Authenticate(email, password string) (*models.User, error) {
+func (authService *AuthServiceImpl) Authenticate(email, password string) (*models.User, error) {
 	user, e := authService.Repo.FindByEmail(email)
 	if e != nil {
 		return nil, errors.New("user not found")
@@ -37,7 +41,7 @@ func (authService *AuthService) Authenticate(email, password string) (*models.Us
 	return user, nil
 }
 
-func (authService *AuthService) lockUser(user *models.User) {
+func (authService *AuthServiceImpl) lockUser(user *models.User) {
 	user.FailedAttempts++
 	if user.FailedAttempts >= authService.PasswordAllowedRetries {
 		user.LockedUntil = sql.NullTime{
@@ -52,7 +56,7 @@ func (authService *AuthService) lockUser(user *models.User) {
 	}
 }
 
-func (authService *AuthService) resetLockout(user *models.User) {
+func (authService *AuthServiceImpl) resetLockout(user *models.User) {
 	if user.FailedAttempts == 0 {
 		return
 	}
@@ -65,4 +69,4 @@ func (authService *AuthService) resetLockout(user *models.User) {
 	}
 }
 
-var _ ports.AuthService = (*AuthService)(nil) // Ensure interface is implemented at compile time
+var _ AuthService = (*AuthServiceImpl)(nil) // Ensure interface is implemented at compile time

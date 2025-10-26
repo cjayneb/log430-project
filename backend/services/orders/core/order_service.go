@@ -1,9 +1,9 @@
 package core
 
 import (
+	dao_adapters "brokerx/order-service/adapters/dao"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
-	"brokerx/order-service/repositories"
 	"context"
 	"time"
 
@@ -130,7 +130,7 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
 
 // pop up to batchSize dirty IDs
 func popDirtyIDs(ctx context.Context, orderBook ports.OrderBook, batchSize int) ([]string, error) {
-	rdb := orderBook.(*repositories.RedisOrderBook).Rdb
+	rdb := orderBook.(*dao_adapters.RedisOrderBook).Rdb
 	pipe := rdb.Pipeline()
 	cmds := make([]*redis.StringCmd, batchSize)
 	for i := 0; i < batchSize; i++ {

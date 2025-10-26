@@ -7,7 +7,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type MatchingEngine struct {
+type MatchingEngine interface {
+	SubmitOrder(orderId int) error
+}
+
+type MatchingEngineImpl struct {
 	OrderBook      ports.OrderBook
 	ExecutionQueue ports.ExecutionQueue
 }
@@ -17,7 +21,7 @@ type claimedCandidate struct {
 	ClaimedQty int
 }
 
-func (engine *MatchingEngine) SubmitOrder(orderId int) error {
+func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(orderId)
 	if err != nil {
@@ -124,7 +128,7 @@ func revertClaimedOrders(claimedOrders *[]*claimedCandidate) {
 	}
 }
 
-func (engine *MatchingEngine) handleRemainingOrders(incoming models.Order, allMatchedOrders *[]*models.Order) error {
+func (engine *MatchingEngineImpl) handleRemainingOrders(incoming models.Order, allMatchedOrders *[]*models.Order) error {
 	ordersToReturn := []*models.Order{}
 
 	if incoming.Status == "partially_filled" || incoming.Status == "open" {
@@ -140,7 +144,7 @@ func (engine *MatchingEngine) handleRemainingOrders(incoming models.Order, allMa
 	return engine.OrderBook.Return(ordersToReturn)
 }
 
-func (engine *MatchingEngine) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error {
+func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error {
 	ordersToPersist := []*models.Order{}
 	if incoming.Status == "filled" || incoming.Status == "canceled" {
 		ordersToPersist = append(ordersToPersist, incoming)
@@ -200,4 +204,4 @@ func pickUnitPrice(incoming, candidate *models.Order) float64 {
 	return incoming.UnitPrice
 }
 
-var _ ports.MatchingEngine = (*MatchingEngine)(nil) // Ensure interface is implemented at compile time
+var _ MatchingEngine = (*MatchingEngineImpl)(nil) // Ensure interface is implemented at compile time

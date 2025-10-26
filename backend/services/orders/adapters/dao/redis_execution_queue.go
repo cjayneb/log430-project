@@ -1,8 +1,8 @@
-package repositories
+package dao_adapters
 
 import (
-	"brokerx/matching-service/models"
-	"brokerx/matching-service/ports"
+	"brokerx/order-service/models"
+	"brokerx/order-service/ports"
 	"encoding/json"
 
 	"github.com/redis/go-redis/v9"

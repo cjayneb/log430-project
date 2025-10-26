@@ -1,10 +1,10 @@
 package main
 
 import (
-	"brokerx/order-service/controllers"
+	dao_adapters "brokerx/order-service/adapters/dao"
+	handler_adapters "brokerx/order-service/adapters/handlers"
 	"brokerx/order-service/core"
 	"brokerx/order-service/ports"
-	"brokerx/order-service/repositories"
 	"context"
 	"database/sql"
 	"net/http"
@@ -38,7 +38,7 @@ func main() {
 		OrderBook:         orderBook,
 		MatchingEngine:    matchingEngine,
 	}
-	orderHandler := controllers.NewOrderHandler(orderService)
+	orderHandler := handler_adapters.NewOrderHandler(orderService)
 
 	// Start async processes
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,7 +61,7 @@ func main() {
 	http.ListenAndServe(":"+config.Port, r)
 }
 
-func initDbConnection() (*repositories.SQLOrderRepository, *repositories.SQLTransactionManager) {
+func initDbConnection() (*dao_adapters.SQLOrderRepository, *dao_adapters.SQLTransactionManager) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		log.Fatalf("Db open error : %v", err)
@@ -75,10 +75,10 @@ func initDbConnection() (*repositories.SQLOrderRepository, *repositories.SQLTran
 	if err := db.Ping(); err != nil {
 		log.Warnf("Db error : %s ", err)
 	}
-	return &repositories.SQLOrderRepository{DB: db}, &repositories.SQLTransactionManager{DB: db}
+	return &dao_adapters.SQLOrderRepository{DB: db}, &dao_adapters.SQLTransactionManager{DB: db}
 }
 
-func initRedisConnection() (*repositories.RedisOrderBook, *repositories.RedisExecutionQueue) {
+func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -92,15 +92,15 @@ func initRedisConnection() (*repositories.RedisOrderBook, *repositories.RedisExe
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &repositories.RedisOrderBook{Rdb: client}, &repositories.RedisExecutionQueue{Rdb: client}
+	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
 }
 
 func initAsyncProcesses(
 	ctx context.Context,
 	orderService core.OrderService,
-	orderBook repositories.RedisOrderBook,
-	execQueue repositories.RedisExecutionQueue,
-	tm repositories.SQLTransactionManager,
+	orderBook dao_adapters.RedisOrderBook,
+	execQueue dao_adapters.RedisExecutionQueue,
+	tm dao_adapters.SQLTransactionManager,
 ) {
 	orderService.StartMatchingWorkers(config.NumberOfGoRoutines)
 	core.StartDirtyOrderSync(

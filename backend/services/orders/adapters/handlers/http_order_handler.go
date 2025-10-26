@@ -1,4 +1,4 @@
-package controllers
+package handler_adapters
 
 import (
 	"brokerx/order-service/models"

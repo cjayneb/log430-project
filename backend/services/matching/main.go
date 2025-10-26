@@ -1,9 +1,9 @@
 package main
 
 import (
-	"brokerx/matching-service/controllers"
+	dao_adapters "brokerx/matching-service/adapters/dao"
+	handler_adapters "brokerx/matching-service/adapters/handlers"
 	"brokerx/matching-service/core"
-	"brokerx/matching-service/repositories"
 	"context"
 	"net/http"
 
@@ -22,11 +22,11 @@ func main() {
 
 	orderBook, execQueue := initRedisConnection()
 
-	matchingEngine := &core.MatchingEngine{
+	matchingEngine := &core.MatchingEngineImpl{
 		OrderBook:      orderBook,
 		ExecutionQueue: execQueue,
 	}
-	matchingHandler := &controllers.MatchingHandler{
+	matchingHandler := &handler_adapters.MatchingHandler{
 		MatchingEngine: matchingEngine,
 	}
 
@@ -45,7 +45,7 @@ func main() {
 	http.ListenAndServe(":"+config.Port, r)
 }
 
-func initRedisConnection() (*repositories.RedisOrderBook, *repositories.RedisExecutionQueue) {
+func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -59,5 +59,5 @@ func initRedisConnection() (*repositories.RedisOrderBook, *repositories.RedisExe
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &repositories.RedisOrderBook{Rdb: client}, &repositories.RedisExecutionQueue{Rdb: client}
+	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
 }

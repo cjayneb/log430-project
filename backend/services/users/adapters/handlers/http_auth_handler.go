@@ -1,8 +1,8 @@
-package controllers
+package handler_adapters
 
 import (
+	"brokerx/user-service/core"
 	"brokerx/user-service/models"
-	"brokerx/user-service/ports"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,7 +19,7 @@ type contextKey string
 const USER_ID_KEY contextKey = "user_id"
 
 type AuthHandler struct {
-	Service   ports.AuthService
+	Service   core.AuthService
 	JWTSecret []byte
 }
 
