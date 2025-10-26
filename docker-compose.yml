@@ -27,6 +27,52 @@ services:
     deploy:
       replicas: 3
 
+  user-service:
+    build:
+      context: ./backend/services/users
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - JWT_SECRET=supersecret
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://user-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
+  order-service:
+    build:
+      context: ./backend/services/orders
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://order-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
   db:
     image: mysql:8.0
     container_name: brokerx_db
@@ -60,11 +106,9 @@ services:
       - brokerx-network
 
   redis:
-    image: redis:7
-    restart: always
-    networks:
-      - brokerx-network
+    image: redis:latest
     container_name: brokerx_redis
+    restart: always
     ports:
       - "6379:6379"
     healthcheck:
@@ -72,18 +116,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 5s
+    networks:
+      - brokerx-network
 
   nginx:
     image: nginx:latest
+    container_name: brokerx_nginx
+    restart: always
     ports:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - brokerx
+      - user-service
+      - order-service
     networks:
       - brokerx-network
+    
 
   prometheus:
     image: prom/prometheus:latest
