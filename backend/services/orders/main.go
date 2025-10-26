@@ -102,17 +102,17 @@ func initAsyncProcesses(
 	execQueue repositories.RedisExecutionQueue,
 	tm repositories.SQLTransactionManager,
 ) {
-	orderService.StartMatchingWorkers()
+	orderService.StartMatchingWorkers(config.NumberOfGoRoutines)
 	core.StartDirtyOrderSync(
 		ctx,
-		time.Duration(config.DirtyOrderSyncIntervalInSeconds),
+		time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,
 		config.DirtyOrderSyncBatchSize,
 		&orderBook,
 		&tm,
 	)
 	core.PersistOrdersAndExecutions(
 		ctx,
-		time.Duration(config.OrdersExecutionsPersistIntervalInMs),
+		time.Duration(config.OrdersExecutionsPersistIntervalInMs)*time.Millisecond,
 		config.OrdersPersistBatchSize,
 		config.ExecutionsPersistBatchSize,
 		&orderBook,

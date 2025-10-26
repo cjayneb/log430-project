@@ -58,9 +58,9 @@ func (service *OrderService) GetOrdersForUser(userId string) ([]*models.Order, e
 	return orders, nil
 }
 
-func (service *OrderService) StartMatchingWorkers() {
+func (service *OrderService) StartMatchingWorkers(numberOfGoRoutines int) {
 	orderQueue = make(chan *models.Order, 1000)
-	for i := 0; i < 8; i++ {
+	for i := 0; i < numberOfGoRoutines; i++ {
 		go func() {
 			for order := range orderQueue {
 				if err := service.OrderBook.Insert(order); err != nil {
@@ -78,10 +78,11 @@ func (service *OrderService) StartMatchingWorkers() {
 			}
 		}()
 	}
-	log.Infof("Started %d matching workers", 8)
+	log.Infof("Started %d matching workers", numberOfGoRoutines)
 }
 
 func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize int, orderBook ports.OrderBook, tm ports.TransactionManager) {
+	log.Infof("Dirty Orders interval %v seconds", interval)
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
@@ -159,6 +160,7 @@ func PersistOrdersAndExecutions(
 	execQueue ports.ExecutionQueue, 
 	tm ports.TransactionManager,
 ) {
+	log.Infof("Persistence interval %v milliseconds", interval)
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
