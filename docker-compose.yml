@@ -1,31 +1,115 @@
 services:
-  brokerx:
+  user-service:
     build:
-      context: .
-      target: runtime
+      context: ./backend/services/users
     expose:
       - "8080"
-      - "6060"
     environment:
       - APP_PORT=8080
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
-      - REDIS_ADDR=redis:6379
-      - FRONTEND_PATH=frontend
-      - RESOURCES_PATH=resources/
+      - JWT_SECRET=supersecret
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://user-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
+  order-service:
+    build:
+      context: ./backend/services/orders
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - API_GATEWAY_BASE_URL=http://nginx
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - REDIS_ADDR=redis:6379
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - brokerx-network
     restart: always
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://brokerx:8080/health"]
+      test: ["CMD", "wget", "-qO-", "http://order-service:8080/health"]
+      interval: 10s
       timeout: 5s
       retries: 5
     deploy:
-      replicas: 3
+      replicas: 1
+
+  matching-service:
+    build:
+      context: ./backend/services/matching
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://matching-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
+  portfolio-service:
+    build:
+      context: ./backend/services/portfolio
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://portfolio-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
+  market-data-service:
+    build:
+      context: ./backend/services/market
+    expose:
+      - "8080"
+    environment:
+      - APP_PORT=8080
+      - RESOURCES_PATH=resources/
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://market-data-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
 
   db:
     image: mysql:8.0
@@ -54,17 +138,13 @@ services:
     container_name: brokerx_locust
     ports:
       - "8089:8089"
-    depends_on:
-      - brokerx
     networks:
       - brokerx-network
 
   redis:
-    image: redis:7
-    restart: always
-    networks:
-      - brokerx-network
+    image: redis:latest
     container_name: brokerx_redis
+    restart: always
     ports:
       - "6379:6379"
     healthcheck:
@@ -72,16 +152,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 5s
+    networks:
+      - brokerx-network
 
   nginx:
     image: nginx:latest
+    container_name: brokerx_nginx
+    restart: always
     ports:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - brokerx
+      - user-service
+      - order-service
+      - matching-service
+      - portfolio-service
+      - market-data-service
     networks:
       - brokerx-network
 
@@ -101,8 +188,6 @@ services:
       - "--web.enable-lifecycle"
     networks:
       - brokerx-network
-    depends_on:
-      - brokerx
 
 networks:
   brokerx-network:

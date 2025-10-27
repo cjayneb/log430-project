@@ -2,7 +2,7 @@
 title BrokerX - Domain Model
 
 class User {
-  +userId: UUID
+  +userId: int
   +name: string
   +email: string
   +password: string
