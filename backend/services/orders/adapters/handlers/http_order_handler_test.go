@@ -1,4 +1,4 @@
-package adapters
+package handler_adapters
 
 import (
 	"brokerx/models"
@@ -40,16 +40,16 @@ func (m *MockOrderService) GetOrdersForUser(userId string) ([]*models.Order, err
 
 type HttpOrderHandlerTestSuite struct {
 	suite.Suite
-	mockService *MockOrderService
-	handler *OrderHandler
-	UserID string
-	Symbol string
-	Type   string
-	Action string
-	Quantity  int
-	UnitPrice float64
-	Timing    string
-	Status    string
+	mockService   *MockOrderService
+	handler       *OrderHandler
+	UserID        string
+	Symbol        string
+	Type          string
+	Action        string
+	Quantity      int
+	UnitPrice     float64
+	Timing        string
+	Status        string
 	RequestString string
 }
 

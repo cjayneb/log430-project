@@ -1,4 +1,4 @@
-package adapters
+package dao_adapters
 
 import (
 	"database/sql"
@@ -18,9 +18,9 @@ func insertPositionTestData(t *testing.T, db *sql.DB) {
                       VALUES (?, 'email', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
-    _, err = db.Query(`INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES(?, ?, ?, ?)`, 
+	_, err = db.Query(`INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES(?, ?, ?, ?)`,
 		userId, symbol, quantity, unitPrice)
-    require.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestSQLPositionRepositoryIntegration(t *testing.T) {

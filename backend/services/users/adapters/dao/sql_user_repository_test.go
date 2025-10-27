@@ -1,4 +1,4 @@
-package adapters
+package dao_adapters
 
 import (
 	"database/sql"

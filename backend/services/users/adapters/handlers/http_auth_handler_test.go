@@ -1,7 +1,7 @@
-package adapters
+package handler_adapters
 
 import (
-	"brokerx/models"
+	"brokerx/user-service/models"
 	"bytes"
 	"database/sql"
 	"errors"
@@ -31,15 +31,16 @@ func (m *MockAuthService) Authenticate(email, password string) (*models.User, er
 }
 
 type FailingStore struct{}
+
 func (f *FailingStore) Get(r *http.Request, name string) (*sessions.Session, error) {
-    return sessions.NewSession(f, name), nil
+	return sessions.NewSession(f, name), nil
 }
 
 func (f *FailingStore) New(r *http.Request, name string) (*sessions.Session, error) {
-    return sessions.NewSession(f, name), nil
+	return sessions.NewSession(f, name), nil
 }
 func (f *FailingStore) Save(r *http.Request, w http.ResponseWriter, s *sessions.Session) error {
-    return errors.New("failed to save session")
+	return errors.New("failed to save session")
 }
 
 // ---------------------------
@@ -49,7 +50,7 @@ func (f *FailingStore) Save(r *http.Request, w http.ResponseWriter, s *sessions.
 type HttpAuthHandlerTestSuite struct {
 	suite.Suite
 	mockService *MockAuthService
-	handler *AuthHandler
+	handler     *AuthHandler
 }
 
 func (s *HttpAuthHandlerTestSuite) SetupTest() {
@@ -115,9 +116,9 @@ func (s *HttpAuthHandlerTestSuite) TestMiddlewareAuthenticated() {
 	w := httptest.NewRecorder()
 
 	session, _ := s.handler.SessionStore.Get(req, "brokerx-session")
-    session.Values["user_id"] = "test@example.com"
+	session.Values["user_id"] = "test@example.com"
 	session.Values["email"] = "email.com"
-    require.NoError(s.T(), session.Save(req, w))
+	require.NoError(s.T(), session.Save(req, w))
 
 	req.AddCookie(w.Result().Cookies()[0])
 
@@ -135,19 +136,18 @@ func (s *HttpAuthHandlerTestSuite) TestInitSessionFailure() {
 	user := &models.User{Email: "test@x.com", Password: "hashed", FailedAttempts: 0, LockedUntil: sql.NullTime{Valid: false}}
 	s.mockService.On("Authenticate", "test@x.com", "pw").Return(user, nil)
 
-    s.handler.SessionStore = &FailingStore{}
-    req := httptest.NewRequest(http.MethodPost, LOGIN_ENDPOINT, bytes.NewBufferString("email=test@x.com&password=pw"))
+	s.handler.SessionStore = &FailingStore{}
+	req := httptest.NewRequest(http.MethodPost, LOGIN_ENDPOINT, bytes.NewBufferString("email=test@x.com&password=pw"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-    w := httptest.NewRecorder()
+	w := httptest.NewRecorder()
 
-    s.handler.Login(w, req)
+	s.handler.Login(w, req)
 	res := w.Result()
 	defer res.Body.Close()
 
 	s.Equal(http.StatusInternalServerError, res.StatusCode)
 	s.Contains(w.Body.String(), "failed to save session")
 }
-
 
 // ---------------------------
 // Run the suite

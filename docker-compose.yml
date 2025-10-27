@@ -1,32 +1,4 @@
 services:
-  brokerx:
-    build:
-      context: .
-      target: runtime
-    expose:
-      - "8080"
-      - "6060"
-    environment:
-      - APP_PORT=8080
-      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
-      - REDIS_ADDR=redis:6379
-      - FRONTEND_PATH=frontend
-      - RESOURCES_PATH=resources/
-    networks:
-      - brokerx-network
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: always
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://brokerx:8080/health"]
-      timeout: 5s
-      retries: 5
-    deploy:
-      replicas: 3
-
   user-service:
     build:
       context: ./backend/services/users
@@ -166,8 +138,6 @@ services:
     container_name: brokerx_locust
     ports:
       - "8089:8089"
-    depends_on:
-      - brokerx
     networks:
       - brokerx-network
 
@@ -194,7 +164,6 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      # - brokerx
       - user-service
       - order-service
       - matching-service
@@ -202,7 +171,6 @@ services:
       - market-data-service
     networks:
       - brokerx-network
-    
 
   prometheus:
     image: prom/prometheus:latest
@@ -220,8 +188,6 @@ services:
       - "--web.enable-lifecycle"
     networks:
       - brokerx-network
-    depends_on:
-      - brokerx
 
 networks:
   brokerx-network:

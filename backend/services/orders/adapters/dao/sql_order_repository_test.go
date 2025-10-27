@@ -1,4 +1,4 @@
-package adapters
+package dao_adapters
 
 import (
 	"brokerx/models"
@@ -17,9 +17,9 @@ func insertOrderTestData(t *testing.T, db *sql.DB) {
                       VALUES (?, 'email', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
-    _, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+	_, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		userId, symbol, "market", "buy", 10, 10, 150.00, "day", "open")
-    require.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestSQLOrderRepositoryIntegration(t *testing.T) {

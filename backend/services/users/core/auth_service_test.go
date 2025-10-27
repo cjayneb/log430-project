@@ -1,7 +1,7 @@
 package core
 
 import (
-	"brokerx/models"
+	"brokerx/user-service/models"
 	"bytes"
 	"database/sql"
 	"testing"
@@ -59,8 +59,8 @@ type AuthServiceTestSuite struct {
 func (s *AuthServiceTestSuite) SetupTest() {
 	s.repo = new(MockUserRepo)
 	s.service = &AuthService{
-		Repo:                       s.repo,
-		PasswordAllowedRetries:     3,
+		Repo:                        s.repo,
+		PasswordAllowedRetries:      3,
 		PasswordLockDurationMinutes: 15,
 	}
 	s.email = "email"
