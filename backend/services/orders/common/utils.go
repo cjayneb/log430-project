@@ -6,6 +6,7 @@ type ctxKey string
 
 const (
 	CtxKeyJWT       ctxKey = "jwt"
+	CtxKeyUserId	ctxKey = "user_id"
 	HeaderKeyUserId string = "X-User-ID"
 	HeaderKeyAuth   string = "Authorization"
 	AuthHeaderBearerPrefix string = "Bearer "

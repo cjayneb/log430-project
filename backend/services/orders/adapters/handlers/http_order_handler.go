@@ -68,6 +68,7 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := context.WithValue(r.Context(), common.CtxKeyJWT, jwt)
+	ctx = context.WithValue(ctx, common.CtxKeyUserId, userID)
 
 	if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
 		status := http.StatusInternalServerError

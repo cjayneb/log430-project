@@ -25,17 +25,24 @@ func main() {
 		log.Fatalf("Config error : %s", err)
 	}
 
+	// Create DAOs
 	orderRepo, tm := initDbConnection()
 	orderBook, execQueue := initRedisConnection()
 
+	// Create external services
 	matchingEngine := &ports.MatchineEngineImpl{}
 	portfolioService := client_adapters.NewPortfolioServiceClient(config.ApiGatewayBaseUrl)
-	complianceService := core.NewComplianceService(portfolioService, &ports.MarketDataProviderImpl{})
+	marketDataProvider := client_adapters.NewMarketDataProvider(config.ApiGatewayBaseUrl)
+
+	// Create core services
+	complianceService := core.NewComplianceService(portfolioService, marketDataProvider)
 	orderService := &core.OrderServiceImpl{
 		Repo:              orderRepo,
 		OrderBook:         orderBook,
 		MatchingEngine:    matchingEngine,
 	}
+
+	// Create request handler
 	orderHandler := handler_adapters.NewOrderHandler(orderService, complianceService)
 
 	// Start async processes
@@ -43,6 +50,7 @@ func main() {
 	defer cancel()
 	initAsyncProcesses(ctx, orderService, orderBook, execQueue, tm)
 
+	// Init router
 	r := chi.NewRouter()
 	r.Get("/api/order/", orderHandler.GetOrders)
 	r.Post("/api/order/place", orderHandler.PlaceOrder)
@@ -55,6 +63,7 @@ func main() {
 		}
 	})
 
+	// Start service
 	log.Println("Starting Order Service on port " + config.Port)
 	http.ListenAndServe(":"+config.Port, r)
 }

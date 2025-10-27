@@ -28,6 +28,10 @@ func NewCR006InstrumentPriceBand() *CR006InstrumentPriceBand {
 }
 
 func (c *CR006InstrumentPriceBand) Verify(ctx context.Context, order *models.Order) error {
+	if order.Type == "market" {
+		return nil
+	}
+	
 	maxPrice := c.currentPrice + c.currentPrice*(1.0/float64(c.instrument.PriceBandPercent))
 	minPrice := c.currentPrice - c.currentPrice*(1.0/float64(c.instrument.PriceBandPercent))
 	if order.UnitPrice < minPrice || order.UnitPrice > maxPrice {

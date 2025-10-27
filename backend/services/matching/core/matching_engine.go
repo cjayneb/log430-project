@@ -112,6 +112,7 @@ func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate, 
 	if incoming.Timing != "ioc" {
 		return
 	}
+	log.Infof("handle finalization of ioc order : %v", incoming)
 
 	if incoming.RemainingQuantity > 0 {
 		incoming.Status = "canceled"
@@ -140,6 +141,8 @@ func (engine *MatchingEngineImpl) handleRemainingOrders(incoming models.Order, a
 			ordersToReturn = append(ordersToReturn, matched)
 		}
 	}
+
+	log.Infof("length of orders to return : %d", len(ordersToReturn))
 
 	return engine.OrderBook.Return(ordersToReturn)
 }
