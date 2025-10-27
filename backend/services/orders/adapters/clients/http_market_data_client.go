@@ -40,7 +40,7 @@ func NewMarketDataProvider(baseUrl string) *MarketDataProviderImpl {
 }
 
 func (m *MarketDataProviderImpl) GetCurrentStockPriceBySymbol(ctx context.Context, symbol string) (float64, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_PRICE_ENDPOINT+"?symbol="+symbol)
+	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_PRICE_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
 		return 0.0, err
 	}
@@ -70,7 +70,7 @@ func (m *MarketDataProviderImpl) GetCurrentStockPriceBySymbol(ctx context.Contex
 }
 
 func (m *MarketDataProviderImpl) GetInstrumentBySymbol(ctx context.Context, symbol string) (*models.Instrument, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_INSTRUMENT_ENDPOINT+"?symbol="+symbol)
+	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_INSTRUMENT_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -41,8 +41,8 @@ func NewPortfolioServiceClient(baseUrl string) *PortfolioServiceImpl {
 	}
 }
 
-func (p *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId, symbol string) ([]*models.Position, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+POSITIONS_ENDPOINT+"?symbol="+symbol)
+func (p *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+POSITIONS_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +71,8 @@ func (p *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId, symbo
 	return positionsResp.Positions, nil
 }
 
-func (p *PortfolioServiceImpl) GetWallet(ctx context.Context, userId string) (*models.Wallet, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+WALLET_ENDPOINT)
+func (p *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) (*models.Wallet, error) {
+	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+WALLET_ENDPOINT, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (p *PortfolioServiceImpl) GetWallet(ctx context.Context, userId string) (*m
 	return walletResp.Wallet, nil
 }
 
-func makeAuthenticatedRequest(ctx context.Context, method, url string) (*http.Request, error) {
+func makeAuthenticatedRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
 	jwt, ok := ctx.Value(common.CtxKeyJWT).(string)
 	if !ok {
 		return nil, fmt.Errorf("missing JWT in context")
@@ -111,12 +111,15 @@ func makeAuthenticatedRequest(ctx context.Context, method, url string) (*http.Re
 		return nil, fmt.Errorf("missing JWT in context")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request : %v", err)
 	}
 	req.Header.Set(common.HeaderKeyAuth, jwt)
 	req.Header.Set(common.HeaderKeyUserId, userId)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	log.Infof("URL : %s", url)
 

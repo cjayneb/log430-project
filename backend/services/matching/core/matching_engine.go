@@ -4,11 +4,21 @@ import (
 	"brokerx/matching-service/models"
 	"brokerx/matching-service/ports"
 
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
+var orderQueueLen = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "order_queue_length",
+	Help: "Current number of orders in the async matching queue",
+})
+
+var orderQueue chan *models.Order
+
+func init() { prometheus.MustRegister(orderQueueLen) }
+
 type MatchingEngine interface {
-	SubmitOrder(orderId int) error
+	QueueOrder(order *models.Order) error
 }
 
 type MatchingEngineImpl struct {
@@ -21,7 +31,32 @@ type claimedCandidate struct {
 	ClaimedQty int
 }
 
-func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
+func (engine *MatchingEngineImpl) QueueOrder(order *models.Order) error {
+	orderQueueLen.Set(float64(len(orderQueue)))
+	orderQueue <- order
+	log.Infof("Order #%v queued for matching", order.ID)
+	return nil
+}
+
+func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) {
+	orderQueue = make(chan *models.Order, 1000)
+	for i := 0; i < numberOfGoRoutines; i++ {
+		go func() {
+			for order := range orderQueue {
+				if err := service.OrderBook.Insert(order); err != nil {
+					// TODO: retry? or find a way to let user know
+					log.Errorf("Order book submission failed for order #%d: %v", order.ID, err)
+				}
+				if err := service.submitOrder(order.ID); err != nil {
+					log.Errorf("matching failed for order #%d: %v", order.ID, err)
+				}
+			}
+		}()
+	}
+	log.Infof("Started %d matching workers", numberOfGoRoutines)
+}
+
+func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(orderId)
 	if err != nil {

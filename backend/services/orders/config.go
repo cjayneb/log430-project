@@ -11,8 +11,6 @@ type Config struct {
 	DBUrl                       		string `env:"DATABASE_URL" envDefault:"root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true"`
 	RedisAddr							string `env:"REDIS_ADDR" envDefault:"127.0.0.1:6379"`
 
-	NumberOfGoRoutines 					int `env:"NUMBER_OF_GO_ROUTINES" envDefault:"8"`
-
 	DirtyOrderSyncIntervalInSeconds 	int `env:"DIRTY_ORDER_SYNC_INTERVAL_SECONDS" envDefault:"1"`
 	DirtyOrderSyncBatchSize 			int `env:"DIRTY_ORDER_SYNC_BATCH_SIZE" envDefault:"100"`
 	OrdersExecutionsPersistIntervalInMs int `env:"ORDERS_EXECS_PERSIST_INTERVAL_MS" envDefault:"300"`

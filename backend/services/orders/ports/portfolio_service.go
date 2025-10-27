@@ -6,6 +6,6 @@ import (
 )
 
 type PortfolioService interface {
-	FetchPositions(ctx context.Context, userId, symbol string) ([]*models.Position, error)
-	GetWallet(ctx context.Context, userId string) (*models.Wallet, error)
+	FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
+	GetWallet(ctx context.Context, userId int) (*models.Wallet, error)
 }

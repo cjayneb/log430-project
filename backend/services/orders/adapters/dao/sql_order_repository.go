@@ -70,7 +70,7 @@ func (repo SQLOrderRepository) Create(order *models.Order) (int, error) {
 	return int(id), nil
 }
 
-func (repo SQLOrderRepository) FindByUserId(userId string) ([]*models.Order, error) {
+func (repo SQLOrderRepository) FindByUserId(userId int) ([]*models.Order, error) {
 	rows, err := repo.DB.Query("SELECT id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status, created_at FROM brokerx.orders WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 100", userId)
 	if err != nil {
 		return nil, err

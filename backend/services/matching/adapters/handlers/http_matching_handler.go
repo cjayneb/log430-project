@@ -2,6 +2,7 @@ package handler_adapters
 
 import (
 	"brokerx/matching-service/core"
+	"brokerx/matching-service/models"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,10 +12,6 @@ import (
 )
 
 const USER_ID_HEADER_KEY string = "X-User-Id"
-
-type SubmitOrderRequest struct {
-	OrderId int `json:"order_id" validate:"required"`
-}
 
 type OrderSubmittedResponse struct {
 	Message string `json:"message"`
@@ -38,7 +35,7 @@ func (handler *MatchingHandler) SubmitOrder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var submitReq SubmitOrderRequest
+	var submitReq models.Order
 	if err := json.NewDecoder(r.Body).Decode(&submitReq); err != nil {
 		log.Warnf("Invalid JSON: %v", err)
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON format"})
@@ -49,16 +46,16 @@ func (handler *MatchingHandler) SubmitOrder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := handler.MatchingEngine.SubmitOrder(submitReq.OrderId); err != nil {
-		log.Errorf("Failed to submit order : %v", err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to submit order"})
+	if err := handler.MatchingEngine.QueueOrder(&submitReq); err != nil {
+		log.Errorf("Failed to queue order : %v", err)
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to queue order"})
 		return
 	}
 
-	log.Infof("Order #%d submitted to matching engine", submitReq.OrderId)
+	log.Infof("Order #%d submitted to matching engine", submitReq.ID)
 	writeJSON(w, http.StatusAccepted, OrderSubmittedResponse{
-		Message: fmt.Sprintf("order #%d submitted to the matching engine", submitReq.OrderId),
-		OrderId: submitReq.OrderId,
+		Message: "order submitted to the matching engine",
+		OrderId: submitReq.ID,
 	})
 }
 

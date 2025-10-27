@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -41,10 +42,14 @@ func NewOrderHandler(orderService core.OrderService, complianceService core.Comp
 }
 
 func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get(common.HeaderKeyUserId)
-	if userID == "" {
+	userIDStr := r.Header.Get(common.HeaderKeyUserId)
+	if userIDStr == "" {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
 		return
+	}
+	userId, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "invalid user authenticaiton context"})
 	}
 
 	jwt := r.Header.Get(common.HeaderKeyAuth)
@@ -59,7 +64,7 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON format"})
 		return
 	}
-	order.UserID = userID
+	order.UserID = userId
 	order.RemainingQuantity = order.Quantity
 
 	if err := validate.Struct(order); err != nil {
@@ -68,7 +73,7 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := context.WithValue(r.Context(), common.CtxKeyJWT, jwt)
-	ctx = context.WithValue(ctx, common.CtxKeyUserId, userID)
+	ctx = context.WithValue(ctx, common.CtxKeyUserId, userIDStr)
 
 	if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
 		status := http.StatusInternalServerError
@@ -91,15 +96,19 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 }
 
 func (handler *OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get(common.HeaderKeyUserId)
-	if userID == "" {
+	userIDStr := r.Header.Get(common.HeaderKeyUserId)
+	if userIDStr == "" {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
 		return
 	}
-
-	orders, err := handler.OrderService.GetOrdersForUser(userID)
+	userId, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		log.Errorf("Failed to fetch orders for user %v: %v", userID, err)
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "invalid user authenticaiton context"})
+	}
+
+	orders, err := handler.OrderService.GetOrdersForUser(userId)
+	if err != nil {
+		log.Errorf("Failed to fetch orders for user %v: %v", userId, err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to fetch orders"})
 		return
 	}

@@ -30,6 +30,8 @@ func main() {
 		MatchingEngine: matchingEngine,
 	}
 
+	matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
+
 	r := chi.NewRouter()
 	r.Post("/api/matching/", matchingHandler.SubmitOrder)
 

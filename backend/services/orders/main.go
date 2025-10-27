@@ -5,7 +5,6 @@ import (
 	dao_adapters "brokerx/order-service/adapters/dao"
 	handler_adapters "brokerx/order-service/adapters/handlers"
 	"brokerx/order-service/core"
-	"brokerx/order-service/ports"
 	"context"
 	"database/sql"
 	"net/http"
@@ -30,7 +29,7 @@ func main() {
 	orderBook, execQueue := initRedisConnection()
 
 	// Create external services
-	matchingEngine := &ports.MatchineEngineImpl{}
+	matchingEngine := client_adapters.NewMatchineEngine(config.ApiGatewayBaseUrl)
 	portfolioService := client_adapters.NewPortfolioServiceClient(config.ApiGatewayBaseUrl)
 	marketDataProvider := client_adapters.NewMarketDataProvider(config.ApiGatewayBaseUrl)
 
@@ -48,7 +47,7 @@ func main() {
 	// Start async processes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	initAsyncProcesses(ctx, orderService, orderBook, execQueue, tm)
+	initAsyncProcesses(ctx, orderBook, execQueue, tm)
 
 	// Init router
 	r := chi.NewRouter()
@@ -104,12 +103,10 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 
 func initAsyncProcesses(
 	ctx context.Context,
-	orderService *core.OrderServiceImpl,
 	orderBook *dao_adapters.RedisOrderBook,
 	execQueue *dao_adapters.RedisExecutionQueue,
 	tm *dao_adapters.SQLTransactionManager,
 ) {
-	orderService.StartMatchingWorkers(config.NumberOfGoRoutines)
 	core.StartDirtyOrderSync(
 		ctx,
 		time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,

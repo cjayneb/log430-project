@@ -1,13 +1,10 @@
 package ports
 
+import (
+	"brokerx/order-service/models"
+	"context"
+)
+
 type MatchingEngine interface {
-	SubmitOrder(orderId int) error
+	SubmitOrder(ctx context.Context, order *models.Order) error
 }
-
-type MatchineEngineImpl struct{}
-
-func (m *MatchineEngineImpl) SubmitOrder(orderId int) error {
-	return nil
-}
-
-var _ MatchingEngine = (*MatchineEngineImpl)(nil) // Ensure interface is implemented at compile time

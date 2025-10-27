@@ -7,6 +7,8 @@ import (
 type Config struct {
 	Port string `env:"APP_PORT" envDefault:"8080"`
 
+	NumberOfGoRoutines 					int `env:"NUMBER_OF_GO_ROUTINES" envDefault:"8"`
+
 	RedisAddr string `env:"REDIS_ADDR" envDefault:"127.0.0.1:6379"`
 }
 

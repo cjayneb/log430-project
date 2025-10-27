@@ -7,23 +7,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 )
 
-var orderQueueLen = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "order_queue_length",
-	Help: "Current number of orders in the matching queue",
-})
-
-func init() { prometheus.MustRegister(orderQueueLen) }
-
-var orderQueue chan *models.Order
 
 type OrderService interface {
 	PlaceOrder(ctx context.Context, order *models.Order) error
-	GetOrdersForUser(userId string) ([]*models.Order, error)
+	GetOrdersForUser(userId int) ([]*models.Order, error)
 }
 
 type OrderServiceImpl struct {
@@ -39,14 +30,15 @@ func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.O
 	}
 	order.ID = createdOrderId
 
-	orderQueueLen.Set(float64(len(orderQueue)))
-	orderQueue <- order
-	log.Infof("Order #%v queued for matching", order.ID)
+	if err := service.MatchingEngine.SubmitOrder(ctx, order); err != nil {
+		log.Errorf("matching failed for order #%d: %v", order.ID, err)
+	}
+	log.Infof("Order #%v sent to matching service", order.ID)
 
 	return nil
 }
 
-func (service *OrderServiceImpl) GetOrdersForUser(userId string) ([]*models.Order, error) {
+func (service *OrderServiceImpl) GetOrdersForUser(userId int) ([]*models.Order, error) {
 	orders, err := service.Repo.FindByUserId(userId)
 	if err != nil {
 		log.Errorf("Error when fetching user orders : %v", err)
@@ -54,29 +46,6 @@ func (service *OrderServiceImpl) GetOrdersForUser(userId string) ([]*models.Orde
 	}
 
 	return orders, nil
-}
-
-func (service *OrderServiceImpl) StartMatchingWorkers(numberOfGoRoutines int) {
-	orderQueue = make(chan *models.Order, 1000)
-	for i := 0; i < numberOfGoRoutines; i++ {
-		go func() {
-			for order := range orderQueue {
-				if err := service.OrderBook.Insert(order); err != nil {
-					// TODO: retry? or find a way to let user know
-					log.Errorf("Order book submission failed for order #%d: %v", order.ID, err)
-					order.Status = "canceled"
-					if err = service.Repo.Update(order); err != nil {
-						log.Errorf("Failed to update canceled order #%d: %v", order.ID, err)
-					}
-					return
-				}
-				if err := service.MatchingEngine.SubmitOrder(order.ID); err != nil {
-					log.Errorf("matching failed for order #%d: %v", order.ID, err)
-				}
-			}
-		}()
-	}
-	log.Infof("Started %d matching workers", numberOfGoRoutines)
 }
 
 func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize int, orderBook ports.OrderBook, tm ports.TransactionManager) {
