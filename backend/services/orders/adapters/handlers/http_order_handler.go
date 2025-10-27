@@ -15,8 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const USER_ID_HEADER_KEY string = "X-User-Id"
-
 type ErrorResponse struct {
 	ErrorMessage string `json:"errorMessage"`
 }
@@ -43,14 +41,14 @@ func NewOrderHandler(orderService core.OrderService, complianceService core.Comp
 }
 
 func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get(USER_ID_HEADER_KEY)
+	userID := r.Header.Get(common.HeaderKeyUserId)
 	if userID == "" {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
 		return
 	}
 
-	jwt := r.Header.Get("Authorization")
-    if !strings.HasPrefix(jwt, "Bearer ") {
+	jwt := r.Header.Get(common.HeaderKeyAuth)
+    if !strings.HasPrefix(jwt, common.AuthHeaderBearerPrefix) {
         writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing authorization token"})
         return
     }
@@ -92,7 +90,7 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 }
 
 func (handler *OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get(USER_ID_HEADER_KEY)
+	userID := r.Header.Get(common.HeaderKeyUserId)
 	if userID == "" {
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
 		return

@@ -8,6 +8,7 @@ const (
 	CtxKeyJWT       ctxKey = "jwt"
 	HeaderKeyUserId string = "X-User-ID"
 	HeaderKeyAuth   string = "Authorization"
+	AuthHeaderBearerPrefix string = "Bearer "
 )
 
 var (
