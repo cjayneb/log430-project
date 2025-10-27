@@ -1,6 +1,7 @@
 package client_adapters
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
 	"bytes"
@@ -9,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -31,12 +31,9 @@ type OrderSubmittedResponse struct {
 }
 
 func NewMatchineEngine(baseUrl string) *MatchineEngineImpl {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
 	return &MatchineEngineImpl{
 		BaseUrl: baseUrl + MATCHING_SERVICE_BASE_PATH,
-		Client:  client,
+		Client:  common.SharedHttpClient,
 	}
 }
 

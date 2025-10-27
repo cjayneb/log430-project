@@ -9,9 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const PORTFOLIO_SERVICE_BASE_PATH = "/api/portfolio"
@@ -32,12 +29,9 @@ type PortfolioPositionsResponse struct {
 }
 
 func NewPortfolioServiceClient(baseUrl string) *PortfolioServiceImpl {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
 	return &PortfolioServiceImpl{
 		BaseUrl: baseUrl + PORTFOLIO_SERVICE_BASE_PATH,
-		Client:  client,
+		Client:  common.SharedHttpClient,
 	}
 }
 
@@ -120,8 +114,6 @@ func makeAuthenticatedRequest(ctx context.Context, method, url string, body io.R
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-
-	log.Infof("URL : %s", url)
 
 	return req, nil
 }

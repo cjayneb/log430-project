@@ -29,9 +29,9 @@ func main() {
 	orderBook, execQueue := initRedisConnection()
 
 	// Create external services
-	matchingEngine := client_adapters.NewMatchineEngine(config.ApiGatewayBaseUrl)
-	portfolioService := client_adapters.NewPortfolioServiceClient(config.ApiGatewayBaseUrl)
-	marketDataProvider := client_adapters.NewMarketDataProvider(config.ApiGatewayBaseUrl)
+	matchingEngine := client_adapters.NewMatchineEngine(config.MatchingServiceBaseUrl)
+	portfolioService := client_adapters.NewPortfolioServiceClient(config.PortfolioServiceBaseUrl)
+	marketDataProvider := client_adapters.NewMarketDataProvider(config.MarketDataServiceBaseUrl)
 
 	// Create core services
 	complianceService := core.NewComplianceService(portfolioService, marketDataProvider)

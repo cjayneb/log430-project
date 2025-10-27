@@ -1,6 +1,7 @@
 package client_adapters
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
 	"context"
@@ -8,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 )
 
 const MARKET_DATA_SERVICE_BASE_PATH = "/api/market"
@@ -30,12 +30,9 @@ type InstrumentResponse struct {
 }
 
 func NewMarketDataProvider(baseUrl string) *MarketDataProviderImpl {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
 	return &MarketDataProviderImpl{
 		BaseUrl: baseUrl + MARKET_DATA_SERVICE_BASE_PATH,
-		Client:  client,
+		Client:  common.SharedHttpClient,
 	}
 }
 

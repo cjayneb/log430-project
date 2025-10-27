@@ -1,6 +1,10 @@
 package common
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+	"time"
+)
 
 type ctxKey string
 
@@ -16,3 +20,13 @@ var (
 	ErrBusinessRuleViolation = errors.New("business rule violation")
 	ErrDependencyFailure     = errors.New("dependency failure")
 )
+
+var sharedTransport = &http.Transport{
+	MaxIdleConns:        100,
+	MaxIdleConnsPerHost: 100,
+	IdleConnTimeout:     90 * time.Second,
+}
+var SharedHttpClient = &http.Client{
+	Timeout: 5 * time.Second,
+	Transport: sharedTransport,
+}
