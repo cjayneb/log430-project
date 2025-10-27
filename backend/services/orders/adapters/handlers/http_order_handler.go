@@ -1,11 +1,15 @@
 package handler_adapters
 
 import (
+	"brokerx/order-service/common"
+	"brokerx/order-service/core"
 	"brokerx/order-service/models"
-	"brokerx/order-service/ports"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
@@ -27,14 +31,15 @@ type OrdersResponse struct {
 }
 
 type OrderHandler struct {
-	Service ports.OrderService
+	OrderService core.OrderService
+	ComplianceService core.ComplianceService
 }
 
 var validate = validator.New()
 
-func NewOrderHandler(service ports.OrderService) *OrderHandler {
+func NewOrderHandler(orderService core.OrderService, complianceService core.ComplianceService) *OrderHandler {
 	validate.RegisterValidation("limitprice", isLimitPriceValid)
-	return &OrderHandler{Service: service}
+	return &OrderHandler{OrderService: orderService, ComplianceService: complianceService}
 }
 
 func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +48,12 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
 		return
 	}
+
+	jwt := r.Header.Get("Authorization")
+    if !strings.HasPrefix(jwt, "Bearer ") {
+        writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing authorization token"})
+        return
+    }
 
 	var order models.Order
 	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
@@ -58,7 +69,17 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := handler.Service.PlaceOrder(&order); err != nil {
+	ctx := context.WithValue(r.Context(), common.CtxKeyJWT, jwt)
+
+	if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, common.ErrBusinessRuleViolation) {status = http.StatusBadRequest}
+		if errors.Is(err, common.ErrDependencyFailure) {status = http.StatusBadGateway}
+		writeJSON(w, status, ErrorResponse{ErrorMessage: err.Error()})
+		return
+	}
+
+	if err := handler.OrderService.PlaceOrder(ctx, &order); err != nil {
 		log.Errorf("Failed to place order : %v", err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to place order"})
 		return
@@ -77,7 +98,7 @@ func (handler *OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orders, err := handler.Service.GetOrdersForUser(userID)
+	orders, err := handler.OrderService.GetOrdersForUser(userID)
 	if err != nil {
 		log.Errorf("Failed to fetch orders for user %v: %v", userID, err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to fetch orders"})

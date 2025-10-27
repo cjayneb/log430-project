@@ -1,9 +1,12 @@
 package rules
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
+	"context"
 	"errors"
+	"fmt"
 )
 
 type CR002BuyingPower struct {
@@ -12,7 +15,10 @@ type CR002BuyingPower struct {
 }
 
 func (c *CR002BuyingPower) Setup(inputs ComplianceRuleInputs) error {
-	c.currentPrice = inputs.CurrentPrice
+	if inputs.CurrentPrice == nil {
+		return errors.New("currentPrice cannot be absent")
+	}
+	c.currentPrice = *inputs.CurrentPrice
 	return nil
 }
 
@@ -20,18 +26,18 @@ func NewCR002BuyingPower(portfolioService ports.PortfolioService) *CR002BuyingPo
 	return &CR002BuyingPower{PortfolioService: portfolioService}
 }
 
-func (c *CR002BuyingPower) Verify(order *models.Order) error {
+func (c *CR002BuyingPower) Verify(ctx context.Context, order *models.Order) error {
 	if order.Action == "sell" {
 		return nil
 	}
 
-	wallet, err := c.PortfolioService.GetWallet(order.UserID)
+	wallet, err := c.PortfolioService.GetWallet(ctx, order.UserID)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", common.ErrDependencyFailure, err)
 	}
 
 	if wallet.AvailableFunds < (c.currentPrice * float64(order.Quantity)) {
-		return errors.New("not enough available funds")
+		return fmt.Errorf("%w: not enough available funds", common.ErrBusinessRuleViolation)
 	}
 
 	return nil

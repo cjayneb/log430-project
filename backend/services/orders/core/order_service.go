@@ -21,20 +21,18 @@ func init() { prometheus.MustRegister(orderQueueLen) }
 
 var orderQueue chan *models.Order
 
-type OrderService struct {
+type OrderService interface {
+	PlaceOrder(ctx context.Context, order *models.Order) error
+	GetOrdersForUser(userId string) ([]*models.Order, error)
+}
+
+type OrderServiceImpl struct {
 	Repo              ports.OrderRepository
-	ComplianceService ComplianceService
 	OrderBook         ports.OrderBook
 	MatchingEngine    ports.MatchingEngine
 }
 
-func (service *OrderService) PlaceOrder(order *models.Order) error {
-	err := service.ComplianceService.VerifyOrderCompliance(order)
-	if err != nil {
-		log.Errorf("Error when verifying order compliance : %v", err)
-		return err
-	}
-
+func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.Order) error {
 	createdOrderId, err := service.Repo.Create(order)
 	if err != nil {
 		return err
@@ -48,7 +46,7 @@ func (service *OrderService) PlaceOrder(order *models.Order) error {
 	return nil
 }
 
-func (service *OrderService) GetOrdersForUser(userId string) ([]*models.Order, error) {
+func (service *OrderServiceImpl) GetOrdersForUser(userId string) ([]*models.Order, error) {
 	orders, err := service.Repo.FindByUserId(userId)
 	if err != nil {
 		log.Errorf("Error when fetching user orders : %v", err)
@@ -58,7 +56,7 @@ func (service *OrderService) GetOrdersForUser(userId string) ([]*models.Order, e
 	return orders, nil
 }
 
-func (service *OrderService) StartMatchingWorkers(numberOfGoRoutines int) {
+func (service *OrderServiceImpl) StartMatchingWorkers(numberOfGoRoutines int) {
 	orderQueue = make(chan *models.Order, 1000)
 	for i := 0; i < numberOfGoRoutines; i++ {
 		go func() {
@@ -197,4 +195,4 @@ func PersistOrdersAndExecutions(
 	}()
 }
 
-var _ ports.OrderService = (*OrderService)(nil) // Ensure interface is implemented at compile time
+var _ OrderService = (*OrderServiceImpl)(nil) // Ensure interface is implemented at compile time

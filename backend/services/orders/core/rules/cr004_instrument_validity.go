@@ -1,7 +1,9 @@
 package rules
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
+	"context"
 	"fmt"
 )
 
@@ -12,6 +14,9 @@ type CR004InstrumentValidity struct {
 }
 
 func (c *CR004InstrumentValidity) Setup(inputs ComplianceRuleInputs) error {
+	if inputs.Instrument == nil {
+		return fmt.Errorf("%w: instrument cannot be absent", common.ErrDependencyFailure)
+	}
 	c.instrument = inputs.Instrument
 	return nil
 }
@@ -20,9 +25,9 @@ func NewCR004InstrumentValidity() *CR004InstrumentValidity {
 	return &CR004InstrumentValidity{}
 }
 
-func (c *CR004InstrumentValidity) Verify(order *models.Order) error {
+func (c *CR004InstrumentValidity) Verify(ctx context.Context, order *models.Order) error {
 	if c.instrument.Status != "Active" {
-		return fmt.Errorf("error when verifying instrument {%v}: %v", order.Symbol, INACTIVE_INSTRUMENT_MSG)
+		return fmt.Errorf("%w: error when verifying instrument {%v}: %v", common.ErrBusinessRuleViolation, order.Symbol, INACTIVE_INSTRUMENT_MSG)
 	}
 	return nil
 }

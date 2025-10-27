@@ -6,6 +6,7 @@ import (
 
 type Config struct {
 	Port                        		string `env:"APP_PORT" envDefault:"8080"`
+	ApiGatewayBaseUrl		   			string `env:"API_GATEWAY_BASE_URL" envDefault:"http://localhost"`	
 
 	DBUrl                       		string `env:"DATABASE_URL" envDefault:"root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true"`
 	RedisAddr							string `env:"REDIS_ADDR" envDefault:"127.0.0.1:6379"`

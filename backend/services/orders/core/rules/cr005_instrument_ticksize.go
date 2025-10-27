@@ -1,7 +1,9 @@
 package rules
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
+	"context"
 	"fmt"
 	"math"
 )
@@ -13,6 +15,9 @@ type C005InstrumentTickSize struct {
 }
 
 func (c *C005InstrumentTickSize) Setup(inputs ComplianceRuleInputs) error {
+	if inputs.Instrument == nil {
+		return fmt.Errorf("%w: instrument cannot be absent", common.ErrDependencyFailure)
+	}
 	c.instrument = inputs.Instrument
 	return nil
 }
@@ -21,13 +26,13 @@ func NewC005InstrumentTickSize() *C005InstrumentTickSize {
 	return &C005InstrumentTickSize{}
 }
 
-func (c *C005InstrumentTickSize) Verify(order *models.Order) error {
+func (c *C005InstrumentTickSize) Verify(ctx context.Context, order *models.Order) error {
 	if order.Type == "market" {
 		return nil
 	}
 
 	if !isValidTick(order.UnitPrice, c.instrument.TickSize) {
-		return fmt.Errorf("error when validating tick size {%v}: %v", order.Symbol, INVALID_TICK_SIZE_MSG)
+		return fmt.Errorf("%w: error when validating tick size {%v}: %v", common.ErrBusinessRuleViolation, order.Symbol, INVALID_TICK_SIZE_MSG)
 	}
 
 	return nil

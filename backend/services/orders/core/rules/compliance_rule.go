@@ -2,14 +2,15 @@ package rules
 
 import (
 	"brokerx/order-service/models"
+	"context"
 )
 
 type ComplianceRuleInputs struct {
 	Instrument   *models.Instrument
-	CurrentPrice float64
+	CurrentPrice *float64
 }
 
 type ComplianceRule interface {
-	Verify(order *models.Order) error
+	Verify(ctx context.Context, order *models.Order) error
 	Setup(inputs ComplianceRuleInputs) error
 }

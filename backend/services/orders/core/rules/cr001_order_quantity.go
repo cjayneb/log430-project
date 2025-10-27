@@ -1,7 +1,9 @@
 package rules
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
+	"context"
 	"fmt"
 )
 
@@ -18,13 +20,13 @@ func NewCR001OrderQuantity() *CR001OrderQuantity {
 	return &CR001OrderQuantity{}
 }
 
-func (c *CR001OrderQuantity) Verify(order *models.Order) error {
+func (c *CR001OrderQuantity) Verify(ctx context.Context, order *models.Order) error {
 	if order.Quantity < MIN_ORDER_QUANTITY {
-		return fmt.Errorf("order quantity must be at least %v", MIN_ORDER_QUANTITY)
+		return fmt.Errorf("%w: order quantity must be at least %v", common.ErrBusinessRuleViolation, MIN_ORDER_QUANTITY)
 	}
 
 	if order.Quantity > MAX_ORDER_QUANTITY {
-		return fmt.Errorf("order quantity surpasses maximum quantity allowed by BrokerX (%v)", MAX_ORDER_QUANTITY)
+		return fmt.Errorf("%w: order quantity surpasses maximum quantity allowed by BrokerX (%v)", common.ErrBusinessRuleViolation, MAX_ORDER_QUANTITY)
 	}
 
 	return nil

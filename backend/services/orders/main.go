@@ -1,6 +1,7 @@
 package main
 
 import (
+	client_adapters "brokerx/order-service/adapters/clients"
 	dao_adapters "brokerx/order-service/adapters/dao"
 	handler_adapters "brokerx/order-service/adapters/handlers"
 	"brokerx/order-service/core"
@@ -28,19 +29,19 @@ func main() {
 	orderBook, execQueue := initRedisConnection()
 
 	matchingEngine := &ports.MatchineEngineImpl{}
-	complianceService := core.NewComplianceService(&ports.PortfolioServiceImpl{}, &ports.MarketDataProviderImpl{})
-	orderService := &core.OrderService{
+	portfolioService := client_adapters.NewPortfolioServiceClient(config.ApiGatewayBaseUrl)
+	complianceService := core.NewComplianceService(portfolioService, &ports.MarketDataProviderImpl{})
+	orderService := &core.OrderServiceImpl{
 		Repo:              orderRepo,
-		ComplianceService: complianceService,
 		OrderBook:         orderBook,
 		MatchingEngine:    matchingEngine,
 	}
-	orderHandler := handler_adapters.NewOrderHandler(orderService)
+	orderHandler := handler_adapters.NewOrderHandler(orderService, complianceService)
 
 	// Start async processes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	initAsyncProcesses(ctx, *orderService, *orderBook, *execQueue, *tm)
+	initAsyncProcesses(ctx, orderService, orderBook, execQueue, tm)
 
 	r := chi.NewRouter()
 	r.Get("/api/order/", orderHandler.GetOrders)
@@ -94,26 +95,26 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 
 func initAsyncProcesses(
 	ctx context.Context,
-	orderService core.OrderService,
-	orderBook dao_adapters.RedisOrderBook,
-	execQueue dao_adapters.RedisExecutionQueue,
-	tm dao_adapters.SQLTransactionManager,
+	orderService *core.OrderServiceImpl,
+	orderBook *dao_adapters.RedisOrderBook,
+	execQueue *dao_adapters.RedisExecutionQueue,
+	tm *dao_adapters.SQLTransactionManager,
 ) {
 	orderService.StartMatchingWorkers(config.NumberOfGoRoutines)
 	core.StartDirtyOrderSync(
 		ctx,
 		time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,
 		config.DirtyOrderSyncBatchSize,
-		&orderBook,
-		&tm,
+		orderBook,
+		tm,
 	)
 	core.PersistOrdersAndExecutions(
 		ctx,
 		time.Duration(config.OrdersExecutionsPersistIntervalInMs)*time.Millisecond,
 		config.OrdersPersistBatchSize,
 		config.ExecutionsPersistBatchSize,
-		&orderBook,
-		&execQueue,
-		&tm,
+		orderBook,
+		execQueue,
+		tm,
 	)
 }
