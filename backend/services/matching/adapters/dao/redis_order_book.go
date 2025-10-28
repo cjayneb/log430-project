@@ -40,7 +40,7 @@ func (book *RedisOrderBook) GetById(orderId int) (models.Order, error) {
 	return order, nil
 }
 
-func (book *RedisOrderBook) FindMatchesLimit(symbol string, orderType string, action string, unitPrice float64, batchSize int) ([]*models.Order, error) {
+func (book *RedisOrderBook) FindMatchesLimit(symbol string, action string, unitPrice float64, batchSize int) ([]*models.Order, error) {
 	opposite := "sell"
 	if action == "sell" {
 		opposite = "buy"
@@ -85,7 +85,7 @@ func (book *RedisOrderBook) FindMatchesLimit(symbol string, orderType string, ac
 	return book.fetchOrders(ids, true)
 }
 
-func (book *RedisOrderBook) FindMatchesMarket(symbol string, orderType string, action string, batchSize int) ([]*models.Order, error) {
+func (book *RedisOrderBook) FindMatchesMarket(symbol string, action string, batchSize int) ([]*models.Order, error) {
 	opposite := "sell"
 	if action == "sell" {
 		opposite = "buy"
@@ -165,6 +165,7 @@ func (book *RedisOrderBook) EnqueueOrders(orders []*models.Order) error {
 		}
 		if err := book.Rdb.LPush(ctx, ORDER_PERSISTANCE_QUEUE, data).Err(); err != nil {
 			log.Errorf("error enqueueing order %v: %v", order, err)
+			return err
 		}
 	}
 	return nil
@@ -190,11 +191,7 @@ func (book *RedisOrderBook) DequeueOrders(batchSize int) ([]*models.Order, error
 	return orders, nil
 }
 
-func (book *RedisOrderBook) FetchByIDs(ids []string) ([]*models.Order, error) {
-	return book.fetchOrders(ids, false)
-}
-
-func (book *RedisOrderBook) LogBook() {
+func (book *RedisOrderBook) logBook() {
 	orders, _ := book.fetchAll()
 	log.Info()
 	log.Info("Contents of Redis Set")

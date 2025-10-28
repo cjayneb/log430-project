@@ -3,6 +3,7 @@ module brokerx/matching-service
 go 1.24.3
 
 require (
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/prometheus/client_golang v1.23.2
@@ -26,6 +27,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
