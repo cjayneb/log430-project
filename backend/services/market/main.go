@@ -13,6 +13,14 @@ import (
 var config Config = Config{}
 
 func main() {
+	log.Println("Starting Market data Service on port " + config.Port)
+	router := run()
+	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
+		log.Fatalf("Server error : %s", err)
+	}
+}
+
+func run() http.Handler {
 	if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Config error : %s", err)
 	}
@@ -31,7 +39,5 @@ func main() {
 			log.Errorf("Health check response error: %v", err)
 		}
 	})
-
-	log.Println("Starting Market data Service on port " + config.Port)
-	http.ListenAndServe(":"+config.Port, r)
+	return r
 }
