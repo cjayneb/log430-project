@@ -23,10 +23,10 @@ func (repo *SQLWalletRepository) AddFunds(userId int, amount float64) error {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		} else {
 			err = tx.Commit()
 		}
