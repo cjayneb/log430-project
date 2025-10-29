@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrokerX - Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ccc;
+        }
+
+        th,
+        td {
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            border-radius: 6px;
+        }
+
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #004999;
+        }
+
+        .message {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>BrokerX - Orders</h1>
+    <a href="/wallet.html">💰 Wallet</a> |
+    <a href="/logout.html" onclick="logout()">Logout</a>
+
+    <section class="form-section">
+        <h2>Place Order</h2>
+        <form id="orderForm">
+            <label for="symbol">Stock Symbol:</label><br />
+            <input type="text" id="symbol" name="symbol" required /><br /><br />
+
+            <label for="quantity">Quantity:</label><br />
+            <input type="number" id="quantity" name="quantity" max="100000" required /><br /><br />
+
+            <label for="action">Order Action:</label><br />
+            <select id="action" name="action">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+            </select><br /><br />
+
+            <label for="type">Order Type:</label><br />
+            <select id="type" name="type">
+                <option value="market">Market</option>
+                <option value="limit">Limit</option>
+            </select><br /><br />
+
+            <label for="timing">Timing:</label><br />
+            <select id="timing" name="timing">
+                <option value="day">DAY</option>
+                <option value="ioc">IOC</option>
+            </select><br /><br />
+
+            <label for="unit_price">Price per stock:</label><br />
+            <input type="number" id="unit_price" name="unit_price" min="0.00" step="0.01" placeholder="0.00"
+                required /><br /><br />
+
+            <button type="submit">Submit Order</button>
+        </form>
+
+        <div id="message" class="message"></div>
+    </section>
+
+    <section>
+        <h2>Your Orders</h2>
+        <div id="ordersContainer">
+            <p>Loading your orders...</p>
+        </div>
+    </section>
+
+    <script>
+        const token = localStorage.getItem("jwt");
+        if (!token) {
+            window.location.href = "/login.html";
+        }
+
+        const apiBase = "/api/order";
+
+        // Fetch user's orders
+        async function loadOrders() {
+            const res = await fetch(apiBase, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!res.ok) {
+                document.getElementById("ordersContainer").innerHTML =
+                    "<p>Failed to load orders.</p>";
+                return;
+            }
+
+            const orders = await res.json();
+            console.log(orders)
+            if (!orders || orders.orders.length === 0) {
+                document.getElementById("ordersContainer").innerHTML =
+                    "<p>No orders yet.</p>";
+                return;
+            }
+
+            let html = `
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th>Remaining</th>
+                <th>Action</th>
+                <th>Type</th>
+                <th>Timing</th>
+                <th>Unit Price</th>
+                <th>Status</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+            for (const o of orders.orders) {
+                console.log(o.created_at)
+                html += `
+          <tr>
+            <td>${o.order_id}</td>
+            <td>${o.symbol}</td>
+            <td>${o.quantity}</td>
+            <td>${o.remaining_quantity}</td>
+            <td>${o.action}</td>
+            <td>${o.type}</td>
+            <td>${o.timing}</td>
+            <td>${o.unit_price}</td>
+            <td>${o.status}</td>
+            <td>${new Date(o.created_at.Time).toLocaleString()}</td>
+          </tr>
+        `;
+            }
+
+            html += "</tbody></table></div>";
+            document.getElementById("ordersContainer").innerHTML = html;
+        }
+
+        // Handle order submission
+        document.getElementById("orderForm").onsubmit = async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            data.quantity = parseInt(data.quantity, 10);
+            data.unit_price = parseFloat(data.unit_price);
+            console.log(data)
+
+            const res = await fetch(apiBase + "/place", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await res.json();
+            const msg = document.getElementById("message");
+            if (res.ok) {
+                msg.style.color = "green";
+                msg.textContent = "Order placed successfully.";
+                e.target.reset();
+                loadOrders();
+            } else {
+                msg.style.color = "red";
+                msg.textContent = result.errorMessage || "Order failed.";
+            }
+        };
+
+        function logout() {
+            localStorage.removeItem("jwt");
+        }
+
+        loadOrders();
+    </script>
+</body>
+
+</html>

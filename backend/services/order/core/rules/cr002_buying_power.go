@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type CR002BuyingPower struct {
@@ -36,6 +38,7 @@ func (c *CR002BuyingPower) Verify(ctx context.Context, order *models.Order) erro
 		return fmt.Errorf("%w: %v", common.ErrDependencyFailure, err)
 	}
 
+	log.Infof("available funds %v", wallet.AvailableFunds)
 	if wallet.AvailableFunds < (c.currentPrice * float64(order.Quantity)) {
 		return fmt.Errorf("%w: not enough available funds", common.ErrBusinessRuleViolation)
 	}
