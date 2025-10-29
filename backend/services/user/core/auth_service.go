@@ -5,6 +5,7 @@ import (
 	"brokerx/user-service/ports"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -14,12 +15,30 @@ import (
 
 type AuthService interface {
 	Authenticate(email, password string) (*models.User, error)
+	Register(user *models.User) error
 }
 
 type AuthServiceImpl struct {
 	Repo                        ports.UserRepository
 	PasswordAllowedRetries      int
 	PasswordLockDurationMinutes int
+}
+
+func (authService *AuthServiceImpl) Register(user *models.User) error {
+    existing, err := authService.Repo.FindByEmail(user.Email)
+    if err == nil && existing != nil {
+        return errors.New("email already registered")
+    }
+
+    hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+    if err != nil {
+        return fmt.Errorf("failed to hash password: %w", err)
+    }
+    user.Password = string(hashed)
+    user.Status = "pending"
+	// TODO: Send confirmation email via notification service
+
+    return authService.Repo.Create(user)
 }
 
 func (authService *AuthServiceImpl) Authenticate(email, password string) (*models.User, error) {
