@@ -12,10 +12,10 @@ jobs:
     strategy:
       matrix:
         service:
-          - users
-          - orders
+          - user
+          - order
           - portfolio
-          - market
+          - market-data
           - matching
     defaults:
       run:
