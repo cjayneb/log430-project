@@ -36,7 +36,7 @@ func TestSQLWalletRepositoryIntegration(t *testing.T) {
 	require.Equal(t, fundsOnHold, wallet.OnHoldFunds)
 
 	// --- FindByUserId not found ---
-	wallet, err = repo.FindByUserId("non existent user id")
-	require.ErrorIs(t, err, sql.ErrNoRows)
+	wallet, err = repo.FindByUserId(0)
+	require.Nil(t, err)
 	require.Nil(t, wallet)
 }

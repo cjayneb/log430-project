@@ -51,14 +51,14 @@ func makeUser(email, password string, failedAttempts int, lockedUntil sql.NullTi
 type AuthServiceTestSuite struct {
 	suite.Suite
 	repo    *MockUserRepo
-	service *AuthService
+	service *AuthServiceImpl
 	email   string
 	pass    string
 }
 
 func (s *AuthServiceTestSuite) SetupTest() {
 	s.repo = new(MockUserRepo)
-	s.service = &AuthService{
+	s.service = &AuthServiceImpl{
 		Repo:                        s.repo,
 		PasswordAllowedRetries:      3,
 		PasswordLockDurationMinutes: 15,

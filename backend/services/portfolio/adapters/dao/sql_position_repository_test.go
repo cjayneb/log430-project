@@ -2,6 +2,7 @@ package dao_adapters
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -12,6 +13,37 @@ import (
 
 var quantity int = 1000
 var unitPrice float64 = 150.0
+var userId int = 1
+var symbol string = "AAPL"
+
+func setupTestDB(t *testing.T) (*sql.DB, func()) {
+	// Run docker-compose.test.yml before executing this test
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
+	}
+	defer os.Clearenv()
+
+	db, err := sql.Open("mysql", dbUrl)
+	require.NoError(t, err)
+
+	err = db.Ping()
+	require.NoError(t, err)
+
+	_, err = db.Exec("DELETE FROM orders")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM positions")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM wallets")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM users")
+	require.NoError(t, err)
+
+	cleanup := func() {
+		db.Close()
+	}
+	return db, cleanup
+}
 
 func insertPositionTestData(t *testing.T, db *sql.DB) {
 	_, err := db.Query(`INSERT INTO users (id, email, password) 

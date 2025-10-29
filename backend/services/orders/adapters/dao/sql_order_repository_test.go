@@ -1,16 +1,46 @@
 package dao_adapters
 
 import (
-	"brokerx/models"
+	"brokerx/order-service/models"
 	"database/sql"
+	"os"
 	"testing"
 
-	"github.com/google/uuid"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 )
 
 var symbol string = "AAPL"
-var userId string = uuid.New().String()
+var userId int = 1
+
+func setupTestDB(t *testing.T) (*sql.DB, func()) {
+	// Run docker-compose.test.yml before executing this test
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		dbUrl = "root:root@tcp(127.0.0.1:3307)/brokerx?parseTime=true"
+	}
+	defer os.Clearenv()
+
+	db, err := sql.Open("mysql", dbUrl)
+	require.NoError(t, err)
+
+	err = db.Ping()
+	require.NoError(t, err)
+
+	_, err = db.Exec("DELETE FROM orders")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM positions")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM wallets")
+	require.NoError(t, err)
+	_, err = db.Exec("DELETE FROM users")
+	require.NoError(t, err)
+
+	cleanup := func() {
+		db.Close()
+	}
+	return db, cleanup
+}
 
 func insertOrderTestData(t *testing.T, db *sql.DB) {
 	_, err := db.Query(`INSERT INTO users (id, email, password) 
