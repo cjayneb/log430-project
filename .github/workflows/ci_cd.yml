@@ -2,7 +2,6 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -10,6 +9,18 @@ jobs:
   build-test:
     name: Lint, Build, Test, Coverage, Trivy Scans
     runs-on: self-hosted
+    strategy:
+      matrix:
+        service:
+          - users
+          - orders
+          - portfolio
+          - market
+          - matching
+    defaults:
+      run:
+        working-directory: backend/services/${{ matrix.service }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,17 +29,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.24.3
-          cache-dependency-path: backend/go.sum
+          cache-dependency-path: backend/services/${{ matrix.service }}/go.sum
 
       - name: Go Linter
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          working-directory: ./backend
+          working-directory: ./backend/services/${{ matrix.service }}
 
       - name: Build
         run: go build ./...
-        working-directory: ./backend
+        working-directory: ./backend/services/${{ matrix.service }}
 
       - name: Start tests dependencies
         run: |
@@ -57,7 +68,7 @@ jobs:
             echo "Code coverage ($coverage%) is below 40%"
             exit 1
           fi
-        working-directory: ./backend
+        working-directory: ./backend/services/${{ matrix.service }}
 
       - name: Run Trivy on filesystem
         uses: aquasecurity/trivy-action@master
@@ -71,7 +82,8 @@ jobs:
           TRIVY_SKIP_DB_UPDATE: true
 
       - name: Build Docker image
-        run: docker build -t brokerx-app .
+        run: docker build -t brokerx-${{ matrix.service }}-service .
+        working-directory: ./backend/services/${{ matrix.service }}
 
       - name: Run Trivy on Docker image
         uses: aquasecurity/trivy-action@master
