@@ -13,8 +13,8 @@ var availableFunds float64 = 1000.0
 var fundsOnHold float64 = 150.0
 
 func insertWalletTestData(t *testing.T, db *sql.DB) {
-	_, err := db.Query(`INSERT INTO users (id, email, password) 
-                      VALUES (?, 'email', 'hashedpw')`, userId)
+	_, err := db.Query(`INSERT INTO users (id, email, first_name, last_name, password) 
+                      VALUES (?, email, 'hello', 'test', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
 	_, err = db.Query(`INSERT INTO wallets (id, user_id, available_funds, funds_on_hold) VALUES(?, ?, ?, ?)`,
