@@ -23,6 +23,17 @@ type AuthHandler struct {
 	JWTSecret []byte
 }
 
+type UserCreatedResponse struct {
+	Message string `json:"message"`
+	Email string `json:"email"`
+	Status string `json:"status"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
 type LoginResponse struct {
 	Token string `json:"token"`
 }
@@ -47,7 +58,7 @@ type Claims struct {
 var validate = validator.New()
 
 func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var creds models.User
+	var creds LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON input"})
 		return
@@ -119,7 +130,30 @@ func (handler *AuthHandler) VerifyToken(w http.ResponseWriter, r *http.Request) 
 }
 
 func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(501)
+	var newUser models.User
+    if err := json.NewDecoder(r.Body).Decode(&newUser); err != nil {
+        writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON input"})
+        return
+    }
+    if err := validate.Struct(newUser); err != nil {
+        writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: fmt.Sprintf("missing or invalid fields: %v", err)})
+        return
+    }
+
+    if err := handler.Service.Register(&newUser); err != nil {
+        if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "registered") {
+            writeJSON(w, http.StatusConflict, ErrorResponse{ErrorMessage: "email already registered"})
+            return
+        }
+        writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: err.Error()})
+        return
+    }
+
+    writeJSON(w, http.StatusCreated, UserCreatedResponse{
+		Message: "user registered successfully",
+		Email: newUser.Email,
+		Status: newUser.Status,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

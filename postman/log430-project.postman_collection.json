@@ -54,6 +54,49 @@
 					"response": []
 				},
 				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"token = pm.response.json()[\"token\"]",
+									"pm.collectionVariables.set(\"token\", token)"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"jcben@email.com\",\n    \"password\": \"password\",\n    \"first_name\": \"jc\",\n    \"last_name\": \"benoit\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{baseURL}}/api/user/register",
+							"protocol": "http",
+							"host": [
+								"{{baseURL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Verify Token",
 					"request": {
 						"auth": {

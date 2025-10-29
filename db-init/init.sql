@@ -6,15 +6,18 @@ CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY UNIQUE AUTO_INCREMENT,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    status ENUM('pending', 'active') NOT NULL,
     failed_attempts INT NOT NULL DEFAULT 0,
     locked_until DATETIME NULL
 );
 CREATE UNIQUE INDEX idx_users_email ON users(email);
 
-INSERT INTO users (email, password) VALUES
-('email', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG'),
-('buyer@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG'),
-('seller@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG');
+INSERT INTO users (email, password, first_name, last_name, status) VALUES
+('email', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'fn', 'ln', 'active'),
+('buyer@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'buyer', 'man', 'active'),
+('seller@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'seller', 'woman', 'active');
 
 CREATE TABLE IF NOT EXISTS wallets (
     id CHAR(36) PRIMARY KEY,

@@ -17,6 +17,11 @@ type MockUserRepo struct {
 	mock.Mock
 }
 
+func (m *MockUserRepo) Create(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
 func (m *MockUserRepo) FindByEmail(email string) (*models.User, error) {
 	args := m.Called(email)
 	if args.Get(0) == nil {

@@ -10,6 +10,15 @@ type SQLUserRepository struct {
 	DB *sql.DB
 }
 
+func (repo *SQLUserRepository) Create(user *models.User) error {
+	query := `
+        INSERT INTO brokerx.users (email, password, first_name, last_name, status)
+        VALUES (?, ?, ?, ?, ?)
+    `
+    _, err := repo.DB.Exec(query, user.Email, user.Password, user.FirstName, user.LastName, user.Status)
+    return err
+}
+
 func (repo *SQLUserRepository) FindByEmail(email string) (*models.User, error) {
 	row := repo.DB.QueryRow("SELECT id, email, password, failed_attempts, locked_until FROM brokerx.users WHERE email=?", email)
 
