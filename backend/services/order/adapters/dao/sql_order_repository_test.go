@@ -43,8 +43,8 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 }
 
 func insertOrderTestData(t *testing.T, db *sql.DB) {
-	_, err := db.Query(`INSERT INTO users (id, email, password) 
-                      VALUES (?, 'email', 'hashedpw')`, userId)
+	_, err := db.Query(`INSERT INTO users (id, email, first_name, last_name, password) 
+                      VALUES (?, email, 'hello', 'test', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
 	_, err = db.Query(`INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,

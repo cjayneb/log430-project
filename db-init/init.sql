@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
-    status ENUM('pending', 'active') NOT NULL,
+    status ENUM('pending', 'active') NOT NULL DEFAULT 'pending',
     failed_attempts INT NOT NULL DEFAULT 0,
     locked_until DATETIME NULL
 );
