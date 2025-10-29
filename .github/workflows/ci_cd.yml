@@ -105,6 +105,7 @@ jobs:
     name: Deploy with Docker Compose
     runs-on: self-hosted
     needs: build-test
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
