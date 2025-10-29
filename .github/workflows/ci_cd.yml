@@ -8,7 +8,7 @@ on:
 jobs:
   build-test:
     name: Lint, Build, Test, Coverage, Trivy Scans
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         service:
@@ -46,6 +46,7 @@ jobs:
           docker rm -f brokerx_test_db || true
           docker compose -f docker-compose.test.yml down -v || true
           docker compose -f docker-compose.test.yml up -d
+        working-directory: ./backend
 
       - name: Wait for MySQL
         run: |
