@@ -37,7 +37,9 @@ type OrderHandler struct {
 var validate = validator.New()
 
 func NewOrderHandler(orderService core.OrderService, complianceService core.ComplianceService) *OrderHandler {
-	validate.RegisterValidation("limitprice", isLimitPriceValid)
+	if err := validate.RegisterValidation("limitprice", isLimitPriceValid); err != nil {
+		log.Errorf("could not add order custom validation rule : %v", err)
+	}
 	return &OrderHandler{OrderService: orderService, ComplianceService: complianceService}
 }
 
