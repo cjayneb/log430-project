@@ -58,8 +58,6 @@ var order4MarketBuy = models.Order{
 	Status:            "filled",
 }
 
-var baseOrders = []*models.Order{&order1LimitBuy, &order2LimitSell, &order3MarketBuy, &order4MarketBuy}
-
 func TestMain(m *testing.M) {
 	engine = core.MatchingEngineImpl{}
 	engine.StartMatchingWorkers(0)

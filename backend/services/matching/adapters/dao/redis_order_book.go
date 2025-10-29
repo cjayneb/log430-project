@@ -191,36 +191,6 @@ func (book *RedisOrderBook) DequeueOrders(batchSize int) ([]*models.Order, error
 	return orders, nil
 }
 
-func (book *RedisOrderBook) logBook() {
-	orders, _ := book.fetchAll()
-	log.Info()
-	log.Info("Contents of Redis Set")
-	for _, order := range orders {
-		log.Infof("Redis order: %v", order)
-	}
-	log.Info("End of Redis Set---------------")
-	log.Info()
-}
-
-func (book *RedisOrderBook) fetchAll() ([]*models.Order, error) {
-	var orders []*models.Order
-	iter := book.Rdb.Scan(ctx, 0, "order:*", 0).Iterator()
-	for iter.Next(ctx) {
-		val, err := book.Rdb.Get(ctx, iter.Val()).Result()
-		if err != nil {
-			continue
-		}
-		var o models.Order
-		if err := json.Unmarshal([]byte(val), &o); err == nil {
-			orders = append(orders, &o)
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return orders, nil
-}
-
 func (book *RedisOrderBook) fetchOrders(ids []string, fetchAndDelete bool) ([]*models.Order, error) {
 	if len(ids) == 0 {
 		return []*models.Order{}, nil

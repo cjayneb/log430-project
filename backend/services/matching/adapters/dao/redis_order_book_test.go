@@ -83,7 +83,7 @@ func setupOrder(wantErr bool) {
 		for _, o := range baseOrders {
 			_ = orderBook.Insert(o)
 		}
-		orderBook.EnqueueOrders(baseOrders)
+		_ = orderBook.EnqueueOrders(baseOrders)
 	}
 }
 
