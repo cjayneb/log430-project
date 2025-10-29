@@ -111,6 +111,18 @@ services:
     deploy:
       replicas: 1
 
+  frontend-service:
+    build: ./frontend
+    ports:
+      - "8081:8081"
+    depends_on:
+      - user-service
+      - order-service
+      - portfolio-service
+    networks:
+      - brokerx-network
+
+
   db:
     image: mysql:8.0
     container_name: brokerx_db
