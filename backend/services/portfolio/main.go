@@ -31,6 +31,7 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Get("/api/portfolio/wallet", portfolioHandler.GetWallet)
+	r.Patch("/api/portfolio/wallet/fund", portfolioHandler.FundWallet)
 	r.Get("/api/portfolio/positions", portfolioHandler.FetchPositions)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

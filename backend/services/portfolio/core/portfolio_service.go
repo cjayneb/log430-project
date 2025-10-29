@@ -8,12 +8,18 @@ import (
 
 type PortfolioService interface {
 	GetWallet(userId int) (*models.Wallet, error)
+	FundWallet(userId int, amount float64) error
 	FetchPositions(userId int, symbol string) ([]*models.Position, error)
 }
 
 type PortfolioServiceImpl struct {
 	PositionsRepo ports.PositionRepository
 	WalletRepo    ports.WalletRepository
+}
+
+func (service *PortfolioServiceImpl) FundWallet(userId int, amount float64) error {
+	// TODO: add checks for compliance
+	return service.WalletRepo.AddFunds(userId, amount)
 }
 
 func (service *PortfolioServiceImpl) GetWallet(userId int) (*models.Wallet, error) {
