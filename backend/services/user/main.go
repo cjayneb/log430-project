@@ -46,7 +46,9 @@ func main() {
 	})
 
 	log.Println("Starting User Service on port " + config.Port)
-	http.ListenAndServe(":"+config.Port, r)
+	if err := http.ListenAndServe(":"+config.Port, r); err != nil {
+		log.Fatalf("Error when starting service : %v", err)
+	}
 }
 
 func initDbConnection() *dao_adapters.SQLUserRepository {
