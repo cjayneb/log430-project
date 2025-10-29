@@ -1,9 +1,9 @@
 package main
 
 import (
-	dao_adapters "brokerx/portfolio-service/adapters/dao"
-	handler_adapters "brokerx/portfolio-service/adapters/handlers"
-	"brokerx/portfolio-service/core"
+	dao_adapters "brokerx/user-service/adapters/dao"
+	handler_adapters "brokerx/user-service/adapters/handlers"
+	"brokerx/user-service/core"
 	"database/sql"
 	"net/http"
 	"time"
@@ -21,33 +21,37 @@ func main() {
 		log.Fatalf("Config error : %s", err)
 	}
 
-	walletRepo, positionsRepo := initDbConnection()
-
-	portfolioService := &core.PortfolioServiceImpl{
-		WalletRepo:    walletRepo,
-		PositionsRepo: positionsRepo,
+	userRepo := initDbConnection()
+	authService := &core.AuthServiceImpl{
+		Repo: userRepo,
+		PasswordAllowedRetries: config.PasswordAllowedRetries,
+		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
 	}
-	portfolioHandler := handler_adapters.PortfolioHandler{Service: portfolioService}
+	authHandler := &handler_adapters.AuthHandler{
+		Service:   authService,
+		JWTSecret: []byte(config.JWTSecret),
+	}
 
 	r := chi.NewRouter()
-	r.Get("/api/portfolio/wallet", portfolioHandler.GetWallet)
-	r.Get("/api/portfolio/positions", portfolioHandler.FetchPositions)
+	r.Post("/api/user/register", authHandler.Register)
+	r.Post("/api/user/auth/login", authHandler.Login)
+	r.Get("/api/user/auth/verify", authHandler.VerifyToken)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, err := w.Write([]byte("{\"message\": \"Portfolio service OK\"}"))
+		_, err := w.Write([]byte("{\"message\": \"User service OK\"}"))
 		if err != nil {
 			log.Errorf("Health check response error: %v", err)
 		}
 	})
 
-	log.Println("Starting Portfolio Service on port " + config.Port)
+	log.Println("Starting User Service on port " + config.Port)
 	if err := http.ListenAndServe(":"+config.Port, r); err != nil {
 		log.Fatalf("Error when starting service : %v", err)
 	}
 }
 
-func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository) {
+func initDbConnection() *dao_adapters.SQLUserRepository {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		log.Fatalf("Db open error : %v", err)
@@ -61,5 +65,5 @@ func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPos
 	if err := db.Ping(); err != nil {
 		log.Warnf("Db error : %s ", err)
 	}
-	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}
+	return &dao_adapters.SQLUserRepository{DB: db}
 }

@@ -15,12 +15,12 @@ func TestLoadConfigDefaults(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, "8080", cfg.Port)
-	assert.Equal(t, "root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true", cfg.DBUrl)
+	assert.Equal(t, "resources/", cfg.ResourcePath)
 }
 
 func TestLoadConfigCustomValues(t *testing.T) {
 	os.Setenv("APP_PORT", "9999")
-	os.Setenv("PASSWORD_ALLOWED_RETRIES", "10")
+	os.Setenv("RESOURCES_PATH", "/resources/custom")
 	defer os.Clearenv()
 
 	cfg := Config{}
@@ -28,4 +28,5 @@ func TestLoadConfigCustomValues(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, "9999", cfg.Port)
+	assert.Equal(t, "/resources/custom", cfg.ResourcePath)
 }

@@ -7,15 +7,22 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/go-chi/chi/v5"
 )
 
 var config Config = Config{}
 
 func main() {
+	log.Println("Starting Matching Service on port " + config.Port)
+	router := run()
+	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
+		log.Fatalf("Server error : %s", err)
+	}
+}
+
+func run() http.Handler {
 	if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Config error : %s", err)
 	}
@@ -42,9 +49,7 @@ func main() {
 			log.Errorf("Health check response error: %v", err)
 		}
 	})
-
-	log.Println("Starting Matching Service on port " + config.Port)
-	http.ListenAndServe(":"+config.Port, r)
+	return r
 }
 
 func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {

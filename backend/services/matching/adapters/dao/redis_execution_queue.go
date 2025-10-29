@@ -24,6 +24,7 @@ func (queue *RedisExecutionQueue) EnqueueExecutionRecords(records []*models.Exec
 		}
 		if err := queue.Rdb.LPush(ctx, EXECUTION_RECORDS_PERSISTANCE_QUEUE, data).Err(); err != nil {
 			log.Errorf("error enqueueing execution record %v: %v", record, err)
+			return err
 		}
 	}
 	return nil

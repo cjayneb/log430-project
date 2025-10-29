@@ -1,7 +1,7 @@
 services:
   user-service:
     build:
-      context: ./backend/services/users
+      context: ./backend/services/user
     expose:
       - "8080"
     environment:
@@ -24,7 +24,7 @@ services:
 
   order-service:
     build:
-      context: ./backend/services/orders
+      context: ./backend/services/order
     expose:
       - "8080"
     environment:
@@ -94,7 +94,7 @@ services:
 
   market-data-service:
     build:
-      context: ./backend/services/market
+      context: ./backend/services/market-data
     expose:
       - "8080"
     environment:

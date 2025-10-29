@@ -13,7 +13,7 @@ var orderQueueLen = prometheus.NewGauge(prometheus.GaugeOpts{
 	Help: "Current number of orders in the async matching queue",
 })
 
-var orderQueue chan *models.Order
+var OrderQueue chan *models.Order
 
 func init() { prometheus.MustRegister(orderQueueLen) }
 
@@ -26,28 +26,28 @@ type MatchingEngineImpl struct {
 	ExecutionQueue ports.ExecutionQueue
 }
 
-type claimedCandidate struct {
+type ClaimedCandidate struct {
 	Order      *models.Order
 	ClaimedQty int
 }
 
 func (engine *MatchingEngineImpl) QueueOrder(order *models.Order) error {
-	orderQueueLen.Set(float64(len(orderQueue)))
-	orderQueue <- order
+	orderQueueLen.Set(float64(len(OrderQueue)))
+	OrderQueue <- order
 	log.Infof("Order #%v queued for matching", order.ID)
 	return nil
 }
 
 func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) {
-	orderQueue = make(chan *models.Order, 1000)
+	OrderQueue = make(chan *models.Order, 1000)
 	for i := 0; i < numberOfGoRoutines; i++ {
 		go func() {
-			for order := range orderQueue {
+			for order := range OrderQueue {
 				if err := service.OrderBook.Insert(order); err != nil {
 					// TODO: retry? or find a way to let user know
 					log.Errorf("Order book submission failed for order #%d: %v", order.ID, err)
 				}
-				if err := service.submitOrder(order.ID); err != nil {
+				if err := service.SubmitOrder(order.ID); err != nil {
 					log.Errorf("matching failed for order #%d: %v", order.ID, err)
 				}
 			}
@@ -56,7 +56,7 @@ func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) 
 	log.Infof("Started %d matching workers", numberOfGoRoutines)
 }
 
-func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
+func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(orderId)
 	if err != nil {
@@ -69,7 +69,7 @@ func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 
 	var (
 		allMatchedOrders []*models.Order
-		claimedOrders    []*claimedCandidate
+		claimedOrders    []*ClaimedCandidate
 		batchSize        = 5
 		executionBuffer  []*models.ExecutionRecord
 	)
@@ -83,9 +83,9 @@ func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 		// 2. Fetch candidate matches
 		switch order.Type {
 		case "market":
-			matchedOrders, err = engine.OrderBook.FindMatchesMarket(order.Symbol, order.Type, order.Action, batchSize)
+			matchedOrders, err = engine.OrderBook.FindMatchesMarket(order.Symbol, order.Action, batchSize)
 		case "limit":
-			matchedOrders, err = engine.OrderBook.FindMatchesLimit(order.Symbol, order.Type, order.Action, order.UnitPrice, batchSize)
+			matchedOrders, err = engine.OrderBook.FindMatchesLimit(order.Symbol, order.Action, order.UnitPrice, batchSize)
 		}
 		if err != nil {
 			log.Errorf("Error when fetching candidate matches: %v", err)
@@ -109,9 +109,9 @@ func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 			order.RemainingQuantity -= qty
 			candidate.RemainingQuantity -= qty
 
-			updateStatus(candidate)
+			UpdateStatus(candidate)
 
-			claimedOrders = append(claimedOrders, &claimedCandidate{
+			claimedOrders = append(claimedOrders, &ClaimedCandidate{
 				Order:      candidate,
 				ClaimedQty: qty,
 			})
@@ -127,8 +127,8 @@ func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 		allMatchedOrders = append(allMatchedOrders, matchedOrders...)
 	}
 
-	updateStatus(&order)
-	handleIocOrder(&order, &claimedOrders, &executionBuffer)
+	UpdateStatus(&order)
+	HandleIocOrder(&order, &claimedOrders, &executionBuffer)
 
 	// Returns incomplete orders to order book
 	if err := engine.handleRemainingOrders(order, &allMatchedOrders); err != nil {
@@ -143,7 +143,7 @@ func (engine *MatchingEngineImpl) submitOrder(orderId int) error {
 	return nil
 }
 
-func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate, executionBuffer *[]*models.ExecutionRecord) {
+func HandleIocOrder(incoming *models.Order, claimedOrders *[]*ClaimedCandidate, executionBuffer *[]*models.ExecutionRecord) {
 	if incoming.Timing != "ioc" {
 		return
 	}
@@ -151,15 +151,15 @@ func handleIocOrder(incoming *models.Order, claimedOrders *[]*claimedCandidate, 
 	if incoming.RemainingQuantity > 0 {
 		incoming.Status = "canceled"
 		incoming.RemainingQuantity = incoming.Quantity
-		revertClaimedOrders(claimedOrders)
+		RevertClaimedOrders(claimedOrders)
 		*executionBuffer = nil
 	}
 }
 
-func revertClaimedOrders(claimedOrders *[]*claimedCandidate) {
+func RevertClaimedOrders(claimedOrders *[]*ClaimedCandidate) {
 	for _, claimed := range *claimedOrders {
 		claimed.Order.RemainingQuantity += claimed.ClaimedQty
-		claimed.Order = updateStatus(claimed.Order)
+		claimed.Order = UpdateStatus(claimed.Order)
 	}
 }
 
@@ -179,7 +179,7 @@ func (engine *MatchingEngineImpl) handleRemainingOrders(incoming models.Order, a
 	return engine.OrderBook.Return(ordersToReturn)
 }
 
-func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*claimedCandidate, executionBuffer []*models.ExecutionRecord) error {
+func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*ClaimedCandidate, executionBuffer []*models.ExecutionRecord) error {
 	ordersToPersist := []*models.Order{}
 	if incoming.Status == "filled" || incoming.Status == "canceled" {
 		ordersToPersist = append(ordersToPersist, incoming)
@@ -206,7 +206,7 @@ func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order
 	return nil
 }
 
-func updateStatus(order *models.Order) *models.Order {
+func UpdateStatus(order *models.Order) *models.Order {
 	if order.RemainingQuantity != 0 && order.RemainingQuantity < order.Quantity {
 		order.Status = "partially_filled"
 		return order
