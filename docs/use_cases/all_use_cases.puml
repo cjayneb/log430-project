@@ -5,9 +5,9 @@ actor Client as C
 
 rectangle BrokerX {
     together {
-        usecase "UC-01\nSign up" as UC01
+        usecase "UC-01\nSign up" as UC01 #palegreen
         usecase "UC-02\nLogin" as UC02 #palegreen
-        usecase "UC-03\nAdd funds" as UC03
+        usecase "UC-03\nAdd funds" as UC03 #palegreen
         usecase "UC-04\nView stock" as UC04
         usecase "UC-06\nModify order" as UC06
     }
