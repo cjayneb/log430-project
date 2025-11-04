@@ -6,6 +6,12 @@ title BrokerX - C4 Container Diagram
 Person(client, "Client", "End user interacting via web browser")
 
 System_Boundary(bx, "BrokerX System") {
+  Container(fontend, "BrokerX frontend-service (Go)", "Go server", "Serves static html javascript files and routes requests from frontend to backend")
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
+  Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
   Container(api, "BrokerX API (Go)", "Go monolith", "Handles authentication, order placement, matching")
   ContainerDb(db, "MySQL Database", "MySQL", "Stores users, wallets, orders, executions")
 }
