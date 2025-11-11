@@ -18,6 +18,8 @@ import (
 )
 
 const TraceIDHeader = "X-Trace-Id"
+type contextKey string
+const TraceIdCtxKey contextKey = "traceId"
 
 var config Config = Config{}
 
@@ -69,7 +71,7 @@ func TraceMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx = traceid.NewContext(ctx)
-		ctx = context.WithValue(ctx, "traceId", traceID)
+		ctx = context.WithValue(ctx, TraceIdCtxKey, traceID)
 
 		reqLogger := slog.Default().With("traceId", traceID)
 		ctx = util.WithLogger(ctx, reqLogger)
