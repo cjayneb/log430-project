@@ -3,8 +3,7 @@ package handler_adapters
 import (
 	"brokerx/market-data-service/core"
 	"brokerx/market-data-service/models"
-	"encoding/json"
-	"fmt"
+	"brokerx/market-data-service/util"
 	"net/http"
 	"strings"
 )
@@ -29,63 +28,75 @@ type MarketDataHandler struct {
 }
 
 func (handler *MarketDataHandler) GetStockPrice(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	if r.Header.Get(USER_ID_HEADER_KEY) == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	jwt := r.Header.Get("Authorization")
 	if !strings.HasPrefix(jwt, "Bearer ") {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing authorization token"})
+		msg := "missing authorization token"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	symbol := r.URL.Query().Get("symbol")
 	if symbol == "" {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "missing 'symbol' query parameter"})
+		msg := "missing 'symbol' query parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	price, err := handler.Service.GetCurrentStockPriceBySymbol(symbol)
+	price, err := handler.Service.GetCurrentStockPriceBySymbol(r.Context(), symbol)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: fmt.Sprintf("failed to get price : %v", err)})
+		msg := "failed to get price"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, StockPriceResponse{Symbol: strings.ToUpper(symbol), Price: price})
+	util.WriteJSON(w, http.StatusOK, StockPriceResponse{Symbol: strings.ToUpper(symbol), Price: price})
 }
 
 func (handler *MarketDataHandler) GetInstrument(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	if r.Header.Get(USER_ID_HEADER_KEY) == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	jwt := r.Header.Get("Authorization")
 	if !strings.HasPrefix(jwt, "Bearer ") {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing authorization token"})
+		msg := "missing authorization token"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	symbol := r.URL.Query().Get("symbol")
 	if symbol == "" {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "missing 'symbol' query parameter"})
+		msg := "missing 'symbol' query parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	instrument, err := handler.Service.GetInstrumentBySymbol(symbol)
+	instrument, err := handler.Service.GetInstrumentBySymbol(r.Context(), symbol)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: fmt.Sprintf("failed to get instrument : %v", err)})
+		msg := "failed to get instrument"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, InstrumentResponse{Instrument: *instrument})
-}
-
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, fmt.Sprintf("error when encoding JSON response : %v", err), http.StatusInternalServerError)
-	}
+	util.WriteJSON(w, http.StatusOK, InstrumentResponse{Instrument: *instrument})
 }

@@ -2,3 +2,4 @@ backend/coverage
 certs/fullchain.pem
 certs/privkey.pem
 docs/.DS_Store
+backend/services/market-data/coverage

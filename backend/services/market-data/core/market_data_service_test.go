@@ -3,10 +3,12 @@ package core_test
 import (
 	"brokerx/market-data-service/core"
 	"brokerx/market-data-service/models"
+	"context"
 	"testing"
 )
 
 const resourcesPath = "../resources/"
+var ctx = context.Background()
 
 func TestMarketDataServiceImpl_GetCurrentStockPriceBySymbol(t *testing.T) {
 	tests := []struct {
@@ -32,7 +34,7 @@ func TestMarketDataServiceImpl_GetCurrentStockPriceBySymbol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := core.NewMarketDataServiceImpl(resourcesPath)
 
-			got, gotErr := m.GetCurrentStockPriceBySymbol(tt.symbol)
+			got, gotErr := m.GetCurrentStockPriceBySymbol(ctx, tt.symbol)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -80,7 +82,7 @@ func TestMarketDataServiceImpl_GetInstrumentBySymbol(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := core.NewMarketDataServiceImpl(resourcesPath)
 
-			got, gotErr := m.GetInstrumentBySymbol(tt.symbol)
+			got, gotErr := m.GetInstrumentBySymbol(ctx, tt.symbol)
 
 			if gotErr != nil {
 				if !tt.wantErr {

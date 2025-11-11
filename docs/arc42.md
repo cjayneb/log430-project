@@ -925,6 +925,22 @@ Accepted
 ### Consequences
 
 
+## ADR-06: Grafana, Loki and Promtail for observability
+
+### Context
+
+
+### Decision
+
+Use Grafane in conjonction with Promtail and Loki for logs.
+
+### Status
+
+Accepted
+
+### Consequences
+
+
 # 10. Quality Requirements
 
 ## Latency
