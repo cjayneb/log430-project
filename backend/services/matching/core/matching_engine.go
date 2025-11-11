@@ -33,7 +33,6 @@ type ClaimedCandidate struct {
 func (engine *MatchingEngineImpl) QueueOrder(ctx context.Context, order *models.Order) error {
 	log := util.FromContext(ctx)
 
-	orderQueueLen.Set(float64(len(OrderQueue)))
 	OrderQueue <- QueuedOrder{Ctx: context.WithoutCancel(ctx), Order: order}
 	log.Info("Order queued for matching", "orderId", order.ID)
 	return nil
