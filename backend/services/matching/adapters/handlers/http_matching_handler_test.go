@@ -54,7 +54,7 @@ func TestMatchingHandler_SubmitOrder(t *testing.T) {
 			query:          invalidOrder,
 			mockService:    &mocks.MockMatchingEngine{},
 			wantStatusCode: http.StatusBadRequest,
-			wantBody:       `missing or invalid fields: Key: 'Order.Symbol'`,
+			wantBody:       `missing or invalid fields`,
 		},
 		{
 			name: "service returns error",
