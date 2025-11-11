@@ -3,22 +3,21 @@ package core
 import (
 	"brokerx/matching-service/models"
 	"brokerx/matching-service/ports"
-
-	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"brokerx/matching-service/util"
+	"context"
+	"fmt"
+	"log/slog"
 )
 
-var orderQueueLen = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "order_queue_length",
-	Help: "Current number of orders in the async matching queue",
-})
+type QueuedOrder struct {
+    Ctx   context.Context
+    Order *models.Order
+}
 
-var OrderQueue chan *models.Order
-
-func init() { prometheus.MustRegister(orderQueueLen) }
+var OrderQueue chan QueuedOrder
 
 type MatchingEngine interface {
-	QueueOrder(order *models.Order) error
+	QueueOrder(ctx context.Context, order *models.Order) error
 }
 
 type MatchingEngineImpl struct {
@@ -31,39 +30,42 @@ type ClaimedCandidate struct {
 	ClaimedQty int
 }
 
-func (engine *MatchingEngineImpl) QueueOrder(order *models.Order) error {
+func (engine *MatchingEngineImpl) QueueOrder(ctx context.Context, order *models.Order) error {
+	log := util.FromContext(ctx)
+
 	orderQueueLen.Set(float64(len(OrderQueue)))
-	OrderQueue <- order
-	log.Infof("Order #%v queued for matching", order.ID)
+	OrderQueue <- QueuedOrder{Ctx: context.WithoutCancel(ctx), Order: order}
+	log.Info("Order queued for matching", "orderId", order.ID)
 	return nil
 }
 
 func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) {
-	OrderQueue = make(chan *models.Order, 1000)
+	OrderQueue = make(chan QueuedOrder, 1000)
 	for i := 0; i < numberOfGoRoutines; i++ {
 		go func() {
-			for order := range OrderQueue {
-				if err := service.OrderBook.Insert(order); err != nil {
+			for qo := range OrderQueue {
+				log := util.FromContext(qo.Ctx)
+				if err := service.OrderBook.Insert(qo.Ctx, qo.Order); err != nil {
 					// TODO: retry? or find a way to let user know
-					log.Errorf("Order book submission failed for order #%d: %v", order.ID, err)
+					log.Error("Order book insertion failed for order", "orderId", qo.Order.ID, "error", err)
 				}
-				if err := service.SubmitOrder(order.ID); err != nil {
-					log.Errorf("matching failed for order #%d: %v", order.ID, err)
+				if err := service.SubmitOrder(qo.Ctx, qo.Order.ID); err != nil {
+					log.Error("matching failed for order", "orderId", qo.Order.ID, "error", err)
 				}
 			}
 		}()
 	}
-	log.Infof("Started %d matching workers", numberOfGoRoutines)
+	slog.Info(fmt.Sprintf("Started %d matching workers", numberOfGoRoutines))
 }
 
-func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
+func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) error {
 	// 1. Fetch order from order book
-	order, err := engine.OrderBook.GetById(orderId)
+	order, err := engine.OrderBook.GetById(ctx, orderId)
 	if err != nil {
 		return err
 	}
 	if order == (models.Order{}) {
-		log.Infof("Order #%d doesn't exist or is already being processed as a candidate.", orderId)
+		slog.Info("Order doesn't exist or is already being processed as a candidate", "orderId", orderId)
 		return nil
 	}
 
@@ -83,12 +85,12 @@ func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
 		// 2. Fetch candidate matches
 		switch order.Type {
 		case "market":
-			matchedOrders, err = engine.OrderBook.FindMatchesMarket(order.Symbol, order.Action, batchSize)
+			matchedOrders, err = engine.OrderBook.FindMatchesMarket(ctx, order.Symbol, order.Action, batchSize)
 		case "limit":
-			matchedOrders, err = engine.OrderBook.FindMatchesLimit(order.Symbol, order.Action, order.UnitPrice, batchSize)
+			matchedOrders, err = engine.OrderBook.FindMatchesLimit(ctx, order.Symbol, order.Action, order.UnitPrice, batchSize)
 		}
 		if err != nil {
-			log.Errorf("Error when fetching candidate matches: %v", err)
+			slog.Error("Error when fetching candidate matches", "orderId", orderId, "error", err)
 			return err
 		}
 		if len(matchedOrders) == 0 {
@@ -131,12 +133,12 @@ func (engine *MatchingEngineImpl) SubmitOrder(orderId int) error {
 	HandleIocOrder(&order, &claimedOrders, &executionBuffer)
 
 	// Returns incomplete orders to order book
-	if err := engine.handleRemainingOrders(order, &allMatchedOrders); err != nil {
+	if err := engine.handleRemainingOrders(ctx, order, &allMatchedOrders); err != nil {
 		return err
 	}
 
 	// Send complete incoming order and candidates to queue for persistence
-	if err := engine.saveOrdersAndExecutions(&order, claimedOrders, executionBuffer); err != nil {
+	if err := engine.saveOrdersAndExecutions(ctx, &order, claimedOrders, executionBuffer); err != nil {
 		return err
 	}
 
@@ -163,7 +165,7 @@ func RevertClaimedOrders(claimedOrders *[]*ClaimedCandidate) {
 	}
 }
 
-func (engine *MatchingEngineImpl) handleRemainingOrders(incoming models.Order, allMatchedOrders *[]*models.Order) error {
+func (engine *MatchingEngineImpl) handleRemainingOrders(ctx context.Context, incoming models.Order, allMatchedOrders *[]*models.Order) error {
 	ordersToReturn := []*models.Order{}
 
 	if incoming.Status == "partially_filled" || incoming.Status == "open" {
@@ -176,10 +178,10 @@ func (engine *MatchingEngineImpl) handleRemainingOrders(incoming models.Order, a
 		}
 	}
 
-	return engine.OrderBook.Return(ordersToReturn)
+	return engine.OrderBook.Return(ctx, ordersToReturn)
 }
 
-func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order, claimedOrders []*ClaimedCandidate, executionBuffer []*models.ExecutionRecord) error {
+func (engine *MatchingEngineImpl) saveOrdersAndExecutions(ctx context.Context, incoming *models.Order, claimedOrders []*ClaimedCandidate, executionBuffer []*models.ExecutionRecord) error {
 	ordersToPersist := []*models.Order{}
 	if incoming.Status == "filled" || incoming.Status == "canceled" {
 		ordersToPersist = append(ordersToPersist, incoming)
@@ -192,14 +194,14 @@ func (engine *MatchingEngineImpl) saveOrdersAndExecutions(incoming *models.Order
 	}
 
 	if len(ordersToPersist) > 0 {
-		if err := engine.OrderBook.EnqueueOrders(ordersToPersist); err != nil {
-			log.Errorf("error when enqueuing orders for saving to db")
+		if err := engine.OrderBook.EnqueueOrders(ctx, ordersToPersist); err != nil {
+			slog.Error("error when enqueuing orders for saving to db", "error", err)
 		}
 	}
 
 	if len(executionBuffer) > 0 {
-		if err := engine.ExecutionQueue.EnqueueExecutionRecords(executionBuffer); err != nil {
-			log.Errorf("error when enqueuing execution records for saving to db")
+		if err := engine.ExecutionQueue.EnqueueExecutionRecords(ctx, executionBuffer); err != nil {
+			slog.Error("error when enqueuing execution records for saving to db", "error", err)
 		}
 	}
 

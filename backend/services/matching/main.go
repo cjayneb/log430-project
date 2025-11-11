@@ -4,29 +4,44 @@ import (
 	dao_adapters "brokerx/matching-service/adapters/dao"
 	handler_adapters "brokerx/matching-service/adapters/handlers"
 	"brokerx/matching-service/core"
+	"brokerx/matching-service/util"
 	"context"
+	"log/slog"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v2"
+	"github.com/go-chi/traceid"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 )
+
+const TraceIDHeader = "X-Trace-Id"
+type contextKey string
+const TraceIdCtxKey contextKey = "traceId"
 
 var config Config = Config{}
 
 func main() {
-	log.Println("Starting Matching Service on port " + config.Port)
+	InitLogger("matching-service")
+
+	if err := config.LoadConfig(); err != nil {
+		slog.Error("Config error", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("Starting Matching Service", "port", config.Port)
 	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
-		log.Fatalf("Server error : %s", err)
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
 	}
 }
 
 func run() http.Handler {
-	if err := config.LoadConfig(); err != nil {
-		log.Fatalf("Config error : %s", err)
-	}
-
 	orderBook, execQueue := initRedisConnection()
 
 	matchingEngine := &core.MatchingEngineImpl{
@@ -40,13 +55,17 @@ func run() http.Handler {
 	matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
 
 	r := chi.NewRouter()
+	r.Use(httplog.RequestLogger(logger()))
+	r.Use(middleware.Recoverer)
+	r.Use(TraceMiddleware)
+
 	r.Post("/api/matching/", matchingHandler.SubmitOrder)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte("{\"message\": \"Matching service OK\"}"))
 		if err != nil {
-			log.Errorf("Health check response error: %v", err)
+			slog.Error("Health check response error", "error", err)
 		}
 	})
 	return r
@@ -62,9 +81,55 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 	ctx := context.Background()
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
-		log.Warnf("Redis error : %v", err)
+		slog.Error("Redis error", "error", err)
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
 	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
+}
+
+func TraceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		traceID := r.Header.Get(TraceIDHeader)
+		if traceID == "" {
+			traceID = uuid.New().String()
+		}
+
+		ctx = traceid.NewContext(ctx)
+		ctx = context.WithValue(ctx, TraceIdCtxKey, traceID)
+
+		reqLogger := slog.Default().With("traceId", traceID)
+		ctx = util.WithLogger(ctx, reqLogger)
+
+		httplog.LogEntrySetField(ctx, "traceId", slog.StringValue(traceID))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+
+func InitLogger(service string) {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	})
+
+	logger := slog.New(handler).With("service", service)
+
+	slog.SetDefault(logger)
+}
+
+func logger() *httplog.Logger {
+	return httplog.NewLogger("market-data-service", httplog.Options{
+		LogLevel:         slog.LevelDebug,
+		RequestHeaders:   false,
+		ResponseHeaders:  false,
+		JSON:             false,
+		Concise:          true,
+		MessageFieldName: "message",
+		LevelFieldName:   "severity",
+		TimeFieldFormat:  time.RFC3339,
+	})
 }

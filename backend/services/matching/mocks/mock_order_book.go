@@ -3,6 +3,7 @@ package mocks
 import (
 	"brokerx/matching-service/models"
 	"brokerx/matching-service/ports"
+	"context"
 )
 
 type MockOrderBook struct {
@@ -11,50 +12,50 @@ type MockOrderBook struct {
 	Err    error
 }
 
-func (m *MockOrderBook) EnqueueOrders(orders []*models.Order) error {
+func (m *MockOrderBook) EnqueueOrders(ctx context.Context, orders []*models.Order) error {
 	if m.Err != nil {
 		return m.Err
 	}
 	return nil
 }
 
-func (m *MockOrderBook) DequeueOrders(batchSize int) ([]*models.Order, error) {
+func (m *MockOrderBook) DequeueOrders(ctx context.Context, batchSize int) ([]*models.Order, error) {
 	if m.Err != nil {
 		return []*models.Order{}, m.Err
 	}
 	return m.Orders, nil
 }
 
-func (m *MockOrderBook) GetById(orderId int) (models.Order, error) {
+func (m *MockOrderBook) GetById(ctx context.Context, orderId int) (models.Order, error) {
 	if m.Err != nil {
 		return models.Order{}, m.Err
 	}
 	return m.Order, nil
 }
 
-func (m *MockOrderBook) FindMatchesLimit(symbol string, action string, unitPrice float64, batchSize int) ([]*models.Order, error) {
+func (m *MockOrderBook) FindMatchesLimit(ctx context.Context, symbol string, action string, unitPrice float64, batchSize int) ([]*models.Order, error) {
 	if m.Err != nil {
 		return []*models.Order{}, m.Err
 	}
 	return m.Orders, nil
 }
 
-func (m *MockOrderBook) FindMatchesMarket(symbol string, action string, batchSize int) ([]*models.Order, error) {
+func (m *MockOrderBook) FindMatchesMarket(ctx context.Context, symbol string, action string, batchSize int) ([]*models.Order, error) {
 	if m.Err != nil {
 		return []*models.Order{}, m.Err
 	}
 	return m.Orders, nil
 }
 
-func (m *MockOrderBook) Insert(order *models.Order) error {
+func (m *MockOrderBook) Insert(ctx context.Context, order *models.Order) error {
 	return m.Err
 }
 
-func (m *MockOrderBook) Return(orders []*models.Order) error {
+func (m *MockOrderBook) Return(ctx context.Context, orders []*models.Order) error {
 	return m.Err
 }
 
-func (m *MockOrderBook) MarkDirty(orderID int) error {
+func (m *MockOrderBook) MarkDirty(ctx context.Context, orderID int) error {
 	return m.Err
 }
 
