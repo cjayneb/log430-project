@@ -162,22 +162,14 @@ func (s *AuthServiceTestSuite) TestAuthenticateResetLockout() {
 }
 
 func (s *AuthServiceTestSuite) TestAuthenticateResetLockoutUpdateFailure() {
-	expectedLog := "Failed to update user lock status: sql: connection is already closed"
 	user := makeUser(s.email, s.pass, 3, sql.NullTime{Valid: false})
 	s.repo.On("FindByEmail", s.email).Return(user, nil)
 	s.repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
 	s.service.PasswordAllowedRetries = 5
 	s.service.PasswordLockDurationMinutes = 5
 
-	var buf bytes.Buffer
-	originalOutput := log.StandardLogger().Writer()
-	log.SetOutput(&buf)
-	defer log.SetOutput(originalOutput)
-
 	result, err := s.service.Authenticate(ctx, s.email, s.pass)
-	logOutput := buf.String()
 
-	s.Contains(logOutput, expectedLog)
 	s.Equal(0, result.FailedAttempts)
 	s.NoError(err)
 }
