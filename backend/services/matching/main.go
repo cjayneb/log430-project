@@ -122,7 +122,7 @@ func InitLogger(service string) {
 }
 
 func logger() *httplog.Logger {
-	return httplog.NewLogger("market-data-service", httplog.Options{
+	return httplog.NewLogger("matching-service", httplog.Options{
 		LogLevel:         slog.LevelDebug,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,

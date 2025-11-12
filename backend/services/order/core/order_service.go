@@ -2,19 +2,21 @@ package core
 
 import (
 	dao_adapters "brokerx/order-service/adapters/dao"
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
 	"context"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 )
 
 
 type OrderService interface {
 	PlaceOrder(ctx context.Context, order *models.Order) error
-	GetOrdersForUser(userId int) ([]*models.Order, error)
+	GetOrdersForUser(ctx context.Context, userId int) ([]*models.Order, error)
 }
 
 type OrderServiceImpl struct {
@@ -24,24 +26,29 @@ type OrderServiceImpl struct {
 }
 
 func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.Order) error {
-	createdOrderId, err := service.Repo.Create(order)
+	log := common.FromContext(ctx)
+
+	createdOrderId, err := service.Repo.Create(ctx, order)
 	if err != nil {
+		log.Error("error creating order", "error", err)
 		return err
 	}
 	order.ID = createdOrderId
 
 	if err := service.MatchingEngine.SubmitOrder(ctx, order); err != nil {
-		log.Errorf("matching failed for order #%d: %v", order.ID, err)
+		log.Error("matching failed for order", "orderId", order.ID, "error", err)
 	}
-	log.Infof("Order #%v sent to matching service", order.ID)
+	log.Info("Order sent to matching service", "orderId", order.ID)
 
 	return nil
 }
 
-func (service *OrderServiceImpl) GetOrdersForUser(userId int) ([]*models.Order, error) {
-	orders, err := service.Repo.FindByUserId(userId)
+func (service *OrderServiceImpl) GetOrdersForUser(ctx context.Context, userId int) ([]*models.Order, error) {
+	log := common.FromContext(ctx)
+
+	orders, err := service.Repo.FindByUserId(ctx, userId)
 	if err != nil {
-		log.Errorf("Error when fetching user orders : %v", err)
+		log.Error("Error when fetching user orders", "error", err)
 		return nil, err
 	}
 
@@ -49,7 +56,7 @@ func (service *OrderServiceImpl) GetOrdersForUser(userId int) ([]*models.Order, 
 }
 
 func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize int, orderBook ports.OrderBook, tm ports.TransactionManager) {
-	log.Infof("Dirty Orders interval %v seconds", interval)
+	slog.Info(fmt.Sprintf("Dirty Orders interval %v seconds", interval))
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
@@ -59,17 +66,18 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
 				// Step 1: pop dirty order IDs from Redis
 				dirtyIDs, err := popDirtyIDs(ctx, orderBook, batchSize)
 				if err != nil {
-					log.Errorf("order sync: failed to pop dirty IDs: %v", err)
+					slog.Error("order sync: failed to pop dirty IDs", "error", err)
 					continue
 				}
 				if len(dirtyIDs) == 0 {
 					continue
 				}
+				slog.Debug(fmt.Sprintf("order sync: popped dirty order ids : %v", dirtyIDs))
 
 				// Step 2: fetch order data for those IDs
-				orders, err := orderBook.FetchByIDs(dirtyIDs)
+				orders, err := orderBook.FetchByIDs(ctx, dirtyIDs)
 				if err != nil {
-					log.Errorf("order sync: failed to fetch orders: %v", err)
+					slog.Error("order sync: failed to fetch orders", "error", err)
 					continue
 				}
 
@@ -79,43 +87,33 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
 
 				// Step 3: bulk update in MySQL
 				err = tm.Do(context.Background(), func(ordersRepo ports.OrderRepository, _ ports.ExecutionRepository) error {
-					return ordersRepo.UpdateBatch(orders)
+					return ordersRepo.UpdateBatch(ctx, orders)
 				})
 				if err != nil {
-					log.Errorf("order sync: failed to update MySQL: %v", err)
+					slog.Error("order sync: failed to update MySQL", "error", err)
 				} else {
-					log.Infof("order sync: flushed %d dirty orders", len(orders))
+					slog.Info(fmt.Sprintf("order sync: flushed %d dirty orders", len(orders)))
 				}
 
 			case <-ctx.Done():
-				log.Info("dirty order sync stopped")
+				slog.Info("dirty order sync stopped")
 				return
 			}
 		}
 	}()
 }
 
-// pop up to batchSize dirty IDs
 func popDirtyIDs(ctx context.Context, orderBook ports.OrderBook, batchSize int) ([]string, error) {
 	rdb := orderBook.(*dao_adapters.RedisOrderBook).Rdb
-	pipe := rdb.Pipeline()
-	cmds := make([]*redis.StringCmd, batchSize)
-	for i := 0; i < batchSize; i++ {
-		cmds[i] = pipe.RPop(ctx, "orders:dirty")
+	popped, err := rdb.RPopCount(ctx, "orders:dirty", batchSize).Result()
+	if err == redis.Nil {
+		return []string{}, nil
 	}
-	_, err := pipe.Exec(ctx)
-	if err != nil && err != redis.Nil {
-		return nil, err
+	if err != nil {
+		slog.Error("error popping dirty order ids", "error", err)
+		return []string{}, err
 	}
-
-	ids := []string{}
-	for _, cmd := range cmds {
-		id, err := cmd.Result()
-		if err == nil && id != "" {
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
+	return popped, nil
 }
 
 func PersistOrdersAndExecutions(
@@ -127,37 +125,37 @@ func PersistOrdersAndExecutions(
 	execQueue ports.ExecutionQueue, 
 	tm ports.TransactionManager,
 ) {
-	log.Infof("Persistence interval %v milliseconds", interval)
+	slog.Info(fmt.Sprintf("Persistence interval %v milliseconds", interval))
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				ordersToPersist, err := orderBook.DequeueOrders(100)
+				ordersToPersist, err := orderBook.DequeueOrders(ctx, 100)
 				if err != nil {
-					log.Errorf("error dequeuing orders: %v", err)
+					slog.Error("error dequeuing orders", "error", err)
 				}
 
-				executionsToPersist, err := execQueue.DequeueExecutionRecords(200)
+				executionsToPersist, err := execQueue.DequeueExecutionRecords(ctx, 200)
 				if err != nil {
-					log.Errorf("error dequeuing execution records: %v", err)
+					slog.Error("error dequeuing execution records", "error", err)
 				}
 
 				_ = tm.Do(ctx, func(orders ports.OrderRepository, executions ports.ExecutionRepository) error {
-					if err := orders.UpdateBatch(ordersToPersist); err != nil {
-						log.Errorf("error saving orders: %v", err)
+					if err := orders.UpdateBatch(ctx, ordersToPersist); err != nil {
+						slog.Error("error saving orders", "error", err)
 						return err
 					}
 					if err := executions.CreateBatch(executionsToPersist); err != nil {
-						log.Errorf("error saving execution records: %v", err)
+						slog.Error("error saving execution records", "error", err)
 						return err
 					}
 					return nil
 				})
 
 			case <-ctx.Done():
-				log.Info("Order and execution records persistance stopped")
+				slog.Info("Order and execution records persistance stopped")
 				return
 			}
 		}

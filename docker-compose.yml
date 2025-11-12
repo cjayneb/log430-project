@@ -134,7 +134,6 @@ services:
     networks:
       - brokerx-network
 
-
   db:
     image: mysql:8.0
     container_name: brokerx_db
@@ -183,6 +182,8 @@ services:
     image: nginx:latest
     container_name: brokerx_nginx
     restart: always
+    labels:
+      - "service=nginx-api-gateway"
     ports:
       - "80:80"
     volumes:
@@ -196,6 +197,17 @@ services:
     networks:
       - brokerx-network
 
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - brokerx-network
+
   loki:
     image: grafana/loki:3.0.0
     container_name: loki
@@ -205,17 +217,6 @@ services:
     volumes:
       - ./loki-config.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
-    networks:
-      - brokerx-network
-
-  promtail:
-    image: grafana/promtail:3.0.0
-    container_name: promtail
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./promtail-config.yaml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
     networks:
       - brokerx-network
 

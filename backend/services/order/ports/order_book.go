@@ -1,15 +1,11 @@
 package ports
 
-import "brokerx/order-service/models"
+import (
+	"brokerx/order-service/models"
+	"context"
+)
 
 type OrderBook interface {
-	GetById(orderId int) (models.Order, error)
-	FetchByIDs(ids []string) ([]*models.Order, error)
-	FindMatchesLimit(symbol string, orderType string, action string, unitPrice float64, batchSize int) ([]*models.Order, error)
-	FindMatchesMarket(symbol string, orderType string, action string, batchSize int) ([]*models.Order, error)
-	Insert(order *models.Order) error
-	Return(orders []*models.Order) error
-	EnqueueOrders(orders []*models.Order) error
-	DequeueOrders(batchSize int) ([]*models.Order, error)
-	LogBook()
+	FetchByIDs(ctx context.Context, ids []string) ([]*models.Order, error)
+	DequeueOrders(ctx context.Context, batchSize int) ([]*models.Order, error)
 }

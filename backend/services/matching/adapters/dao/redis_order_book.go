@@ -218,6 +218,9 @@ func (book *RedisOrderBook) fetchOrders(ctx context.Context, ids []string, fetch
 	results := make([]*models.Order, 0, len(ids))
 	for _, cmd := range cmds {
 		val, err := cmd.Result()
+		if err == redis.Nil {
+			continue
+		}
 		if err != nil {
 			log.Warn("error when reading command result", "error", err)
 			continue

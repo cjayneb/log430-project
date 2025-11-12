@@ -6,7 +6,7 @@ import (
 	"brokerx/order-service/ports"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 )
@@ -36,86 +36,87 @@ func NewPortfolioServiceClient(baseUrl string) *PortfolioServiceImpl {
 }
 
 func (p *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+POSITIONS_ENDPOINT+"?symbol="+symbol, nil)
+	log := common.FromContext(ctx)
+
+	req, err := common.MakeAuthenticatedRequest(ctx, "GET", p.BaseUrl+POSITIONS_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
-		return nil, err
+		msg := "error creating request to fetch positions from portfolio service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error making request to portfolio service: %v", err)
+		msg := "error making positions request to portfolio service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("portfolio service returned non-200 status: %v", resp.Status)
+		msg := "portfolio service returned non-200 status when fetching positions"
+		log.Error(msg, "status", resp.Status)
+		return nil, errors.New(msg)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %v", err)
+		msg := "error reading positions response body"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	var positionsResp PortfolioPositionsResponse
 	err = json.Unmarshal(body, &positionsResp)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		msg := "error unmarshaling JSON"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	return positionsResp.Positions, nil
 }
 
 func (p *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) (*models.Wallet, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", p.BaseUrl+WALLET_ENDPOINT, nil)
+	log := common.FromContext(ctx)
+
+	req, err := common.MakeAuthenticatedRequest(ctx, "GET", p.BaseUrl+WALLET_ENDPOINT, nil)
 	if err != nil {
-		return nil, err
+		msg := "error creating request to fetch wallet from portfolio service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error making request to portfolio service: %v", err)
+		msg := "error making wallet request to portfolio service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("portfolio service returned non-200 status: %v", resp.Status)
+		msg := "portfolio service returned non-200 status when fetching wallet"
+		log.Error(msg, "status", resp.Status)
+		return nil, errors.New(msg)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %v", err)
+		msg := "error reading wallet response body"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	var walletResp PortfolioWalletResponse
 	err = json.Unmarshal(body, &walletResp)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		msg := "error unmarshaling JSON"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	return walletResp.Wallet, nil
-}
-
-func makeAuthenticatedRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
-	jwt, ok := ctx.Value(common.CtxKeyJWT).(string)
-	if !ok {
-		return nil, fmt.Errorf("missing JWT in context")
-	}
-	userId, ok := ctx.Value(common.CtxKeyUserId).(string)
-	if !ok {
-		return nil, fmt.Errorf("missing JWT in context")
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request : %v", err)
-	}
-	req.Header.Set(common.HeaderKeyAuth, jwt)
-	req.Header.Set(common.HeaderKeyUserId, userId)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	return req, nil
 }
 
 var _ ports.PortfolioService = (*PortfolioServiceImpl)(nil) // Ensure interface is implemented at compile time

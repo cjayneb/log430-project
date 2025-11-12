@@ -4,24 +4,33 @@ import (
 	client_adapters "brokerx/order-service/adapters/clients"
 	dao_adapters "brokerx/order-service/adapters/dao"
 	handler_adapters "brokerx/order-service/adapters/handlers"
+	"brokerx/order-service/common"
 	"brokerx/order-service/core"
 	"context"
 	"database/sql"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v2"
+	"github.com/go-chi/traceid"
 )
 
 var config Config = Config{}
 
 func main() {
+	InitLogger("order-service")
+
 	if err := config.LoadConfig(); err != nil {
-		log.Fatalf("Config error : %s", err)
+		slog.Error("Config error", "error", err)
+		os.Exit(1)
 	}
 
 	// Create DAOs
@@ -51,28 +60,34 @@ func main() {
 
 	// Init router
 	r := chi.NewRouter()
+	r.Use(httplog.RequestLogger(logger()))
+	r.Use(middleware.Recoverer)
+	r.Use(TraceMiddleware)
+
 	r.Get("/api/order/", orderHandler.GetOrders)
 	r.Post("/api/order/place", orderHandler.PlaceOrder)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		log := common.FromContext(r.Context())
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte("{\"message\": \"Order service OK\"}"))
 		if err != nil {
-			log.Errorf("Health check response error: %v", err)
+			log.Error("Health check response error", "error", err)
 		}
 	})
 
-	// Start service
-	log.Println("Starting Order Service on port " + config.Port)
+	slog.Info("Starting Order Service", "port", config.Port)
 	if err := http.ListenAndServe(":"+config.Port, r); err != nil {
-		log.Fatalf("Error when starting service : %v", err)
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
 	}
 }
 
 func initDbConnection() (*dao_adapters.SQLOrderRepository, *dao_adapters.SQLTransactionManager) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
-		log.Fatalf("Db open error : %v", err)
+		slog.Error("Db open error", "error", err)
+		os.Exit(1)
 	}
 
 	db.SetMaxOpenConns(35)
@@ -81,7 +96,7 @@ func initDbConnection() (*dao_adapters.SQLOrderRepository, *dao_adapters.SQLTran
 	db.SetConnMaxIdleTime(time.Minute * 1)
 
 	if err := db.Ping(); err != nil {
-		log.Warnf("Db error : %s ", err)
+		slog.Warn("Db ping error", "error", err)
 	}
 	return &dao_adapters.SQLOrderRepository{DB: db}, &dao_adapters.SQLTransactionManager{DB: db}
 }
@@ -96,7 +111,7 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 	ctx := context.Background()
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
-		log.Warnf("Redis error : %v", err)
+		slog.Warn("Redis ping error", "error", err)
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
@@ -125,4 +140,50 @@ func initAsyncProcesses(
 		execQueue,
 		tm,
 	)
+}
+
+func TraceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		traceID := r.Header.Get(common.HeaderTraceId)
+		if traceID == "" {
+			traceID = uuid.New().String()
+		}
+
+		ctx = traceid.NewContext(ctx)
+		ctx = context.WithValue(ctx, common.CtxKeyTraceId, traceID)
+
+		reqLogger := slog.Default().With("traceId", traceID)
+		ctx = common.WithLogger(ctx, reqLogger)
+
+		httplog.LogEntrySetField(ctx, "traceId", slog.StringValue(traceID))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+
+func InitLogger(service string) {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	})
+
+	logger := slog.New(handler).With("service", service)
+
+	slog.SetDefault(logger)
+}
+
+func logger() *httplog.Logger {
+	return httplog.NewLogger("order-service", httplog.Options{
+		LogLevel:         slog.LevelDebug,
+		RequestHeaders:   false,
+		ResponseHeaders:  false,
+		JSON:             false,
+		Concise:          true,
+		MessageFieldName: "message",
+		LevelFieldName:   "severity",
+		TimeFieldFormat:  time.RFC3339,
+	})
 }

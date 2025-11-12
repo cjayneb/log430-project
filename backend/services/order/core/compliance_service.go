@@ -36,13 +36,19 @@ func NewComplianceService(portfolioService ports.PortfolioService, marketDataPro
 }
 
 func (service *ComplianceServiceImpl) VerifyOrderCompliance(ctx context.Context, order *models.Order) error {
+	log := common.FromContext(ctx)
+
 	currentPrice, err := service.MarketDataProvider.GetCurrentStockPriceBySymbol(ctx, order.Symbol)
 	if err != nil {
-		return fmt.Errorf("%w: error when fetching stock price {%v}: %v", common.ErrDependencyFailure, order.Symbol, err)
+		e := fmt.Errorf("%w: error when fetching stock price {%v}: %v", common.ErrDependencyFailure, order.Symbol, err)
+		log.Error(e.Error())
+		return e
 	}
 	instrument, err := service.MarketDataProvider.GetInstrumentBySymbol(ctx, order.Symbol)
 	if err != nil {
-		return fmt.Errorf("%w: error when fetching instrument {%v}: %v", common.ErrDependencyFailure, order.Symbol, err)
+		e := fmt.Errorf("%w: error when fetching instrument {%v}: %v", common.ErrDependencyFailure, order.Symbol, err)
+		log.Error(e.Error())
+		return e
 	}
 	inputs := rules.ComplianceRuleInputs{
 		Instrument:   instrument,
@@ -51,9 +57,11 @@ func (service *ComplianceServiceImpl) VerifyOrderCompliance(ctx context.Context,
 
 	for _, rule := range service.complianceRules {
 		if err := rule.Setup(inputs); err != nil {
+			log.Error(err.Error())
 			return err
 		}
 		if err := rule.Verify(ctx, order); err != nil {
+			log.Error(err.Error())
 			return err
 		}
 	}

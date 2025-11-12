@@ -2,6 +2,7 @@ package dao_adapters
 
 import (
 	"brokerx/order-service/models"
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var ctx = context.Background()
 var symbol string = "AAPL"
 var userId int = 1
 
@@ -71,7 +73,7 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 		Status:    "open",
 	}
 
-	id, err := repo.Create(order)
+	id, err := repo.Create(ctx, order)
 	require.Nil(t, err)
 	require.Greater(t, id, 0)
 
@@ -87,7 +89,7 @@ func TestSQLOrderRepositoryIntegration(t *testing.T) {
 		Status:    "open",
 	}
 
-	id, err = repo.Create(badOrder)
+	id, err = repo.Create(ctx, badOrder)
 	require.NotNil(t, err)
 	require.Equal(t, 0, id)
 }
