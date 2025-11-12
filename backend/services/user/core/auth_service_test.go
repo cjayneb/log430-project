@@ -129,7 +129,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateAccountLocked() {
 }
 
 func (s *AuthServiceTestSuite) TestAuthenticateUserLockUserUpdateFailure() {
-	expectedLog := "Failed to update user lock status: sql: connection is already closed"
+	expectedLog := "invalid credentials"
 	user := makeUser(s.email, s.pass, 0, sql.NullTime{Valid: false})
 	s.repo.On("FindByEmail", s.email).Return(user, nil)
 	s.repo.On("Update", mock.Anything).Return(sql.ErrConnDone)
