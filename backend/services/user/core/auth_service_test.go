@@ -3,6 +3,7 @@ package core
 import (
 	"brokerx/user-service/models"
 	"bytes"
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -13,16 +14,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var ctx = context.Background()
+
 type MockUserRepo struct {
 	mock.Mock
 }
 
-func (m *MockUserRepo) Create(user *models.User) error {
+func (m *MockUserRepo) Create(ctx context.Context, user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepo) FindByEmail(email string) (*models.User, error) {
+func (m *MockUserRepo) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	args := m.Called(email)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -30,7 +33,7 @@ func (m *MockUserRepo) FindByEmail(email string) (*models.User, error) {
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepo) Update(user *models.User) error {
+func (m *MockUserRepo) Update(ctx context.Context, user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
@@ -81,7 +84,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateSuccess() {
 	s.repo.On("FindByEmail", s.email).Return(user, nil)
 	s.repo.On("Update", mock.Anything).Return(nil)
 
-	result, err := s.service.Authenticate(s.email, s.pass)
+	result, err := s.service.Authenticate(ctx, s.email, s.pass)
 
 	s.Require().NoError(err)
 	s.Equal(user, result)
@@ -90,7 +93,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateSuccess() {
 func (s *AuthServiceTestSuite) TestAuthenticateUserNotFound() {
 	s.repo.On("FindByEmail", s.email).Return(nil, sql.ErrNoRows)
 
-	result, err := s.service.Authenticate(s.email, s.pass)
+	result, err := s.service.Authenticate(ctx, s.email, s.pass)
 
 	s.Nil(result)
 	s.Error(err)
@@ -103,7 +106,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateInvalidPasswordTriggersLockout() 
 	s.repo.On("Update", mock.Anything).Return(nil)
 	s.service.PasswordAllowedRetries = 1
 
-	result, err := s.service.Authenticate(s.email, "wrongpassword")
+	result, err := s.service.Authenticate(ctx, s.email, "wrongpassword")
 
 	s.Nil(result)
 	s.Error(err)
@@ -118,7 +121,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateAccountLocked() {
 	})
 	s.repo.On("FindByEmail", s.email).Return(user, nil)
 
-	result, err := s.service.Authenticate(s.email, s.pass)
+	result, err := s.service.Authenticate(ctx, s.email, s.pass)
 
 	s.Nil(result)
 	s.Error(err)
@@ -137,7 +140,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateUserLockUserUpdateFailure() {
 	log.SetOutput(&buf)
 	defer log.SetOutput(originalOutput)
 
-	result, err := s.service.Authenticate(s.email, "wrongpassword")
+	result, err := s.service.Authenticate(ctx, s.email, "wrongpassword")
 	logOutput := buf.String()
 
 	s.Contains(logOutput, expectedLog)
@@ -152,7 +155,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateResetLockout() {
 	s.service.PasswordAllowedRetries = 5
 	s.service.PasswordLockDurationMinutes = 5
 
-	result, err := s.service.Authenticate(s.email, s.pass)
+	result, err := s.service.Authenticate(ctx, s.email, s.pass)
 
 	s.Equal(0, result.FailedAttempts)
 	s.NoError(err)
@@ -171,7 +174,7 @@ func (s *AuthServiceTestSuite) TestAuthenticateResetLockoutUpdateFailure() {
 	log.SetOutput(&buf)
 	defer log.SetOutput(originalOutput)
 
-	result, err := s.service.Authenticate(s.email, s.pass)
+	result, err := s.service.Authenticate(ctx, s.email, s.pass)
 	logOutput := buf.String()
 
 	s.Contains(logOutput, expectedLog)

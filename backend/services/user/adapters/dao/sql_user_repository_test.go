@@ -1,6 +1,7 @@
 package dao_adapters
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -9,6 +10,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 )
+
+var ctx = context.Background()
 
 var email string = "buyer@email.com"
 
@@ -60,7 +63,7 @@ func TestSQLUserRepositoryIntegration(t *testing.T) {
 		Time:  time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
 		Valid: false,
 	}
-	user, err := repo.FindByEmail(email)
+	user, err := repo.FindByEmail(ctx, email)
 	require.NoError(t, err)
 	require.Equal(t, email, user.Email)
 	require.Equal(t, expectedFailedAttempts, user.FailedAttempts)
@@ -73,14 +76,14 @@ func TestSQLUserRepositoryIntegration(t *testing.T) {
 	}
 	user.FailedAttempts = 2
 	user.LockedUntil = expectedLockedUntil
-	err = repo.Update(user)
+	err = repo.Update(ctx, user)
 	require.NoError(t, err)
-	result, err := repo.FindByEmail(email)
+	result, err := repo.FindByEmail(ctx, email)
 	require.NoError(t, err)
 	require.Equal(t, 2, result.FailedAttempts)
 	require.WithinDuration(t, expectedLockedUntil.Time, result.LockedUntil.Time, time.Second)
 
 	// --- FindByEmail non-existing user ---
-	_, err = repo.FindByEmail("fakeemail")
+	_, err = repo.FindByEmail(ctx, "fakeemail")
 	require.Error(t, err)
 }

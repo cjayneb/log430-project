@@ -3,6 +3,7 @@ package dao_adapters
 import (
 	"brokerx/user-service/models"
 	"brokerx/user-service/ports"
+	"context"
 	"database/sql"
 )
 
@@ -10,7 +11,7 @@ type SQLUserRepository struct {
 	DB *sql.DB
 }
 
-func (repo *SQLUserRepository) Create(user *models.User) error {
+func (repo *SQLUserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
         INSERT INTO brokerx.users (email, password, first_name, last_name, status)
         VALUES (?, ?, ?, ?, ?)
@@ -19,7 +20,7 @@ func (repo *SQLUserRepository) Create(user *models.User) error {
     return err
 }
 
-func (repo *SQLUserRepository) FindByEmail(email string) (*models.User, error) {
+func (repo *SQLUserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	row := repo.DB.QueryRow("SELECT id, email, password, failed_attempts, locked_until FROM brokerx.users WHERE email=?", email)
 
 	var user models.User
@@ -31,7 +32,7 @@ func (repo *SQLUserRepository) FindByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-func (repo *SQLUserRepository) Update(user *models.User) error {
+func (repo *SQLUserRepository) Update(ctx context.Context, user *models.User) error {
 	_, e := repo.DB.Exec("UPDATE brokerx.users SET failed_attempts=?, locked_until=? WHERE email=?", user.FailedAttempts, user.LockedUntil, user.Email)
 	return e
 }
