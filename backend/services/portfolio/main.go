@@ -4,23 +4,47 @@ import (
 	dao_adapters "brokerx/portfolio-service/adapters/dao"
 	handler_adapters "brokerx/portfolio-service/adapters/handlers"
 	"brokerx/portfolio-service/core"
+	"brokerx/portfolio-service/util"
+	"context"
 	"database/sql"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v2"
+	"github.com/go-chi/traceid"
 )
+
+const TraceIDHeader = "X-Trace-Id"
+type contextKey string
+const TraceIdCtxKey contextKey = "traceId"
 
 var config Config = Config{}
 
 func main() {
+	InitLogger("portfolio-service")
+
 	if err := config.LoadConfig(); err != nil {
-		log.Fatalf("Config error : %s", err)
+		slog.Error("Config error", "error", err)
+		os.Exit(1)
 	}
 
+	slog.Info("Starting Portfolio Service", "port", config.Port)
+	router := run()
+	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() http.Handler {
 	walletRepo, positionsRepo := initDbConnection()
 
 	portfolioService := &core.PortfolioServiceImpl{
@@ -30,28 +54,31 @@ func main() {
 	portfolioHandler := handler_adapters.PortfolioHandler{Service: portfolioService}
 
 	r := chi.NewRouter()
+	r.Use(httplog.RequestLogger(logger()))
+	r.Use(middleware.Recoverer)
+	r.Use(TraceMiddleware)
+
 	r.Get("/api/portfolio/wallet", portfolioHandler.GetWallet)
 	r.Patch("/api/portfolio/wallet/fund", portfolioHandler.FundWallet)
 	r.Get("/api/portfolio/positions", portfolioHandler.FetchPositions)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		log := util.FromContext(r.Context())
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte("{\"message\": \"Portfolio service OK\"}"))
 		if err != nil {
-			log.Errorf("Health check response error: %v", err)
+			log.Error("Health check response error", "error", err)
 		}
 	})
 
-	log.Println("Starting Portfolio Service on port " + config.Port)
-	if err := http.ListenAndServe(":"+config.Port, r); err != nil {
-		log.Fatalf("Error when starting service : %v", err)
-	}
+	return r
 }
 
 func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
-		log.Fatalf("Db open error : %v", err)
+		slog.Error("Db open error", "error", err)
+		os.Exit(1)
 	}
 
 	db.SetMaxOpenConns(35)
@@ -60,7 +87,53 @@ func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPos
 	db.SetConnMaxIdleTime(time.Minute * 1)
 
 	if err := db.Ping(); err != nil {
-		log.Warnf("Db error : %s ", err)
+		log.Warnf("Db ping error", "error", err)
 	}
 	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}
+}
+
+func TraceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		traceID := r.Header.Get(TraceIDHeader)
+		if traceID == "" {
+			traceID = uuid.New().String()
+		}
+
+		ctx = traceid.NewContext(ctx)
+		ctx = context.WithValue(ctx, TraceIdCtxKey, traceID)
+
+		reqLogger := slog.Default().With("traceId", traceID)
+		ctx = util.WithLogger(ctx, reqLogger)
+
+		httplog.LogEntrySetField(ctx, "traceId", slog.StringValue(traceID))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+
+func InitLogger(service string) {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	})
+
+	logger := slog.New(handler).With("service", service)
+
+	slog.SetDefault(logger)
+}
+
+func logger() *httplog.Logger {
+	return httplog.NewLogger("portfolio-service", httplog.Options{
+		LogLevel:         slog.LevelDebug,
+		RequestHeaders:   false,
+		ResponseHeaders:  false,
+		JSON:             false,
+		Concise:          true,
+		MessageFieldName: "message",
+		LevelFieldName:   "severity",
+		TimeFieldFormat:  time.RFC3339,
+	})
 }

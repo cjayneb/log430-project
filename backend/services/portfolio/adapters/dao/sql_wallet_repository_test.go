@@ -30,13 +30,13 @@ func TestSQLWalletRepositoryIntegration(t *testing.T) {
 	repo := &SQLWalletRepository{DB: db}
 
 	// --- FindByUserId ---
-	wallet, err := repo.FindByUserId(userId)
+	wallet, err := repo.FindByUserId(ctx, userId)
 	require.NoError(t, err)
 	require.Equal(t, availableFunds, wallet.AvailableFunds)
 	require.Equal(t, fundsOnHold, wallet.OnHoldFunds)
 
 	// --- FindByUserId not found ---
-	wallet, err = repo.FindByUserId(0)
+	wallet, err = repo.FindByUserId(ctx, 0)
 	require.Nil(t, err)
 	require.Nil(t, wallet)
 }

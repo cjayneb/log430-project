@@ -1,7 +1,10 @@
 package ports
 
-import "brokerx/portfolio-service/models"
+import (
+	"brokerx/portfolio-service/models"
+	"context"
+)
 
 type PositionRepository interface {
-	FindByUserIdAndSymbol(userId int, symbol string) ([]*models.Position, error)
+	FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
 }
