@@ -3,13 +3,16 @@ package core
 import (
 	"brokerx/portfolio-service/models"
 	"brokerx/portfolio-service/ports"
+	"brokerx/portfolio-service/util"
+	"context"
+	"errors"
 	"fmt"
 )
 
 type PortfolioService interface {
-	GetWallet(userId int) (*models.Wallet, error)
-	FundWallet(userId int, amount float64) error
-	FetchPositions(userId int, symbol string) ([]*models.Position, error)
+	GetWallet(ctx context.Context, userId int) (*models.Wallet, error)
+	FundWallet(ctx context.Context, userId int, amount float64) error
+	FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
 }
 
 type PortfolioServiceImpl struct {
@@ -17,21 +20,28 @@ type PortfolioServiceImpl struct {
 	WalletRepo    ports.WalletRepository
 }
 
-func (service *PortfolioServiceImpl) FundWallet(userId int, amount float64) error {
+func (service *PortfolioServiceImpl) FundWallet(ctx context.Context, userId int, amount float64) error {
+	log := util.FromContext(ctx)
+
 	// TODO: add checks for compliance
-	return service.WalletRepo.AddFunds(userId, amount)
+	if amount <=0 {
+		msg := "amount must be positive"
+		log.Error(msg)
+		return errors.New(msg)
+	}
+	return service.WalletRepo.AddFunds(ctx, userId, amount)
 }
 
-func (service *PortfolioServiceImpl) GetWallet(userId int) (*models.Wallet, error) {
-	wallet, err := service.WalletRepo.FindByUserId(userId)
+func (service *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) (*models.Wallet, error) {
+	wallet, err := service.WalletRepo.FindByUserId(ctx, userId)
 	if wallet == nil {
 		return wallet, fmt.Errorf("no wallet found for user %d", userId)
 	}
 	return wallet, err
 }
 
-func (service *PortfolioServiceImpl) FetchPositions(userId int, symbol string) ([]*models.Position, error) {
-	return service.PositionsRepo.FindByUserIdAndSymbol(userId, symbol)
+func (service *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+	return service.PositionsRepo.FindByUserIdAndSymbol(ctx, userId, symbol)
 }
 
 var _ PortfolioService = (*PortfolioServiceImpl)(nil) // Ensure interface is implemented at compile time

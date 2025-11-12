@@ -39,7 +39,7 @@ func setup(wantErr bool) {
 	} else {
 		redisClientMock, s = mocks.GetRedisClientMock()
 		queue = dao_adapters.RedisExecutionQueue{Rdb: redisClientMock}
-		_ = queue.EnqueueExecutionRecords(baseExecs)
+		_ = queue.EnqueueExecutionRecords(ctx, baseExecs)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestRedisExecutionQueue_EnqueueExecutionRecords(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup(tt.wantErr)
 
-			gotErr := queue.EnqueueExecutionRecords(tt.records)
+			gotErr := queue.EnqueueExecutionRecords(ctx, tt.records)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -93,57 +93,6 @@ func TestRedisExecutionQueue_EnqueueExecutionRecords(t *testing.T) {
 				t.Fatal("EnqueueExecutionRecords() succeeded unexpectedly")
 			}
 			checkExecQueueLength(tt.want)
-		})
-	}
-}
-
-func TestRedisExecutionQueue_DequeueExecutionRecords(t *testing.T) {
-	tests := []struct {
-		name      string // description of this test case
-		batchSize int
-		want      int
-		wantErr   bool
-	}{
-		{
-			name:      "returns 1 records",
-			batchSize: 1,
-			want:      1,
-			wantErr:   false,
-		},
-		{
-			name:      "returns all records",
-			batchSize: 10,
-			want:      2,
-			wantErr:   false,
-		},
-		{
-			name:      "when redis down then nil slice and error",
-			batchSize: 10,
-			want:      0,
-			wantErr:   true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setup(tt.wantErr)
-
-			got, gotErr := queue.DequeueExecutionRecords(tt.batchSize)
-
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("DequeueExecutionRecords() failed: %v", gotErr)
-				}
-				if got != nil {
-					t.Errorf("DequeueExecutionRecords() didnt return a nil slice: %v", got)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("DequeueExecutionRecords() succeeded unexpectedly")
-			}
-			if tt.want != len(got) {
-				t.Errorf("DequeueExecutionRecords() = %v, want %v", len(got), tt.want)
-			}
 		})
 	}
 }

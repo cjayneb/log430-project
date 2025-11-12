@@ -1,6 +1,7 @@
 package dao_adapters
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var ctx = context.Background()
 
 var quantity int = 1000
 var unitPrice float64 = 150.0
@@ -63,7 +66,7 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 	repo := &SQLPositionRepository{DB: db}
 
 	// --- FindByUserIdAndSymbol ---
-	positions, err := repo.FindByUserIdAndSymbol(userId, symbol)
+	positions, err := repo.FindByUserIdAndSymbol(ctx, userId, symbol)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(positions))
 	require.Equal(t, symbol, positions[0].Symbol)
@@ -71,7 +74,7 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 	require.Equal(t, unitPrice, positions[0].UnitPrice)
 
 	// --- FindByUserIdAndSymbol No positions ---
-	positions, err = repo.FindByUserIdAndSymbol(userId, "stockThatUserDoesntOwn")
+	positions, err = repo.FindByUserIdAndSymbol(ctx, userId, "stockThatUserDoesntOwn")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(positions))
 
@@ -81,7 +84,7 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 	mock.ExpectQuery(".*").
 		WillReturnError(sql.ErrConnDone)
 
-	positions, err = repo.FindByUserIdAndSymbol(userId, symbol)
+	positions, err = repo.FindByUserIdAndSymbol(ctx, userId, symbol)
 	require.Nil(t, positions)
 	require.ErrorIs(t, err, sql.ErrConnDone)
 
@@ -90,7 +93,7 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 		AddRow("AAPL", 10, "bad-data")
 	mock.ExpectQuery(".*").WillReturnRows(rows)
 
-	positions, err = repo.FindByUserIdAndSymbol(userId, symbol)
+	positions, err = repo.FindByUserIdAndSymbol(ctx, userId, symbol)
 	assert.Nil(t, positions)
 	assert.Error(t, err)
 }

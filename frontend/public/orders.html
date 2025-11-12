@@ -62,8 +62,8 @@
 
 <body>
     <h1>BrokerX - Orders</h1>
-    <a href="/wallet.html">💰 Wallet</a> |
-    <a href="/logout.html" onclick="logout()">Logout</a>
+    <a href="/wallet.html">Wallet</a> |
+    <a href="/" onclick="logout()">Logout</a>
 
     <section class="form-section">
         <h2>Place Order</h2>
@@ -93,8 +93,7 @@
             </select><br /><br />
 
             <label for="unit_price">Price per stock:</label><br />
-            <input type="number" id="unit_price" name="unit_price" min="0.00" step="0.01" placeholder="0.00"
-                required /><br /><br />
+            <input type="number" id="unit_price" name="unit_price" min="0.00" step="0.01" placeholder="0.00" /><br /><br />
 
             <button type="submit">Submit Order</button>
         </form>
@@ -110,9 +109,27 @@
     </section>
 
     <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const controlField = document.getElementById('type');
+            const dependentField = document.getElementById('unit_price');
+
+            function updateDependentFieldRequirement() {
+                if (controlField.value === 'limit') {
+                    dependentField.removeAttribute('disabled');
+                    dependentField.setAttribute('required', true);
+                } else {
+                    dependentField.removeAttribute('required');
+                    dependentField.setAttribute('disabled', true);
+                }
+            }
+
+            controlField.addEventListener('change', updateDependentFieldRequirement);
+            updateDependentFieldRequirement();
+        });
+        
         const token = localStorage.getItem("jwt");
         if (!token) {
-            window.location.href = "/login.html";
+            window.location.href = "/";
         }
 
         const apiBase = "/api/order";
@@ -138,41 +155,41 @@
             }
 
             let html = `
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Symbol</th>
-                <th>Quantity</th>
-                <th>Remaining</th>
-                <th>Action</th>
-                <th>Type</th>
-                <th>Timing</th>
-                <th>Unit Price</th>
-                <th>Status</th>
-                <th>Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
+            <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Symbol</th>
+                    <th>Quantity</th>
+                    <th>Remaining</th>
+                    <th>Action</th>
+                    <th>Type</th>
+                    <th>Timing</th>
+                    <th>Unit Price</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                </tr>
+                </thead>
+                <tbody>
+            `;
 
             for (const o of orders.orders) {
                 console.log(o.created_at)
                 html += `
-          <tr>
-            <td>${o.order_id}</td>
-            <td>${o.symbol}</td>
-            <td>${o.quantity}</td>
-            <td>${o.remaining_quantity}</td>
-            <td>${o.action}</td>
-            <td>${o.type}</td>
-            <td>${o.timing}</td>
-            <td>${o.unit_price}</td>
-            <td>${o.status}</td>
-            <td>${new Date(o.created_at.Time).toLocaleString()}</td>
-          </tr>
-        `;
+                <tr>
+                    <td>${o.order_id}</td>
+                    <td>${o.symbol}</td>
+                    <td>${o.quantity}</td>
+                    <td>${o.remaining_quantity}</td>
+                    <td>${o.action}</td>
+                    <td>${o.type}</td>
+                    <td>${o.timing}</td>
+                    <td>${o.unit_price}</td>
+                    <td>${o.status}</td>
+                    <td>${new Date(o.created_at.Time).toLocaleString()}</td>
+                </tr>
+                `;
             }
 
             html += "</tbody></table></div>";

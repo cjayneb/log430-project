@@ -1,14 +1,13 @@
 package dao_adapters
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
 	"context"
 	"database/sql"
 	"fmt"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type SQLOrderRepository struct {
@@ -20,20 +19,12 @@ func NewOrderRepo(tx *sql.Tx) SQLOrderRepository {
 	return SQLOrderRepository{tx: tx}
 }
 
-func (repo SQLOrderRepository) Update(order *models.Order) error {
-	_, err := repo.tx.ExecContext(context.Background(),
-		`UPDATE orders SET remaining_quantity=?, status=?, unit_price=? WHERE id=?`,
-		order.RemainingQuantity, order.Status, order.UnitPrice, order.ID,
-	)
-	return err
-}
+func (repo SQLOrderRepository) UpdateBatch(ctx context.Context, orders []*models.Order) error {
+	log := common.FromContext(ctx)
 
-func (repo SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
 	if len(orders) == 0 {
 		return nil
 	}
-
-	ctx := context.Background()
 
 	valueStrings := make([]string, 0, len(orders))
 	valueArgs := make([]interface{}, 0, len(orders)*5)
@@ -54,25 +45,30 @@ func (repo SQLOrderRepository) UpdateBatch(orders []*models.Order) error {
 
 	_, err := repo.tx.ExecContext(ctx, query, valueArgs...)
 	if err != nil {
-		log.Errorf("Error executing batch upsert: %v", err)
+		log.Error("Error executing batch upsert", "error", err)
 	}
 	return err
 }
 
-func (repo SQLOrderRepository) Create(order *models.Order) (int, error) {
+func (repo SQLOrderRepository) Create(ctx context.Context, order *models.Order) (int, error) {
+	log := common.FromContext(ctx)
+
 	result, err := repo.DB.Exec("INSERT INTO orders (user_id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		order.UserID, order.Symbol, order.Type, order.Action, order.Quantity, order.RemainingQuantity, order.UnitPrice, order.Timing, order.Status)
 	if err != nil {
-		log.Errorf("Error creating order: %v", err)
+		log.Error("Error creating order", "error", err)
 		return 0, err
 	}
 	id, _ := result.LastInsertId()
 	return int(id), nil
 }
 
-func (repo SQLOrderRepository) FindByUserId(userId int) ([]*models.Order, error) {
+func (repo SQLOrderRepository) FindByUserId(ctx context.Context, userId int) ([]*models.Order, error) {
+	log := common.FromContext(ctx)
+
 	rows, err := repo.DB.Query("SELECT id, symbol, type, action, quantity, remaining_quantity, unit_price, timing, status, created_at FROM brokerx.orders WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 100", userId)
 	if err != nil {
+		log.Error("error when fetching orders", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -82,12 +78,14 @@ func (repo SQLOrderRepository) FindByUserId(userId int) ([]*models.Order, error)
 	for rows.Next() {
 		var order models.Order
 		if err := rows.Scan(&order.ID, &order.Symbol, &order.Type, &order.Action, &order.Quantity, &order.RemainingQuantity, &order.UnitPrice, &order.Timing, &order.Status, &order.CreatedAt); err != nil {
+			log.Error("error when reading fetched orders", "error", err)
 			return nil, err
 		}
 		orders = append(orders, &order)
 	}
 
 	if err := rows.Err(); err != nil {
+		log.Error("row erros", "error", err)
 		return nil, err
 	}
 

@@ -6,7 +6,7 @@ import (
 	"brokerx/order-service/ports"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 )
@@ -37,60 +37,84 @@ func NewMarketDataProvider(baseUrl string) *MarketDataProviderImpl {
 }
 
 func (m *MarketDataProviderImpl) GetCurrentStockPriceBySymbol(ctx context.Context, symbol string) (float64, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_PRICE_ENDPOINT+"?symbol="+symbol, nil)
+	log := common.FromContext(ctx)
+
+	req, err := common.MakeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_PRICE_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
-		return 0.0, err
+		msg := "error creating request to fetch stock price from market data service"
+		log.Error(msg, "error", err)
+		return 0.0, errors.New(msg)
 	}
 
 	resp, err := m.Client.Do(req)
 	if err != nil {
-		return 0.0, fmt.Errorf("error making request to market data service: %v", err)
+		msg := "error making request to market data service"
+		log.Error(msg, "error", err)
+		return 0.0, errors.New(msg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0.0, fmt.Errorf("market data service returned non-200 status: %v", resp.Status)
+		msg := "market data service returned non-200 status"
+		log.Error(msg, "status", resp.Status)
+		return 0.0, errors.New(msg)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return 0.0, fmt.Errorf("error reading response body: %v", err)
+		msg := "error reading response body"
+		log.Error(msg, "error", err)
+		return 0.0, errors.New(msg)
 	}
 
 	var priceResp StockPriceResponse
 	err = json.Unmarshal(body, &priceResp)
 	if err != nil {
-		return 0.0, fmt.Errorf("error unmarshaling JSON: %v", err)
+		msg := "error unmarshaling JSON"
+		log.Error(msg, "error", err)
+		return 0.0, errors.New(msg)
 	}
 
 	return priceResp.Price, nil
 }
 
 func (m *MarketDataProviderImpl) GetInstrumentBySymbol(ctx context.Context, symbol string) (*models.Instrument, error) {
-	req, err := makeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_INSTRUMENT_ENDPOINT+"?symbol="+symbol, nil)
+	log := common.FromContext(ctx)
+
+	req, err := common.MakeAuthenticatedRequest(ctx, "GET", m.BaseUrl+STOCK_INSTRUMENT_ENDPOINT+"?symbol="+symbol, nil)
 	if err != nil {
-		return nil, err
+		msg := "error creating request to fetch instrument from market data service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	resp, err := m.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error making request to market data service: %v", err)
+		msg := "error making request to market data service"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("market data service returned non-200 status: %v", resp.Status)
+		msg := "market data service returned non-200 status when fetching instrument"
+		log.Error(msg, "status", resp.Status)
+		return nil, errors.New(msg)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %v", err)
+		msg := "error reading response body"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	var instrumentResp InstrumentResponse
 	err = json.Unmarshal(body, &instrumentResp)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		msg := "error unmarshaling JSON"
+		log.Error(msg, "error", err)
+		return nil, errors.New(msg)
 	}
 
 	return &instrumentResp.Instrument, nil

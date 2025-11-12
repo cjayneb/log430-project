@@ -2,9 +2,9 @@ package ports
 
 import (
 	"brokerx/order-service/models"
+	"context"
 )
 
 type ExecutionQueue interface {
-	EnqueueExecutionRecords(records []*models.ExecutionRecord) error
-	DequeueExecutionRecords(batchSize int) ([]*models.ExecutionRecord, error)
+	DequeueExecutionRecords(ctx context.Context, batchSize int) ([]*models.ExecutionRecord, error)
 }

@@ -1,6 +1,9 @@
 package mocks
 
-import "brokerx/market-data-service/models"
+import (
+	"brokerx/market-data-service/models"
+	"context"
+)
 
 type MockMarketDataService struct {
 	Instrument *models.Instrument
@@ -8,14 +11,14 @@ type MockMarketDataService struct {
 	Err        error
 }
 
-func (m *MockMarketDataService) GetCurrentStockPriceBySymbol(symbol string) (float64, error) {
+func (m *MockMarketDataService) GetCurrentStockPriceBySymbol(ctx context.Context, symbol string) (float64, error) {
 	if m.Err != nil {
 		return 0.0, m.Err
 	}
 	return m.Price, nil
 }
 
-func (m *MockMarketDataService) GetInstrumentBySymbol(symbol string) (*models.Instrument, error) {
+func (m *MockMarketDataService) GetInstrumentBySymbol(ctx context.Context, symbol string) (*models.Instrument, error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}

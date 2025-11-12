@@ -3,6 +3,8 @@ package dao_adapters
 import (
 	"brokerx/portfolio-service/models"
 	"brokerx/portfolio-service/ports"
+	"brokerx/portfolio-service/util"
+	"context"
 	"database/sql"
 )
 
@@ -10,12 +12,15 @@ type SQLPositionRepository struct {
 	DB *sql.DB
 }
 
-func (repo *SQLPositionRepository) FindByUserIdAndSymbol(userId int, symbol string) ([]*models.Position, error) {
+func (repo *SQLPositionRepository) FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+	log := util.FromContext(ctx)
+
 	rows, err := repo.DB.Query("SELECT symbol, quantity, unit_price FROM brokerx.positions WHERE user_id=? and symbol=?", userId, symbol)
 	if err == sql.ErrNoRows {
 		return []*models.Position{}, nil
 	}
 	if err != nil {
+		log.Error("error executing query", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -25,12 +30,14 @@ func (repo *SQLPositionRepository) FindByUserIdAndSymbol(userId int, symbol stri
 	for rows.Next() {
 		var pos models.Position
 		if err := rows.Scan(&pos.Symbol, &pos.Quantity, &pos.UnitPrice); err != nil {
+			log.Error("error scanning row", "error", err)
 			return nil, err
 		}
 		positions = append(positions, &pos)
 	}
 
 	if err := rows.Err(); err != nil {
+		log.Error("error found in rows", "error", err)
 		return nil, err
 	}
 

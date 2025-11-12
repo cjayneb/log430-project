@@ -4,11 +4,13 @@ import (
 	"brokerx/matching-service/core"
 	"brokerx/matching-service/mocks"
 	"brokerx/matching-service/models"
+	"context"
 	"errors"
 	"os"
 	"testing"
 )
 
+var ctx = context.Background()
 var engine core.MatchingEngineImpl
 
 var order1LimitBuy = models.Order{
@@ -97,7 +99,7 @@ func TestMatchingEngineImpl_QueueOrder(t *testing.T) {
 			engine.OrderBook = &tt.mockOrderBook
 			engine.ExecutionQueue = &tt.mockExecQueue
 
-			gotErr := engine.QueueOrder(tt.order)
+			gotErr := engine.QueueOrder(ctx, tt.order)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -151,7 +153,7 @@ func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 			engine.OrderBook = &tt.mockOrderBook
 			engine.ExecutionQueue = &tt.mockExecQueue
 
-			gotErr := engine.SubmitOrder(tt.orderId)
+			gotErr := engine.SubmitOrder(ctx, tt.orderId)
 
 			if gotErr != nil {
 				if !tt.wantErr {

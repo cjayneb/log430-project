@@ -1,12 +1,13 @@
 package dao_adapters
 
 import (
+	"brokerx/order-service/common"
 	"brokerx/order-service/models"
 	"brokerx/order-service/ports"
+	"context"
 	"encoding/json"
 
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 )
 
 const EXECUTION_RECORDS_PERSISTANCE_QUEUE = "execrecordspersistancequeue"
@@ -15,21 +16,9 @@ type RedisExecutionQueue struct {
 	Rdb *redis.Client
 }
 
-func (queue *RedisExecutionQueue) EnqueueExecutionRecords(records []*models.ExecutionRecord) error {
-	for _, record := range records {
-		data, err := json.Marshal(record)
-		if err != nil {
-			log.Errorf("error marshaling execution record %v for enqueue: %v", record, err)
-			continue
-		}
-		if err := queue.Rdb.LPush(ctx, EXECUTION_RECORDS_PERSISTANCE_QUEUE, data).Err(); err != nil {
-			log.Errorf("error enqueueing execution record %v: %v", record, err)
-		}
-	}
-	return nil
-}
+func (queue *RedisExecutionQueue) DequeueExecutionRecords(ctx context.Context, batchSize int) ([]*models.ExecutionRecord, error) {
+	log := common.FromContext(ctx)
 
-func (queue *RedisExecutionQueue) DequeueExecutionRecords(batchSize int) ([]*models.ExecutionRecord, error) {
 	var records []*models.ExecutionRecord
 	for i := 0; i < batchSize; i++ {
 		val, err := queue.Rdb.RPop(ctx, EXECUTION_RECORDS_PERSISTANCE_QUEUE).Result()
@@ -37,11 +26,12 @@ func (queue *RedisExecutionQueue) DequeueExecutionRecords(batchSize int) ([]*mod
 			break // queue is empty
 		}
 		if err != nil {
+			log.Error("error dequeuing records from execution records queue", "error", err)
 			return nil, err
 		}
 		var record models.ExecutionRecord
 		if err := json.Unmarshal([]byte(val), &record); err != nil {
-			log.Errorf("error unmarshaling dequeued execution record: %v", err)
+			log.Error("error unmarshaling dequeued execution record", "error", err)
 			continue
 		}
 		records = append(records, &record)

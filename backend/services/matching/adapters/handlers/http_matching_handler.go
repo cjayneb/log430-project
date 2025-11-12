@@ -3,12 +3,11 @@ package handler_adapters
 import (
 	"brokerx/matching-service/core"
 	"brokerx/matching-service/models"
+	"brokerx/matching-service/util"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
-	log "github.com/sirupsen/logrus"
 )
 
 const USER_ID_HEADER_KEY string = "X-User-Id"
@@ -29,40 +28,40 @@ type MatchingHandler struct {
 var validate = validator.New()
 
 func (handler *MatchingHandler) SubmitOrder(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	userID := r.Header.Get(USER_ID_HEADER_KEY)
 	if userID == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	var submitReq models.Order
 	if err := json.NewDecoder(r.Body).Decode(&submitReq); err != nil {
-		log.Warnf("Invalid JSON: %v", err)
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON format"})
+		msg := "invalid JSON format"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 	if err := validate.Struct(submitReq); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: fmt.Sprintf("missing or invalid fields: %v", err)})
+		msg := "missing or invalid fields"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	if err := handler.MatchingEngine.QueueOrder(&submitReq); err != nil {
-		log.Errorf("Failed to queue order : %v", err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to queue order"})
+	if err := handler.MatchingEngine.QueueOrder(r.Context(), &submitReq); err != nil {
+		msg := "failed to queue order"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	log.Infof("Order #%d submitted to matching engine", submitReq.ID)
-	writeJSON(w, http.StatusAccepted, OrderSubmittedResponse{
+	log.Info("Order submitted to matching engine", "orderId", submitReq.ID)
+	util.WriteJSON(w, http.StatusAccepted, OrderSubmittedResponse{
 		Message: "order submitted to the matching engine",
 		OrderId: submitReq.ID,
 	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, fmt.Sprintf("error when encoding JSON response : %v", err), http.StatusInternalServerError)
-	}
 }

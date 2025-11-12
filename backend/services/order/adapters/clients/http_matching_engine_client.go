@@ -7,11 +7,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const MATCHING_SERVICE_BASE_PATH = "/api/matching/"
@@ -38,40 +36,53 @@ func NewMatchineEngine(baseUrl string) *MatchineEngineImpl {
 }
 
 func (m *MatchineEngineImpl) SubmitOrder(ctx context.Context, order *models.Order) error {
+	log := common.FromContext(ctx)
+
 	jsonData, err := json.Marshal(order)
 	if err != nil {
-		return err
+		msg := "error marshaling JSON"
+		log.Error(msg, "error", err)
+		return errors.New(msg)
 	}
 	bodyReader := bytes.NewBuffer(jsonData)
 
-	req, err := makeAuthenticatedRequest(ctx, "POST", m.BaseUrl, bodyReader)
+	req, err := common.MakeAuthenticatedRequest(ctx, "POST", m.BaseUrl, bodyReader)
 	if err != nil {
-		return err
+		msg := "error creating submit order request to matching service"
+		log.Error(msg, "error", err)
+		return errors.New(msg)
 	}
 
 	resp, err := m.Client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error making request to matching service: %v", err)
+		msg := "error making submit order request to matching service"
+		log.Error(msg, "error", err)
+		return errors.New(msg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("matching service returned non-200 status: %v", resp.Status)
+		msg := "matching service returned non-200 status when submitting order"
+		log.Error(msg, "status", resp.Status)
+		return errors.New(msg)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("error reading response body: %v", err)
+		msg := "error reading submit order response body"
+		log.Error(msg, "error", err)
+		return errors.New(msg)
 	}
 
-	var priceResp OrderSubmittedResponse
-	err = json.Unmarshal(body, &priceResp)
+	var submitResp OrderSubmittedResponse
+	err = json.Unmarshal(body, &submitResp)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling JSON: %v", err)
+		msg := "error unmarshaling JSON"
+		log.Error(msg, "error", err)
+		return errors.New(msg)
 	}
 
-	log.Infof("order was successfully processed by the matching service : %v", priceResp)
-
+	log.Info("order was successfully processed by the matching service", "response", submitResp)
 	return nil
 }
 

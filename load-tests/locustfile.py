@@ -67,16 +67,23 @@ class BrokerXBuyerUser(HttpUser):
     @task(1)
     def place_buy_order(self):
         order = make_random_order("buy")
-        with self.client.post(
-            "/api/order/place",
-            json=order,
-            headers=self.headers,
-            catch_response=True
-        ) as response:
-            if response.status_code == 201:
-                response.success()
-            else:
-                response.failure(f"Buy order failed : {response.text}")
+        try:
+            with self.client.post(
+                "/api/order/place",
+                json=order,
+                headers=self.headers,
+                catch_response=True
+            ) as response:
+                if response.status_code == 201:
+                    response.success()
+                else:
+                    response.failure(f"Buy order failed : {response.text}")
+        except requests.exceptions.ReadTimeout:
+            events.request.fire(
+                request_type="POST",
+                name="/api/order/place",
+                exception=requests.ReadTimeout("Request timed out"),
+            )
 
 class BrokerXSellerUser(HttpUser):
     wait_time = between(1, 2)

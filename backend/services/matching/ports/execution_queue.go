@@ -2,9 +2,9 @@ package ports
 
 import (
 	"brokerx/matching-service/models"
+	"context"
 )
 
 type ExecutionQueue interface {
-	EnqueueExecutionRecords(records []*models.ExecutionRecord) error
-	DequeueExecutionRecords(batchSize int) ([]*models.ExecutionRecord, error)
+	EnqueueExecutionRecords(ctx context.Context, records []*models.ExecutionRecord) error
 }

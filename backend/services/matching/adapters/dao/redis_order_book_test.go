@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var ctx = context.Background()
 var orderBook = dao_adapters.RedisOrderBook{Rdb: redisClientMock}
 
 var order1LimitBuy = models.Order{
@@ -81,14 +82,14 @@ func setupOrder(wantErr bool) {
 		redisClientMock, s = mocks.GetRedisClientMock()
 		orderBook = dao_adapters.RedisOrderBook{Rdb: redisClientMock}
 		for _, o := range baseOrders {
-			_ = orderBook.Insert(o)
+			_ = orderBook.Insert(ctx, o)
 		}
-		_ = orderBook.EnqueueOrders(baseOrders)
+		_ = orderBook.EnqueueOrders(ctx, baseOrders)
 	}
 }
 
 func orderGoneFromBook(orderId int) bool {
-	order, _ := orderBook.GetById(orderId)
+	order, _ := orderBook.GetById(ctx, orderId)
 	return order.ID == 0
 }
 
@@ -169,7 +170,7 @@ func TestRedisOrderBook_GetById(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			got, gotErr := orderBook.GetById(tt.orderId)
+			got, gotErr := orderBook.GetById(ctx, tt.orderId)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -234,7 +235,7 @@ func TestRedisOrderBook_FindMatchesLimit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			got, gotErr := orderBook.FindMatchesLimit(tt.symbol, tt.action, tt.unitPrice, tt.batchSize)
+			got, gotErr := orderBook.FindMatchesLimit(ctx, tt.symbol, tt.action, tt.unitPrice, tt.batchSize)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -297,7 +298,7 @@ func TestRedisOrderBook_FindMatchesMarket(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			got, gotErr := orderBook.FindMatchesMarket(tt.symbol, tt.action, tt.batchSize)
+			got, gotErr := orderBook.FindMatchesMarket(ctx, tt.symbol, tt.action, tt.batchSize)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -336,7 +337,7 @@ func TestRedisOrderBook_Insert(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			gotErr := orderBook.Insert(tt.order)
+			gotErr := orderBook.Insert(ctx, tt.order)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -347,7 +348,7 @@ func TestRedisOrderBook_Insert(t *testing.T) {
 			if tt.wantErr {
 				t.Fatal("Insert() succeeded unexpectedly")
 			}
-			o, err := orderBook.GetById(tt.order.ID)
+			o, err := orderBook.GetById(ctx, tt.order.ID)
 			if err != nil || o.ID != tt.order.ID {
 				t.Errorf("Insert() didnt insert order into order book : %v", err)
 			}
@@ -379,7 +380,7 @@ func TestRedisOrderBook_Return(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			gotErr := orderBook.Return(tt.orders)
+			gotErr := orderBook.Return(ctx, tt.orders)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -391,7 +392,7 @@ func TestRedisOrderBook_Return(t *testing.T) {
 				t.Fatal("Return() succeeded unexpectedly")
 			}
 			for _, order := range tt.orders {
-				o, err := orderBook.GetById(order.ID)
+				o, err := orderBook.GetById(ctx, order.ID)
 				if err != nil || o.ID != order.ID {
 					t.Errorf("Insert() didnt return orders into order book : %v", err)
 				}
@@ -430,7 +431,7 @@ func TestRedisOrderBook_EnqueueOrders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setupOrder(tt.wantErr)
 
-			gotErr := orderBook.EnqueueOrders(tt.orders)
+			gotErr := orderBook.EnqueueOrders(ctx, tt.orders)
 
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -442,57 +443,6 @@ func TestRedisOrderBook_EnqueueOrders(t *testing.T) {
 				t.Fatal("EnqueueOrders() succeeded unexpectedly")
 			}
 			checkOrderQueueLength(tt.wantLength)
-		})
-	}
-}
-
-func TestRedisOrderBook_DequeueOrders(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		batchSize  int
-		wantLength int
-		wantErr    bool
-	}{
-		{
-			name:       "returns 1 order",
-			batchSize:  1,
-			wantLength: 1,
-			wantErr:    false,
-		},
-		{
-			name:       "returns all orders",
-			batchSize:  10,
-			wantLength: 4,
-			wantErr:    false,
-		},
-		{
-			name:      "when redis down then nil slice and error",
-			batchSize: 10,
-			wantErr:   true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupOrder(tt.wantErr)
-
-			got, gotErr := orderBook.DequeueOrders(tt.batchSize)
-
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("DequeueOrders() failed: %v", gotErr)
-				}
-				if got != nil {
-					t.Errorf("DequeueOrders() didnt return a nil slice: %v", got)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("DequeueOrders() succeeded unexpectedly")
-			}
-			if tt.wantLength != len(got) {
-				t.Errorf("DequeueOrders() = %v, want %v", len(got), tt.wantLength)
-			}
 		})
 	}
 }

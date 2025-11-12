@@ -1,9 +1,12 @@
 package ports
 
-import "brokerx/user-service/models"
+import (
+	"brokerx/user-service/models"
+	"context"
+)
 
 type UserRepository interface {
-	FindByEmail(email string) (*models.User, error)
-	Update(user *models.User) error
-	Create(user *models.User) error
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
+	Update(ctx context.Context, user *models.User) error
+	Create(ctx context.Context, user *models.User) error
 }

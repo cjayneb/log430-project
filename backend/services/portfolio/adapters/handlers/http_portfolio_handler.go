@@ -3,13 +3,12 @@ package handler_adapters
 import (
 	"brokerx/portfolio-service/core"
 	"brokerx/portfolio-service/models"
+	"brokerx/portfolio-service/util"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
-	log "github.com/sirupsen/logrus"
 )
 
 const USER_ID_HEADER_KEY string = "X-User-Id"
@@ -37,98 +36,117 @@ type PortfolioHandler struct {
 var validate = validator.New()
 
 func (handler *PortfolioHandler) GetWallet(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	userIDStr := r.Header.Get(USER_ID_HEADER_KEY)
 	if userIDStr == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid 'user_id' parameter"})
+		msg := "invalid 'user_id' parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	wallet, err := handler.Service.GetWallet(userID)
+	wallet, err := handler.Service.GetWallet(r.Context(), userID)
 	if err != nil {
-		log.Errorf("Failed to get wallet for user %d : %v", userID, err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to get wallet"})
+		msg := "failed to get wallet"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, WalletResponse{Wallet: *wallet})
+	util.WriteJSON(w, http.StatusOK, WalletResponse{Wallet: *wallet})
 }
 
 func (handler *PortfolioHandler) FundWallet(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	userIDStr := r.Header.Get(USER_ID_HEADER_KEY)
 	if userIDStr == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid 'user_id' parameter"})
+		msg := "invalid 'user_id' parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	var addFundsReq AddFundsRequest
 	if err := json.NewDecoder(r.Body).Decode(&addFundsReq); err != nil {
-		log.Warnf("Invalid JSON: %v", err)
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid JSON format"})
+		msg := "invalid JSON format"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 	if err := validate.Struct(addFundsReq); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: fmt.Sprintf("missing or invalid fields: %v", err)})
+		msg := "missing or invalid fields"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	if err = handler.Service.FundWallet(userID, addFundsReq.Amount); err != nil {
-		log.Errorf("Failed to fund wallet for user %d : %v", userID, err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to fund wallet"})
+	if err = handler.Service.FundWallet(r.Context(), userID, addFundsReq.Amount); err != nil {
+		msg := "failed to fund wallet"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	wallet, err := handler.Service.GetWallet(userID)
+	wallet, err := handler.Service.GetWallet(r.Context(), userID)
 	if err != nil {
-		log.Errorf("Failed to get wallet for user %d : %v", userID, err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to get wallet"})
+		msg := "failed to get wallet after adding funds"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, WalletResponse{Wallet: *wallet})
+	util.WriteJSON(w, http.StatusOK, WalletResponse{Wallet: *wallet})
 }
 
 func (handler *PortfolioHandler) FetchPositions(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
 	userIDStr := r.Header.Get(USER_ID_HEADER_KEY)
 	if userIDStr == "" {
-		writeJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: "missing user authentication context"})
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "invalid 'user_id' parameter"})
+		msg := "invalid 'user_id' parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
 	symbol := r.URL.Query().Get("symbol")
 	if symbol == "" {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: "missing 'symbol' query parameter"})
+		msg := "missing 'symbol' query parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	positions, err := handler.Service.FetchPositions(userID, symbol)
+	positions, err := handler.Service.FetchPositions(r.Context(), userID, symbol)
 	if err != nil {
-		log.Errorf("Failed to fetch positions for user %d and symbol %s : %v", userID, symbol, err)
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: "failed to fetch positions"})
+		msg := "failed to fetch positions"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, PositionsResponse{Positions: positions})
-}
-
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, fmt.Sprintf("error when encoding JSON response : %v", err), http.StatusInternalServerError)
-	}
+	util.WriteJSON(w, http.StatusOK, PositionsResponse{Positions: positions})
 }
