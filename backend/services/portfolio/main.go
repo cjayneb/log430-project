@@ -14,7 +14,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -87,7 +86,7 @@ func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPos
 	db.SetConnMaxIdleTime(time.Minute * 1)
 
 	if err := db.Ping(); err != nil {
-		log.Warnf("Db ping error", "error", err)
+		slog.Warn("Db ping error", "error", err)
 	}
 	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}
 }
