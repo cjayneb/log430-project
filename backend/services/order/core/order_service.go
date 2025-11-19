@@ -22,6 +22,7 @@ type OrderService interface {
 type OrderServiceImpl struct {
 	Repo              ports.OrderRepository
 	OrderBook         ports.OrderBook
+	EventProducer	  ports.EventProducer
 	MatchingEngine    ports.MatchingEngine
 }
 
@@ -35,10 +36,16 @@ func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.O
 	}
 	order.ID = createdOrderId
 
-	if err := service.MatchingEngine.SubmitOrder(ctx, order); err != nil {
-		log.Error("matching failed for order", "orderId", order.ID, "error", err)
+	err = service.EventProducer.SendEvent(ctx, "OrderEvents", order)
+	if err != nil {
+		log.Error("error when sending OrderCreatedEvent", "error", err)
+		return err
 	}
-	log.Info("Order sent to matching service", "orderId", order.ID)
+
+	// if err := service.MatchingEngine.SubmitOrder(ctx, order); err != nil {
+	// 	log.Error("matching failed for order", "orderId", order.ID, "error", err)
+	// }
+	// log.Info("Order sent to matching service", "orderId", order.ID)
 
 	return nil
 }
@@ -72,7 +79,6 @@ func StartDirtyOrderSync(ctx context.Context, interval time.Duration, batchSize 
 				if len(dirtyIDs) == 0 {
 					continue
 				}
-				slog.Debug(fmt.Sprintf("order sync: popped dirty order ids : %v", dirtyIDs))
 
 				// Step 2: fetch order data for those IDs
 				orders, err := orderBook.FetchByIDs(ctx, dirtyIDs)

@@ -4,6 +4,7 @@ go 1.24.3
 
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/go-chi/httplog/v2 v2.1.1
 	github.com/go-chi/traceid v0.3.0
 	github.com/go-playground/validator/v10 v10.28.0

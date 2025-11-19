@@ -126,7 +126,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("portfolio-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,

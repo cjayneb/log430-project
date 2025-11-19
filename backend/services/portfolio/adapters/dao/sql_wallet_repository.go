@@ -48,10 +48,10 @@ func (repo *SQLWalletRepository) AddFunds(ctx context.Context, userId int, amoun
 func (repo *SQLWalletRepository) FindByUserId(ctx context.Context, userId int) (*models.Wallet, error) {
 	log := util.FromContext(ctx)
 
-	row := repo.DB.QueryRow("SELECT available_funds, funds_on_hold FROM brokerx.wallets WHERE user_id=?", userId)
+	row := repo.DB.QueryRow("SELECT available_funds, reserved_funds FROM brokerx.wallets WHERE user_id=?", userId)
 
 	var wallet models.Wallet
-	e := row.Scan(&wallet.AvailableFunds, &wallet.OnHoldFunds)
+	e := row.Scan(&wallet.AvailableFunds, &wallet.ReservedFunds)
 	if e == sql.ErrNoRows {
 		return nil, nil
 	}

@@ -39,6 +39,7 @@ func main() {
 
 	// Create external services
 	matchingEngine := client_adapters.NewMatchineEngine(config.MatchingServiceBaseUrl)
+	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
 	portfolioService := client_adapters.NewPortfolioServiceClient(config.PortfolioServiceBaseUrl)
 	marketDataProvider := client_adapters.NewMarketDataProvider(config.MarketDataServiceBaseUrl)
 
@@ -48,6 +49,7 @@ func main() {
 		Repo:              orderRepo,
 		OrderBook:         orderBook,
 		MatchingEngine:    matchingEngine,
+		EventProducer: eventProducer,
 	}
 
 	// Create request handler
@@ -167,7 +169,7 @@ func TraceMiddleware(next http.Handler) http.Handler {
 func InitLogger(service string) {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
-		Level:     slog.LevelDebug,
+		Level:     slog.LevelInfo,
 	})
 
 	logger := slog.New(handler).With("service", service)
@@ -177,7 +179,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("order-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,

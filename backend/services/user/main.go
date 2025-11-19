@@ -129,7 +129,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("user-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,

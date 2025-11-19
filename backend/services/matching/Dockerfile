@@ -1,25 +1,36 @@
 # Build stage ==================================
-FROM golang:alpine AS builder
+FROM golang:1.24.3-bookworm AS builder
 
-# Set module mode on for reproducible builds
-ENV CGO_ENABLED=0
-ENV GOOS=linux
-ENV GOARCH=amd64
+ENV CGO_ENABLED=1
+ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        pkg-config \
+        librdkafka-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy go.mod/go.sum first to leverage Docker layer caching
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-WORKDIR /app
-RUN go build -o /app/brokerx-matching-service .
 
-# Run stage ====================================
-FROM alpine:3.22 AS runtime
+# Build binary using system librdkafka (ARM64 native)
+RUN go build -tags dynamic -o /app/brokerx-matching-service .
+
+# Runtime stage ====================================
+FROM debian:bookworm-slim AS runtime
+
 WORKDIR /app
+
+# Install runtime librdkafka
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends librdkafka1 && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/brokerx-matching-service .
 

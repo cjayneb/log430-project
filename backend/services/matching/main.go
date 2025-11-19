@@ -51,8 +51,10 @@ func run() http.Handler {
 	matchingHandler := &handler_adapters.MatchingHandler{
 		MatchingEngine: matchingEngine,
 	}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group1")
 
 	matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
+	eventConsumer.Start("OrderEvents")
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
@@ -123,7 +125,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("matching-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,
