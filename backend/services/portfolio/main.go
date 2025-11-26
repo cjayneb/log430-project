@@ -1,6 +1,7 @@
 package main
 
 import (
+	client_adapters "brokerx/portfolio-service/adapters/clients"
 	dao_adapters "brokerx/portfolio-service/adapters/dao"
 	handler_adapters "brokerx/portfolio-service/adapters/handlers"
 	"brokerx/portfolio-service/core"
@@ -44,13 +45,24 @@ func main() {
 }
 
 func run() http.Handler {
-	walletRepo, positionsRepo := initDbConnection()
+	walletRepo, positionsRepo, execRepo, orderRepo := initDbConnection()
 
 	portfolioService := &core.PortfolioServiceImpl{
 		WalletRepo:    walletRepo,
 		PositionsRepo: positionsRepo,
 	}
 	portfolioHandler := handler_adapters.PortfolioHandler{Service: portfolioService}
+
+	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
+	orderMatchedHandler := handler_adapters.OrderMatchedHandler{
+		ExecutionRepo: execRepo,
+		OrderRepo: orderRepo,
+		PositionRepo: positionsRepo,
+		WalletRepo: walletRepo,
+		Producer: eventProducer,
+	}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group0", orderMatchedHandler)
+	go eventConsumer.Start("MatchingEvents")
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
@@ -73,7 +85,7 @@ func run() http.Handler {
 	return r
 }
 
-func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository) {
+func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository, *dao_adapters.SQLExecutionRepository, *dao_adapters.SQLOrderRepository) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		slog.Error("Db open error", "error", err)
@@ -88,7 +100,7 @@ func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPos
 	if err := db.Ping(); err != nil {
 		slog.Warn("Db ping error", "error", err)
 	}
-	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}
+	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}, &dao_adapters.SQLExecutionRepository{DB: db}, &dao_adapters.SQLOrderRepository{DB: db}
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {

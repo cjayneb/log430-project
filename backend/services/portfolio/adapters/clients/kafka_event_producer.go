@@ -1,9 +1,9 @@
 package client_adapters
 
 import (
-	"brokerx/order-service/common"
-	"brokerx/order-service/models"
-	"brokerx/order-service/ports"
+	"brokerx/portfolio-service/models"
+	"brokerx/portfolio-service/ports"
+	"brokerx/portfolio-service/util"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -11,6 +11,17 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
+
+type MatchingEvent struct {
+	Event      string
+	TraceID    string
+	UserId     string
+	JWT        string
+	Order      models.Order
+	Orders     []*models.Order
+	Executions []*models.ExecutionRecord
+	Error      string
+}
 
 type KafkaEventProducer struct {
 	producer *kafka.Producer
@@ -26,21 +37,21 @@ func NewKafkaEventProducer(host string) *KafkaEventProducer {
 }
 
 func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventType string, eventData models.Order, err error) error {
-	log := common.FromContext(ctx)
+	log := util.FromContext(ctx)
 
-	traceId := ctx.Value(common.CtxKeyTraceId).(string)
+	traceId := ctx.Value(util.CtxKeyTraceId).(string)
 	errString := ""
 	if err != nil {
 		errString = err.Error()
 	}
 
 	event := models.OrderEvent{
-		Event: eventType,
+		Event:   eventType,
 		TraceID: traceId,
-		UserId: ctx.Value(common.CtxKeyUserId).(string),
-		JWT: ctx.Value(common.CtxKeyJWT).(string),
-		Order: eventData,
-		Error: errString,
+		UserId:  ctx.Value(util.CtxKeyUserId).(string),
+		JWT:     ctx.Value(util.CtxKeyJWT).(string),
+		Order:   eventData,
+		Error:   errString,
 	}
 
 	jsonEventData, err := json.Marshal(event)
@@ -52,7 +63,7 @@ func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventT
 	err = k.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          jsonEventData,
-		Headers: []kafka.Header{{Key: string(common.HeaderTraceId), Value: []byte(traceId)}},
+		Headers:        []kafka.Header{{Key: string(util.HeaderTraceId), Value: []byte(traceId)}},
 	}, nil)
 	if err != nil {
 		log.Error("error when producing event", "error", err)

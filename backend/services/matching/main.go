@@ -1,6 +1,7 @@
 package main
 
 import (
+	client_adapters "brokerx/matching-service/adapters/clients"
 	dao_adapters "brokerx/matching-service/adapters/dao"
 	handler_adapters "brokerx/matching-service/adapters/handlers"
 	"brokerx/matching-service/core"
@@ -44,17 +45,21 @@ func main() {
 func run() http.Handler {
 	orderBook, execQueue := initRedisConnection()
 
+	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
 	matchingEngine := &core.MatchingEngineImpl{
 		OrderBook:      orderBook,
 		ExecutionQueue: execQueue,
+		Producer: eventProducer,
 	}
 	matchingHandler := &handler_adapters.MatchingHandler{
 		MatchingEngine: matchingEngine,
 	}
-	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group1")
+	orderValidatedHandler := handler_adapters.OrderValidatedHandler{MatchingService: matchingEngine, Producer: eventProducer}
+	orderOpenHandler := handler_adapters.OrderOpenHandler{OrderBook: orderBook}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group1", orderValidatedHandler, orderOpenHandler)
 
-	matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
-	eventConsumer.Start("OrderEvents")
+	//matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
+	eventConsumer.Start("MatchingEvents")
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))

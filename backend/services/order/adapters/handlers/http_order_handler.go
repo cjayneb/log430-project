@@ -6,7 +6,6 @@ import (
 	"brokerx/order-service/models"
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -87,14 +86,14 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 	ctx := context.WithValue(r.Context(), common.CtxKeyJWT, jwt)
 	ctx = context.WithValue(ctx, common.CtxKeyUserId, userIDStr)
 
-	if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, common.ErrBusinessRuleViolation) {status = http.StatusBadRequest}
-		if errors.Is(err, common.ErrDependencyFailure) {status = http.StatusBadGateway}
-		log.Warn(err.Error())
-		common.WriteJSON(w, status, ErrorResponse{ErrorMessage: err.Error()})
-		return
-	}
+	// if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
+	// 	status := http.StatusInternalServerError
+	// 	if errors.Is(err, common.ErrBusinessRuleViolation) {status = http.StatusBadRequest}
+	// 	if errors.Is(err, common.ErrDependencyFailure) {status = http.StatusBadGateway}
+	// 	log.Warn(err.Error())
+	// 	common.WriteJSON(w, status, ErrorResponse{ErrorMessage: err.Error()})
+	// 	return
+	// }
 
 	if err := handler.OrderService.PlaceOrder(ctx, &order); err != nil {
 		msg := "failed to place order"

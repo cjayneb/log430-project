@@ -1,9 +1,9 @@
 package handler_adapters
 
 import (
-	"brokerx/matching-service/models"
-	"brokerx/matching-service/ports"
-	"brokerx/matching-service/util"
+	"brokerx/portfolio-service/models"
+	"brokerx/portfolio-service/ports"
+	"brokerx/portfolio-service/util"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -13,12 +13,11 @@ import (
 )
 
 type KafkaEventConsumer struct {
-	consumer                     *kafka.Consumer
-	orderValidatedHandler          OrderValidatedHandler
-	orderOpenHandler OrderOpenHandler
+	consumer            *kafka.Consumer
+	orderMatchedHandler OrderMatchedHandler
 }
 
-func NewKafkaEventConsumer(host string, groupId string, orderValidatedHandler OrderValidatedHandler, orderOpenHandler OrderOpenHandler) *KafkaEventConsumer {
+func NewKafkaEventConsumer(host string, groupId string, orderMatchedHandler OrderMatchedHandler) *KafkaEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -32,9 +31,8 @@ func NewKafkaEventConsumer(host string, groupId string, orderValidatedHandler Or
 	}
 
 	return &KafkaEventConsumer{
-		consumer:              c,
-		orderValidatedHandler: orderValidatedHandler,
-		orderOpenHandler: orderOpenHandler,      
+		consumer:            c,
+		orderMatchedHandler: orderMatchedHandler,
 	}
 }
 
@@ -67,7 +65,7 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 		}
 	}
 
-	var event models.OrderEvent
+	var event models.MatchingEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
 		log.Error("unable to  unmarshal event", "error", err)
 	}
@@ -79,19 +77,11 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	ctx = util.WithLogger(ctx, log)
 
 	switch event.Event {
-	case "OrderValidated":
-		log.Info("Received OrderValidated event.")
-		err := k.orderValidatedHandler.handle(ctx, event)
+	case "OrderMatched":
+		log.Info("Received OrderMatched event.")
+		err := k.orderMatchedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderValidated event", "error", err)
-			break
-		}
-		k.consumer.CommitMessage(msg)
-	case "OrderOpen":
-		log.Info("Received OrderOpen event.")
-		err := k.orderOpenHandler.handle(ctx, event)
-		if err != nil {
-			log.Error("error handling OrderOpen event", "error", err)
+			log.Error("error handling OrderCreated event", "error", err)
 			break
 		}
 		k.consumer.CommitMessage(msg)

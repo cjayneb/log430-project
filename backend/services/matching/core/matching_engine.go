@@ -18,24 +18,23 @@ var OrderQueue chan QueuedOrder
 
 type MatchingEngine interface {
 	QueueOrder(ctx context.Context, order *models.Order) error
+	SubmitOrder(ctx context.Context, orderId int) error
 }
 
 type MatchingEngineImpl struct {
 	OrderBook      ports.OrderBook
+	Producer 	   ports.EventProducer
 	ExecutionQueue ports.ExecutionQueue
 }
 
-type ClaimedCandidate struct {
-	Order      *models.Order
-	ClaimedQty int
-}
-
 func (engine *MatchingEngineImpl) QueueOrder(ctx context.Context, order *models.Order) error {
-	log := util.FromContext(ctx)
+	// log := util.FromContext(ctx)
 
-	OrderQueue <- QueuedOrder{Ctx: context.WithoutCancel(ctx), Order: order}
-	log.Info("Order queued for matching", "orderId", order.ID)
-	return nil
+	// OrderQueue <- QueuedOrder{Ctx: context.WithoutCancel(ctx), Order: order}
+	// log.Info("Order queued for matching", "orderId", order.ID)
+	// return nil
+
+	return engine.OrderBook.Insert(ctx, order)
 }
 
 func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) {
@@ -58,6 +57,8 @@ func (service *MatchingEngineImpl) StartMatchingWorkers(numberOfGoRoutines int) 
 }
 
 func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) error {
+	log := util.FromContext(ctx)
+
 	// 1. Fetch order from order book
 	order, err := engine.OrderBook.GetById(ctx, orderId)
 	if err != nil {
@@ -69,8 +70,8 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) 
 	}
 
 	var (
-		allMatchedOrders []*models.Order
-		claimedOrders    []*ClaimedCandidate
+		unclaimedCandidates []*models.Order
+		claimedOrders    []*models.ClaimedCandidate
 		batchSize        = 5
 		executionBuffer  []*models.ExecutionRecord
 	)
@@ -99,11 +100,9 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) 
 		// 3. Try matching each candidate
 		for _, candidate := range matchedOrders {
 			// TODO: remove this filtering and filter at order book level
-			if candidate.UserID == order.UserID {
+			if order.RemainingQuantity == 0 || candidate.UserID == order.UserID {
+				unclaimedCandidates = append(unclaimedCandidates, candidate)
 				continue
-			}
-			if order.RemainingQuantity == 0 {
-				break
 			}
 
 			qty := min(order.RemainingQuantity, candidate.RemainingQuantity)
@@ -112,8 +111,8 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) 
 
 			UpdateStatus(candidate)
 
-			claimedOrders = append(claimedOrders, &ClaimedCandidate{
-				Order:      candidate,
+			claimedOrders = append(claimedOrders, &models.ClaimedCandidate{
+				Order:      *candidate,
 				ClaimedQty: qty,
 			})
 
@@ -125,26 +124,28 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, orderId int) 
 				Quantity:    qty,
 			})
 		}
-		allMatchedOrders = append(allMatchedOrders, matchedOrders...)
 	}
 
 	UpdateStatus(&order)
-	HandleIocOrder(&order, &claimedOrders, &executionBuffer)
+	HandleIocOrder(&order, &claimedOrders, &unclaimedCandidates, &executionBuffer)
 
-	// Returns incomplete orders to order book
-	if err := engine.handleRemainingOrders(ctx, order, &allMatchedOrders); err != nil {
+	if err = engine.OrderBook.Return(ctx, unclaimedCandidates); err != nil {
+		log.Error("problem returning unclaimed candidates to order book", "error", err)
 		return err
 	}
 
-	// Send complete incoming order and candidates to queue for persistence
-	if err := engine.saveOrdersAndExecutions(ctx, &order, claimedOrders, executionBuffer); err != nil {
-		return err
+	if order.Timing == "ioc" && order.Status == "canceled" {
+		return engine.Producer.SendEvent(ctx, "OrderEvents", "OrderMatchingFailed", order, nil)
 	}
 
-	return nil
+	var ordersToSend []*models.Order
+	for _, o := range claimedOrders {
+		ordersToSend = append(ordersToSend, &o.Order)
+	}
+	return engine.Producer.SendMatchingEvent(ctx, "MatchingEvents", "OrderMatched", order, ordersToSend, executionBuffer, nil)
 }
 
-func HandleIocOrder(incoming *models.Order, claimedOrders *[]*ClaimedCandidate, executionBuffer *[]*models.ExecutionRecord) {
+func HandleIocOrder(incoming *models.Order, claimedOrders *[]*models.ClaimedCandidate, unclaimedCandidates *[]*models.Order, executionBuffer *[]*models.ExecutionRecord) {
 	if incoming.Timing != "ioc" {
 		return
 	}
@@ -152,15 +153,16 @@ func HandleIocOrder(incoming *models.Order, claimedOrders *[]*ClaimedCandidate, 
 	if incoming.RemainingQuantity > 0 {
 		incoming.Status = "canceled"
 		incoming.RemainingQuantity = incoming.Quantity
-		RevertClaimedOrders(claimedOrders)
+		RevertClaimedOrders(claimedOrders, unclaimedCandidates)
 		*executionBuffer = nil
 	}
 }
 
-func RevertClaimedOrders(claimedOrders *[]*ClaimedCandidate) {
+func RevertClaimedOrders(claimedOrders *[]*models.ClaimedCandidate, unclaimedCandidates *[]*models.Order) {
 	for _, claimed := range *claimedOrders {
 		claimed.Order.RemainingQuantity += claimed.ClaimedQty
-		claimed.Order = UpdateStatus(claimed.Order)
+		claimed.Order = *UpdateStatus(&claimed.Order)
+		*unclaimedCandidates = append(*unclaimedCandidates, &claimed.Order)
 	}
 }
 
@@ -180,7 +182,7 @@ func (engine *MatchingEngineImpl) handleRemainingOrders(ctx context.Context, inc
 	return engine.OrderBook.Return(ctx, ordersToReturn)
 }
 
-func (engine *MatchingEngineImpl) saveOrdersAndExecutions(ctx context.Context, incoming *models.Order, claimedOrders []*ClaimedCandidate, executionBuffer []*models.ExecutionRecord) error {
+func (engine *MatchingEngineImpl) saveOrdersAndExecutions(ctx context.Context, incoming *models.Order, claimedOrders []*models.ClaimedCandidate, executionBuffer []*models.ExecutionRecord) error {
 	ordersToPersist := []*models.Order{}
 	if incoming.Status == "filled" || incoming.Status == "canceled" {
 		ordersToPersist = append(ordersToPersist, incoming)
@@ -188,7 +190,7 @@ func (engine *MatchingEngineImpl) saveOrdersAndExecutions(ctx context.Context, i
 
 	for _, claimed := range claimedOrders {
 		if claimed.Order.Status == "filled" {
-			ordersToPersist = append(ordersToPersist, claimed.Order)
+			ordersToPersist = append(ordersToPersist, &claimed.Order)
 		}
 	}
 

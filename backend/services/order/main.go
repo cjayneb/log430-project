@@ -52,13 +52,16 @@ func main() {
 		EventProducer: eventProducer,
 	}
 
-	// Create request handler
+	// Create request/event handlers
 	orderHandler := handler_adapters.NewOrderHandler(orderService, complianceService)
+	orderCreatedHandler := handler_adapters.OrderCreatedHandler{ComplianceService: complianceService, Producer: eventProducer}
+	orderFailedHandler := handler_adapters.OrderComplianceFailedHandler{OrderService: orderService, Producer: eventProducer}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group1", orderCreatedHandler, orderFailedHandler)
 
 	// Start async processes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	initAsyncProcesses(ctx, orderBook, execQueue, tm)
+	initAsyncProcesses(ctx, orderBook, execQueue, eventConsumer, tm)
 
 	// Init router
 	r := chi.NewRouter()
@@ -124,24 +127,26 @@ func initAsyncProcesses(
 	ctx context.Context,
 	orderBook *dao_adapters.RedisOrderBook,
 	execQueue *dao_adapters.RedisExecutionQueue,
+	eventConsumer *handler_adapters.KafkaEventConsumer,
 	tm *dao_adapters.SQLTransactionManager,
 ) {
-	core.StartDirtyOrderSync(
-		ctx,
-		time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,
-		config.DirtyOrderSyncBatchSize,
-		orderBook,
-		tm,
-	)
-	core.PersistOrdersAndExecutions(
-		ctx,
-		time.Duration(config.OrdersExecutionsPersistIntervalInMs)*time.Millisecond,
-		config.OrdersPersistBatchSize,
-		config.ExecutionsPersistBatchSize,
-		orderBook,
-		execQueue,
-		tm,
-	)
+	// core.StartDirtyOrderSync(
+	// 	ctx,
+	// 	time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,
+	// 	config.DirtyOrderSyncBatchSize,
+	// 	orderBook,
+	// 	tm,
+	// )
+	// core.PersistOrdersAndExecutions(
+	// 	ctx,
+	// 	time.Duration(config.OrdersExecutionsPersistIntervalInMs)*time.Millisecond,
+	// 	config.OrdersPersistBatchSize,
+	// 	config.ExecutionsPersistBatchSize,
+	// 	orderBook,
+	// 	execQueue,
+	// 	tm,
+	// )
+	go eventConsumer.Start("OrderEvents")
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {

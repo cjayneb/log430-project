@@ -43,7 +43,7 @@ func (repo SQLOrderRepository) UpdateBatch(ctx context.Context, orders []*models
 			unit_price = VALUES(unit_price);
 	`, strings.Join(valueStrings, ","))
 
-	_, err := repo.tx.ExecContext(ctx, query, valueArgs...)
+	_, err := repo.DB.ExecContext(ctx, query, valueArgs...)
 	if err != nil {
 		log.Error("Error executing batch upsert", "error", err)
 	}

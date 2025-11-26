@@ -134,7 +134,7 @@ func (handler *AuthHandler) VerifyToken(w http.ResponseWriter, r *http.Request) 
 	if err != nil || !token.Valid {
 		msg := "invalid or expired token"
 		log.Error(msg, "error", err)
-		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
 		return
 	}
 

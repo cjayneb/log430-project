@@ -1,7 +1,7 @@
 package ports
 
 import (
-	"brokerx/order-service/models"
+	"brokerx/portfolio-service/models"
 	"context"
 )
 

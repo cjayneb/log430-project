@@ -13,22 +13,28 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
 type OrderService interface {
 	PlaceOrder(ctx context.Context, order *models.Order) error
 	GetOrdersForUser(ctx context.Context, userId int) ([]*models.Order, error)
+	UpdateOrder(ctx context.Context, updatedOrder *models.Order) error
 }
 
 type OrderServiceImpl struct {
-	Repo              ports.OrderRepository
-	OrderBook         ports.OrderBook
-	EventProducer	  ports.EventProducer
-	MatchingEngine    ports.MatchingEngine
+	Repo           ports.OrderRepository
+	OrderBook      ports.OrderBook
+	EventProducer  ports.EventProducer
+	MatchingEngine ports.MatchingEngine
+}
+
+func (service *OrderServiceImpl) UpdateOrder(ctx context.Context, updatedOrder *models.Order) error {
+	//TODO: update in redis also?
+	return service.Repo.UpdateBatch(ctx, []*models.Order{updatedOrder})
 }
 
 func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.Order) error {
 	log := common.FromContext(ctx)
 
+	order.Status = "open"
 	createdOrderId, err := service.Repo.Create(ctx, order)
 	if err != nil {
 		log.Error("error creating order", "error", err)
@@ -36,7 +42,7 @@ func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.O
 	}
 	order.ID = createdOrderId
 
-	err = service.EventProducer.SendEvent(ctx, "OrderEvents", order)
+	err = service.EventProducer.SendEvent(ctx, "OrderEvents", "OrderCreated", *order, nil)
 	if err != nil {
 		log.Error("error when sending OrderCreatedEvent", "error", err)
 		return err
@@ -123,12 +129,12 @@ func popDirtyIDs(ctx context.Context, orderBook ports.OrderBook, batchSize int) 
 }
 
 func PersistOrdersAndExecutions(
-	ctx context.Context, 
-	interval time.Duration, 
-	orderBatchSize int, 
-	execBatchSize int, 
-	orderBook ports.OrderBook, 
-	execQueue ports.ExecutionQueue, 
+	ctx context.Context,
+	interval time.Duration,
+	orderBatchSize int,
+	execBatchSize int,
+	orderBook ports.OrderBook,
+	execQueue ports.ExecutionQueue,
 	tm ports.TransactionManager,
 ) {
 	slog.Info(fmt.Sprintf("Persistence interval %v milliseconds", interval))

@@ -1,9 +1,9 @@
 package handler_adapters
 
 import (
-	"brokerx/matching-service/models"
-	"brokerx/matching-service/ports"
-	"brokerx/matching-service/util"
+	"brokerx/order-service/common"
+	"brokerx/order-service/models"
+	"brokerx/order-service/ports"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -14,11 +14,11 @@ import (
 
 type KafkaEventConsumer struct {
 	consumer                     *kafka.Consumer
-	orderValidatedHandler          OrderValidatedHandler
-	orderOpenHandler OrderOpenHandler
+	orderCreatedHandler          OrderCreatedHandler
+	orderComplianceFailedHandler OrderComplianceFailedHandler
 }
 
-func NewKafkaEventConsumer(host string, groupId string, orderValidatedHandler OrderValidatedHandler, orderOpenHandler OrderOpenHandler) *KafkaEventConsumer {
+func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler OrderCreatedHandler, orderComplianceFailedHandler OrderComplianceFailedHandler) *KafkaEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -32,9 +32,9 @@ func NewKafkaEventConsumer(host string, groupId string, orderValidatedHandler Or
 	}
 
 	return &KafkaEventConsumer{
-		consumer:              c,
-		orderValidatedHandler: orderValidatedHandler,
-		orderOpenHandler: orderOpenHandler,      
+		consumer:                     c,
+		orderCreatedHandler:          orderCreatedHandler,
+		orderComplianceFailedHandler: orderComplianceFailedHandler,
 	}
 }
 
@@ -62,8 +62,8 @@ func (k *KafkaEventConsumer) Start(topic string) {
 func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	var log *slog.Logger
 	for _, header := range msg.Headers {
-		if header.Key == string(util.HeaderTraceId) {
-			log = util.FromEvent(string(header.Value))
+		if header.Key == string(common.HeaderTraceId) {
+			log = common.FromEvent(string(header.Value))
 		}
 	}
 
@@ -73,28 +73,34 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	}
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, util.CtxKeyTraceId, event.TraceID)
-	ctx = context.WithValue(ctx, util.CtxKeyUserId, event.UserId)
-	ctx = context.WithValue(ctx, util.CtxKeyJWT, event.JWT)
-	ctx = util.WithLogger(ctx, log)
+	ctx = context.WithValue(ctx, common.CtxKeyTraceId, event.TraceID)
+	ctx = context.WithValue(ctx, common.CtxKeyUserId, event.UserId)
+	ctx = context.WithValue(ctx, common.CtxKeyJWT, event.JWT)
+	ctx = common.WithLogger(ctx, log)
 
 	switch event.Event {
-	case "OrderValidated":
-		log.Info("Received OrderValidated event.")
-		err := k.orderValidatedHandler.handle(ctx, event)
+	case "OrderCreated":
+		log.Info("Received OrderCreated event.")
+		err := k.orderCreatedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderValidated event", "error", err)
+			log.Error("error handling OrderCreated event", "error", err)
 			break
 		}
 		k.consumer.CommitMessage(msg)
-	case "OrderOpen":
-		log.Info("Received OrderOpen event.")
-		err := k.orderOpenHandler.handle(ctx, event)
+	case "OrderComplianceFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
+		log.Info("Received OrderFailed event", "event", event.Event)
+		err := k.orderComplianceFailedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderOpen event", "error", err)
+			log.Error("error handling OrderComplianceFailed event", "error", err)
 			break
 		}
 		k.consumer.CommitMessage(msg)
+	case "OrderSagaCompleted":
+		if event.Error != "" {
+			log.Error("Order Saga completed with an error", "error", event.Error)
+		} else {
+			log.Info("Order Saga completed!", "orderId", event.Order.ID)
+		}
 	default:
 		log.Info("Event not consumed by this service", "event", event.Event)
 	}

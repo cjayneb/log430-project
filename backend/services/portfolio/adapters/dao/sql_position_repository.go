@@ -12,6 +12,11 @@ type SQLPositionRepository struct {
 	DB *sql.DB
 }
 
+// Update implements ports.PositionRepository.
+func (repo *SQLPositionRepository) Update(ctx context.Context, userId int, symbol string, qty int) error {
+	panic("unimplemented")
+}
+
 func (repo *SQLPositionRepository) FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
 	log := util.FromContext(ctx)
 

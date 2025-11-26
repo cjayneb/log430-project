@@ -173,7 +173,7 @@ func TestHandleIocOrder(t *testing.T) {
 		name string // description of this test case
 		// Named input parameters for target function.
 		incoming             *models.Order
-		claimedOrders        *[]*core.ClaimedCandidate
+		claimedOrders        *[]*models.ClaimedCandidate
 		executionBuffer      *[]*models.ExecutionRecord
 		wantStatus           string
 		wantRemainingQty     int
@@ -182,7 +182,7 @@ func TestHandleIocOrder(t *testing.T) {
 		{
 			name:                 "ioc order remaining qty is 0",
 			incoming:             &models.Order{Status: "filled", Timing: "ioc", RemainingQuantity: 0},
-			claimedOrders:        &[]*core.ClaimedCandidate{},
+			claimedOrders:        &[]*models.ClaimedCandidate{},
 			executionBuffer:      &[]*models.ExecutionRecord{{}},
 			wantStatus:           "filled",
 			wantRemainingQty:     0,
@@ -191,7 +191,7 @@ func TestHandleIocOrder(t *testing.T) {
 		{
 			name:                 "ioc order remaining qty is 5",
 			incoming:             &models.Order{Status: "filled", Timing: "ioc", RemainingQuantity: 5, Quantity: 10},
-			claimedOrders:        &[]*core.ClaimedCandidate{},
+			claimedOrders:        &[]*models.ClaimedCandidate{},
 			executionBuffer:      &[]*models.ExecutionRecord{{}},
 			wantStatus:           "canceled",
 			wantRemainingQty:     10,
@@ -200,7 +200,7 @@ func TestHandleIocOrder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			core.HandleIocOrder(tt.incoming, tt.claimedOrders, tt.executionBuffer)
+			core.HandleIocOrder(tt.incoming, tt.claimedOrders, &[]*models.Order{}, tt.executionBuffer)
 			if tt.incoming.Status != tt.wantStatus {
 				t.Error("wrong status")
 			}
@@ -218,22 +218,22 @@ func TestRevertClaimedOrders(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.
-		claimedOrders    *[]*core.ClaimedCandidate
+		claimedOrders    *[]*models.ClaimedCandidate
 		wantRemainingQty int
 		wantStatus       string
 	}{
 		{
 			name: "filled order is reversed",
-			claimedOrders: &[]*core.ClaimedCandidate{
-				{Order: &order4MarketBuy, ClaimedQty: 5},
+			claimedOrders: &[]*models.ClaimedCandidate{
+				{Order: order4MarketBuy, ClaimedQty: 5},
 			},
 			wantRemainingQty: 5,
 			wantStatus:       "partially_filled",
 		},
 		{
 			name: "partially filled order is reversed",
-			claimedOrders: &[]*core.ClaimedCandidate{
-				{Order: &order1LimitBuy, ClaimedQty: 3},
+			claimedOrders: &[]*models.ClaimedCandidate{
+				{Order: order1LimitBuy, ClaimedQty: 3},
 			},
 			wantRemainingQty: order4MarketBuy.Quantity,
 			wantStatus:       "open",
@@ -241,7 +241,7 @@ func TestRevertClaimedOrders(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			core.RevertClaimedOrders(tt.claimedOrders)
+			core.RevertClaimedOrders(tt.claimedOrders, &[]*models.Order{})
 			first := (*tt.claimedOrders)[0]
 			if first.Order.RemainingQuantity != tt.wantRemainingQty {
 				t.Errorf("invalid remaining qty got : %v, want: %v", first.Order.RemainingQuantity, tt.wantRemainingQty)
