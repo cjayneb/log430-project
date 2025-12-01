@@ -22,7 +22,6 @@ type MatchingEngine interface {
 type MatchingEngineImpl struct {
 	OrderBook      ports.OrderBook
 	Producer 	   ports.EventProducer
-	ExecutionQueue ports.ExecutionQueue
 }
 
 func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, order *models.Order) error {

@@ -73,7 +73,6 @@ func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 		order         models.Order
 		matchCandidates []*models.Order
 		mockOrderBook   mocks.MockOrderBook
-		mockExecQueue   mocks.MockExecQueue
 		wantErr         bool
 	}{
 		{
@@ -94,13 +93,11 @@ func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 				Orders: []*models.Order{&order2LimitSell},
 				Order:  order3MarketBuy,
 			},
-			mockExecQueue: mocks.MockExecQueue{Err: nil},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			engine.OrderBook = &tt.mockOrderBook
-			engine.ExecutionQueue = &tt.mockExecQueue
 
 			gotErr := engine.SubmitOrder(ctx, &tt.order)
 

@@ -9,6 +9,7 @@ import (
 )
 
 var ctx = context.Background()
+var redisClientMock, s = mocks.GetRedisClientMock()
 var orderBook = dao_adapters.RedisOrderBook{Rdb: redisClientMock}
 
 var order1LimitBuy = models.Order{

@@ -43,12 +43,11 @@ func main() {
 }
 
 func run() http.Handler {
-	orderBook, execQueue := initRedisConnection()
+	orderBook:= initRedisConnection()
 
 	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
 	matchingEngine := &core.MatchingEngineImpl{
 		OrderBook:      orderBook,
-		ExecutionQueue: execQueue,
 		Producer: eventProducer,
 	}
 	orderValidatedHandler := handler_adapters.OrderValidatedHandler{MatchingService: matchingEngine, Producer: eventProducer}
@@ -73,7 +72,7 @@ func run() http.Handler {
 	return r
 }
 
-func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {
+func initRedisConnection() *dao_adapters.RedisOrderBook {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -87,7 +86,7 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
+	return &dao_adapters.RedisOrderBook{Rdb: client}
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {
