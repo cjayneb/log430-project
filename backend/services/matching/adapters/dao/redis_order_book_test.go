@@ -5,11 +5,7 @@ import (
 	"brokerx/matching-service/mocks"
 	"brokerx/matching-service/models"
 	"context"
-	"fmt"
-	"slices"
 	"testing"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var ctx = context.Background()
@@ -92,52 +88,52 @@ func orderGoneFromBook(orderId int) bool {
 	return order.ID == 0
 }
 
-func matchLimitCandidatesValid(candidates []*models.Order, wantLength int, wantTypes []string, wantAction string, wantUnitPrice float64) bool {
-	if len(candidates) != wantLength {
-		log.Error("didnt receive expected amount of candidates")
-		return false
-	}
+// func matchLimitCandidatesValid(candidates []*models.Order, wantLength int, wantTypes []string, wantAction string, wantUnitPrice float64) bool {
+// 	if len(candidates) != wantLength {
+// 		log.Error("didnt receive expected amount of candidates")
+// 		return false
+// 	}
 
-	for _, c := range candidates {
-		if !slices.Contains(wantTypes, c.Type) {
-			log.Error("candidate i wrong type")
-			return false
-		}
-		if c.Action != wantAction {
-			log.Error("candidate is wrong action")
-			return false
-		}
-		if c.Action == "sell" && c.Type != "market" && len(wantTypes) == 2 && c.UnitPrice > wantUnitPrice {
-			log.Error("sell candidate is wrong unit price")
-			return false
-		}
-		if c.Action == "buy" && c.Type != "market" && len(wantTypes) == 2 && c.UnitPrice < wantUnitPrice {
-			log.Error("buy candidate is wrong unit price")
-			return false
-		}
-	}
+// 	for _, c := range candidates {
+// 		if !slices.Contains(wantTypes, c.Type) {
+// 			log.Error("candidate i wrong type")
+// 			return false
+// 		}
+// 		if c.Action != wantAction {
+// 			log.Error("candidate is wrong action")
+// 			return false
+// 		}
+// 		if c.Action == "sell" && c.Type != "market" && len(wantTypes) == 2 && c.UnitPrice > wantUnitPrice {
+// 			log.Error("sell candidate is wrong unit price")
+// 			return false
+// 		}
+// 		if c.Action == "buy" && c.Type != "market" && len(wantTypes) == 2 && c.UnitPrice < wantUnitPrice {
+// 			log.Error("buy candidate is wrong unit price")
+// 			return false
+// 		}
+// 	}
 
-	return true
-}
+// 	return true
+// }
 
-func matchMarketCandidatesValid(candidates []*models.Order, wantLength int, wantType, wantAction string) bool {
-	if wantLength != len(candidates) {
-		return false
-	}
-	for _, c := range candidates {
-		if c.Type != wantType || c.Action != wantAction {
-			return false
-		}
-	}
-	return true
-}
+// func matchMarketCandidatesValid(candidates []*models.Order, wantLength int, wantType, wantAction string) bool {
+// 	if wantLength != len(candidates) {
+// 		return false
+// 	}
+// 	for _, c := range candidates {
+// 		if c.Type != wantType || c.Action != wantAction {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
 
-func checkOrderQueueLength(expected int64) {
-	length, _ := redisClientMock.LLen(context.Background(), dao_adapters.ORDER_PERSISTANCE_QUEUE).Result()
-	if length != expected {
-		panic(fmt.Sprintf("Order queue length() = %v, want %v", length, expected))
-	}
-}
+// func checkOrderQueueLength(expected int64) {
+// 	length, _ := redisClientMock.LLen(context.Background(), dao_adapters.ORDER_PERSISTANCE_QUEUE).Result()
+// 	if length != expected {
+// 		panic(fmt.Sprintf("Order queue length() = %v, want %v", length, expected))
+// 	}
+// }
 
 func TestRedisOrderBook_GetById(t *testing.T) {
 	tests := []struct {
