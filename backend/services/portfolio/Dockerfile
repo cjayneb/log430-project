@@ -1,5 +1,5 @@
 # Build stage ==================================
-FROM golang:1.24.3-bookworm AS builder
+FROM golang:1.24.9-bookworm AS builder
 
 ENV CGO_ENABLED=1
 ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
