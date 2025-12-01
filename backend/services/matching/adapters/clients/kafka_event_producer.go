@@ -18,7 +18,7 @@ type MatchingEvent struct {
 	UserId     string
 	JWT        string
 	Order      models.Order
-	Orders     []*models.Order
+	Orders     []*models.ClaimedCandidate
 	Executions []*models.ExecutionRecord
 	Error      string
 }
@@ -73,7 +73,7 @@ func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventT
 	return nil
 }
 
-func (k *KafkaEventProducer) SendMatchingEvent(ctx context.Context, topic string, eventType string, order models.Order, ordersData []*models.Order, recordsData []*models.ExecutionRecord, err error) error {
+func (k *KafkaEventProducer) SendMatchingEvent(ctx context.Context, topic string, eventType string, order models.Order, ordersData []*models.ClaimedCandidate, recordsData []*models.ExecutionRecord, err error) error {
 	log := util.FromContext(ctx)
 
 	traceId := ctx.Value(util.CtxKeyTraceId).(string)

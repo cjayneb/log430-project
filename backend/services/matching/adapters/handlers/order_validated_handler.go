@@ -16,13 +16,7 @@ type OrderValidatedHandler struct {
 func (h *OrderValidatedHandler) handle(ctx context.Context, event models.OrderEvent) error {
 	log := util.FromContext(ctx)
 
-	err := h.MatchingService.QueueOrder(ctx, &event.Order)
-	if err != nil {
-		log.Error("could not queue order", "error", err)
-		return h.Producer.SendEvent(ctx, "OrderEvents", "OrderMatchingFailed", event.Order, err)
-	}
-
-	err = h.MatchingService.SubmitOrder(ctx, event.Order.ID)
+	err := h.MatchingService.SubmitOrder(ctx, &event.Order)
 	if err != nil {
 		log.Error("error submitting order to matching engine", "error", err)
 		return h.Producer.SendEvent(ctx, "OrderEvents", "OrderMatchingFailed", event.Order, err)

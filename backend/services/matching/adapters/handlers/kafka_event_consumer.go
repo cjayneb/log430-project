@@ -89,14 +89,8 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 		k.consumer.CommitMessage(msg)
 	case "OrderOpen":
 		log.Info("Received OrderOpen event.")
-		err := k.orderOpenHandler.handle(ctx, event)
-		if err != nil {
-			log.Error("error handling OrderOpen event", "error", err)
-			break
-		}
+		k.orderOpenHandler.handle(ctx, event)
 		k.consumer.CommitMessage(msg)
-	default:
-		log.Info("Event not consumed by this service", "event", event.Event)
 	}
 }
 

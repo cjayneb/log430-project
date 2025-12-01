@@ -15,10 +15,10 @@ import (
 type KafkaEventConsumer struct {
 	consumer                     *kafka.Consumer
 	orderCreatedHandler          OrderCreatedHandler
-	orderComplianceFailedHandler OrderComplianceFailedHandler
+	orderFailedHandler OrderFailedHandler
 }
 
-func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler OrderCreatedHandler, orderComplianceFailedHandler OrderComplianceFailedHandler) *KafkaEventConsumer {
+func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler OrderCreatedHandler, orderFailedHandler OrderFailedHandler) *KafkaEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -34,7 +34,7 @@ func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler Orde
 	return &KafkaEventConsumer{
 		consumer:                     c,
 		orderCreatedHandler:          orderCreatedHandler,
-		orderComplianceFailedHandler: orderComplianceFailedHandler,
+		orderFailedHandler: orderFailedHandler,
 	}
 }
 
@@ -87,11 +87,11 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 			break
 		}
 		k.consumer.CommitMessage(msg)
-	case "OrderComplianceFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
+	case "OrderCreatedFailed", "OrderComplianceFailed", "OrderQueuingFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
 		log.Info("Received OrderFailed event", "event", event.Event)
-		err := k.orderComplianceFailedHandler.handle(ctx, event)
+		err := k.orderFailedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderComplianceFailed event", "error", err)
+			log.Error("error handling OrderFailed event", "error", err)
 			break
 		}
 		k.consumer.CommitMessage(msg)
@@ -101,8 +101,6 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 		} else {
 			log.Info("Order Saga completed!", "orderId", event.Order.ID)
 		}
-	default:
-		log.Info("Event not consumed by this service", "event", event.Event)
 	}
 }
 

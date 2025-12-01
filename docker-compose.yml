@@ -34,6 +34,8 @@ services:
       - API_GATEWAY_BASE_URL=http://nginx
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
       - REDIS_ADDR=redis:6379
+      - KAFKA_HOST=kafka:9092
+      - KAFKA_GROUP_ID=order-group
     labels:
       - "service=order-service"
     depends_on:
@@ -62,6 +64,8 @@ services:
     environment:
       - APP_PORT=8080
       - REDIS_ADDR=redis:6379
+      - KAFKA_HOST=kafka:9092
+      - KAFKA_GROUP_ID=matching-group
     labels:
       - "service=matching-service"
     depends_on:
@@ -88,6 +92,8 @@ services:
     environment:
       - APP_PORT=8080
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - KAFKA_HOST=kafka:9092
+      - KAFKA_GROUP_ID=portfolio-group
     labels:
       - "service=portfolio-service"
     depends_on:

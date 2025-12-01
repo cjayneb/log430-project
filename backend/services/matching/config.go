@@ -10,6 +10,9 @@ type Config struct {
 	NumberOfGoRoutines 					int `env:"NUMBER_OF_GO_ROUTINES" envDefault:"8"`
 
 	RedisAddr string `env:"REDIS_ADDR" envDefault:"127.0.0.1:6379"`
+
+	KafkaHost							string `env:"KAFKA_HOST" envDefault:"127.0.0.1:9092"`
+	KafkaGroupId						string `env:"KAFKA_GROUP_ID" envDefault:"group2"`
 }
 
 func (config *Config) LoadConfig() error {

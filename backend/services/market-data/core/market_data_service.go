@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 )
 
 const INSTRUMENT_SOURCE_FILE string = "instruments.json"
@@ -64,7 +63,7 @@ func (m *MarketDataServiceImpl) GetCurrentStockPriceBySymbol(ctx context.Context
 	log := util.FromContext(ctx)
 
 	for _, p := range m.Prices {
-		if strings.EqualFold(p.Symbol, symbol) {
+		if p.Symbol == symbol {
 			return p.Price, nil
 		}
 	}
@@ -77,7 +76,7 @@ func (m *MarketDataServiceImpl) GetInstrumentBySymbol(ctx context.Context, symbo
 	log := util.FromContext(ctx)
 
 	for _, i := range m.Instruments {
-		if strings.EqualFold(i.Symbol, symbol) {
+		if i.Symbol == symbol {
 			return &i, nil
 		}
 	}

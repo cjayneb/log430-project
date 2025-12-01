@@ -45,7 +45,7 @@ func main() {
 }
 
 func run() http.Handler {
-	walletRepo, positionsRepo, execRepo, orderRepo := initDbConnection()
+	walletRepo, positionsRepo, outboxRepo, tm := initDbConnection()
 
 	portfolioService := &core.PortfolioServiceImpl{
 		WalletRepo:    walletRepo,
@@ -55,14 +55,15 @@ func run() http.Handler {
 
 	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
 	orderMatchedHandler := handler_adapters.OrderMatchedHandler{
-		ExecutionRepo: execRepo,
-		OrderRepo: orderRepo,
-		PositionRepo: positionsRepo,
-		WalletRepo: walletRepo,
 		Producer: eventProducer,
+		Tm: &tm,
 	}
-	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group0", orderMatchedHandler)
+	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderMatchedHandler)
 	go eventConsumer.Start("MatchingEvents")
+
+	outboxDispatcher := core.NewOutboxDispatcher(outboxRepo, eventProducer, 500 * time.Millisecond, 100, 10, 1 * time.Second)
+	go outboxDispatcher.Start()
+
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
@@ -85,7 +86,7 @@ func run() http.Handler {
 	return r
 }
 
-func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository, *dao_adapters.SQLExecutionRepository, *dao_adapters.SQLOrderRepository) {
+func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPositionRepository, *dao_adapters.SQLOutboxRepository, dao_adapters.SQLTransactionManager) {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		slog.Error("Db open error", "error", err)
@@ -100,7 +101,7 @@ func initDbConnection() (*dao_adapters.SQLWalletRepository, *dao_adapters.SQLPos
 	if err := db.Ping(); err != nil {
 		slog.Warn("Db ping error", "error", err)
 	}
-	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}, &dao_adapters.SQLExecutionRepository{DB: db}, &dao_adapters.SQLOrderRepository{DB: db}
+	return &dao_adapters.SQLWalletRepository{DB: db}, &dao_adapters.SQLPositionRepository{DB: db}, &dao_adapters.SQLOutboxRepository{DB: db}, dao_adapters.SQLTransactionManager{DB: db}
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {

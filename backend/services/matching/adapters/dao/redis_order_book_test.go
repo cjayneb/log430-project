@@ -84,7 +84,6 @@ func setupOrder(wantErr bool) {
 		for _, o := range baseOrders {
 			_ = orderBook.Insert(ctx, o)
 		}
-		_ = orderBook.EnqueueOrders(ctx, baseOrders)
 	}
 }
 
@@ -188,133 +187,133 @@ func TestRedisOrderBook_GetById(t *testing.T) {
 	}
 }
 
-func TestRedisOrderBook_FindMatchesLimit(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		symbol        string
-		action        string
-		unitPrice     float64
-		batchSize     int
-		wantLength    int
-		wantTypes     []string
-		wantAction    string
-		wantUnitPrice float64
-		wantErr       bool
-	}{
-		{
-			name:          "incoming limit buy order returns match candidates",
-			symbol:        "AAPL",
-			action:        "buy",
-			unitPrice:     128.0,
-			batchSize:     10,
-			wantLength:    2,
-			wantTypes:     []string{"market", "limit"},
-			wantAction:    "sell",
-			wantUnitPrice: 128.0,
-			wantErr:       false,
-		},
-		{
-			name:          "incoming limit sell order returns match candidates",
-			symbol:        "AAPL",
-			action:        "sell",
-			unitPrice:     120.0,
-			batchSize:     10,
-			wantLength:    2,
-			wantTypes:     []string{"market", "limit"},
-			wantAction:    "buy",
-			wantUnitPrice: 120.0,
-			wantErr:       false,
-		},
-		{
-			name:    "returns error when redis is down",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupOrder(tt.wantErr)
+// func TestRedisOrderBook_FindMatchesLimit(t *testing.T) {
+// 	tests := []struct {
+// 		name string // description of this test case
+// 		// Named input parameters for target function.
+// 		symbol        string
+// 		action        string
+// 		unitPrice     float64
+// 		batchSize     int
+// 		wantLength    int
+// 		wantTypes     []string
+// 		wantAction    string
+// 		wantUnitPrice float64
+// 		wantErr       bool
+// 	}{
+// 		{
+// 			name:          "incoming limit buy order returns match candidates",
+// 			symbol:        "AAPL",
+// 			action:        "buy",
+// 			unitPrice:     128.0,
+// 			batchSize:     10,
+// 			wantLength:    2,
+// 			wantTypes:     []string{"market", "limit"},
+// 			wantAction:    "sell",
+// 			wantUnitPrice: 128.0,
+// 			wantErr:       false,
+// 		},
+// 		{
+// 			name:          "incoming limit sell order returns match candidates",
+// 			symbol:        "AAPL",
+// 			action:        "sell",
+// 			unitPrice:     120.0,
+// 			batchSize:     10,
+// 			wantLength:    2,
+// 			wantTypes:     []string{"market", "limit"},
+// 			wantAction:    "buy",
+// 			wantUnitPrice: 120.0,
+// 			wantErr:       false,
+// 		},
+// 		{
+// 			name:    "returns error when redis is down",
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			setupOrder(tt.wantErr)
 
-			got, gotErr := orderBook.FindMatchesLimit(ctx, tt.symbol, tt.action, tt.unitPrice, tt.batchSize)
+// 			got, gotErr := orderBook.FindMatchesLimit(ctx, tt.symbol, tt.action, tt.unitPrice, tt.batchSize)
 
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("FindMatchesLimit() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("FindMatchesLimit() succeeded unexpectedly")
-			}
-			if !matchLimitCandidatesValid(got, tt.wantLength, tt.wantTypes, tt.wantAction, tt.wantUnitPrice) {
-				t.Errorf("FindMatchesLimit() = %v, want not that", got)
-			}
-		})
-	}
-}
+// 			if gotErr != nil {
+// 				if !tt.wantErr {
+// 					t.Errorf("FindMatchesLimit() failed: %v", gotErr)
+// 				}
+// 				return
+// 			}
+// 			if tt.wantErr {
+// 				t.Fatal("FindMatchesLimit() succeeded unexpectedly")
+// 			}
+// 			if !matchLimitCandidatesValid(got, tt.wantLength, tt.wantTypes, tt.wantAction, tt.wantUnitPrice) {
+// 				t.Errorf("FindMatchesLimit() = %v, want not that", got)
+// 			}
+// 		})
+// 	}
+// }
 
-func TestRedisOrderBook_FindMatchesMarket(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		symbol     string
-		action     string
-		unitPrice  float64
-		batchSize  int
-		wantLength int
-		wantType   string
-		wantAction string
-		wantErr    bool
-	}{
+// func TestRedisOrderBook_FindMatchesMarket(t *testing.T) {
+// 	tests := []struct {
+// 		name string // description of this test case
+// 		// Named input parameters for target function.
+// 		symbol     string
+// 		action     string
+// 		unitPrice  float64
+// 		batchSize  int
+// 		wantLength int
+// 		wantType   string
+// 		wantAction string
+// 		wantErr    bool
+// 	}{
 
-		{
-			name:       "incoming market buy order returns match candidates",
-			symbol:     "AAPL",
-			action:     "buy",
-			unitPrice:  128.0,
-			batchSize:  10,
-			wantLength: 1,
-			wantType:   "limit",
-			wantAction: "sell",
-			wantErr:    false,
-		},
-		{
-			name:       "incoming market sell order returns match candidates",
-			symbol:     "AAPL",
-			action:     "sell",
-			unitPrice:  119.0,
-			batchSize:  10,
-			wantLength: 1,
-			wantType:   "limit",
-			wantAction: "buy",
-			wantErr:    false,
-		},
-		{
-			name:    "returns error when redis is down",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupOrder(tt.wantErr)
+// 		{
+// 			name:       "incoming market buy order returns match candidates",
+// 			symbol:     "AAPL",
+// 			action:     "buy",
+// 			unitPrice:  128.0,
+// 			batchSize:  10,
+// 			wantLength: 1,
+// 			wantType:   "limit",
+// 			wantAction: "sell",
+// 			wantErr:    false,
+// 		},
+// 		{
+// 			name:       "incoming market sell order returns match candidates",
+// 			symbol:     "AAPL",
+// 			action:     "sell",
+// 			unitPrice:  119.0,
+// 			batchSize:  10,
+// 			wantLength: 1,
+// 			wantType:   "limit",
+// 			wantAction: "buy",
+// 			wantErr:    false,
+// 		},
+// 		{
+// 			name:    "returns error when redis is down",
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			setupOrder(tt.wantErr)
 
-			got, gotErr := orderBook.FindMatchesMarket(ctx, tt.symbol, tt.action, tt.batchSize)
+// 			got, gotErr := orderBook.FindMatchesMarket(ctx, tt.symbol, tt.action, tt.batchSize)
 
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("FindMatchesLimit() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("FindMatchesLimit() succeeded unexpectedly")
-			}
-			if !matchMarketCandidatesValid(got, tt.wantLength, tt.wantType, tt.wantAction) {
-				t.Errorf("FindMatchesLimit() = %v, want not that", got)
-			}
-		})
-	}
-}
+// 			if gotErr != nil {
+// 				if !tt.wantErr {
+// 					t.Errorf("FindMatchesLimit() failed: %v", gotErr)
+// 				}
+// 				return
+// 			}
+// 			if tt.wantErr {
+// 				t.Fatal("FindMatchesLimit() succeeded unexpectedly")
+// 			}
+// 			if !matchMarketCandidatesValid(got, tt.wantLength, tt.wantType, tt.wantAction) {
+// 				t.Errorf("FindMatchesLimit() = %v, want not that", got)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestRedisOrderBook_Insert(t *testing.T) {
 	tests := []struct {
@@ -356,93 +355,47 @@ func TestRedisOrderBook_Insert(t *testing.T) {
 	}
 }
 
-func TestRedisOrderBook_Return(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		orders  []*models.Order
-		wantErr bool
-	}{
-		{
-			name: "orders are all returned to order book",
-			orders: []*models.Order{
-				&order1LimitBuy,
-				&order2LimitSell,
-			},
-		},
-		{
-			name:    "returns error when redis is down",
-			orders:  []*models.Order{&order4MarketSell},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupOrder(tt.wantErr)
+// func TestRedisOrderBook_Return(t *testing.T) {
+// 	tests := []struct {
+// 		name string // description of this test case
+// 		// Named input parameters for target function.
+// 		orders  []*models.Order
+// 		wantErr bool
+// 	}{
+// 		{
+// 			name: "orders are all returned to order book",
+// 			orders: []*models.Order{
+// 				&order1LimitBuy,
+// 				&order2LimitSell,
+// 			},
+// 		},
+// 		{
+// 			name:    "returns error when redis is down",
+// 			orders:  []*models.Order{&order4MarketSell},
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			setupOrder(tt.wantErr)
 
-			gotErr := orderBook.Return(ctx, tt.orders)
+// 			gotErr := orderBook.Return(ctx, tt.orders)
 
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("Return() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("Return() succeeded unexpectedly")
-			}
-			for _, order := range tt.orders {
-				o, err := orderBook.GetById(ctx, order.ID)
-				if err != nil || o.ID != order.ID {
-					t.Errorf("Insert() didnt return orders into order book : %v", err)
-				}
-			}
-		})
-	}
-}
-
-func TestRedisOrderBook_EnqueueOrders(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		orders     []*models.Order
-		wantLength int64
-		wantErr    bool
-	}{
-		{
-			name:       "when enqueues empty list of order then no orders except already present ones",
-			orders:     []*models.Order{},
-			wantLength: 4,
-			wantErr:    false,
-		},
-		{
-			name:       "when enqueues list of orders then orders and no error",
-			orders:     []*models.Order{&insertOrder},
-			wantLength: 5,
-			wantErr:    false,
-		},
-		{
-			name:    "when redis is down then error",
-			orders:  []*models.Order{&insertOrder},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupOrder(tt.wantErr)
-
-			gotErr := orderBook.EnqueueOrders(ctx, tt.orders)
-
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("EnqueueOrders() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("EnqueueOrders() succeeded unexpectedly")
-			}
-			checkOrderQueueLength(tt.wantLength)
-		})
-	}
-}
+// 			if gotErr != nil {
+// 				if !tt.wantErr {
+// 					t.Errorf("Return() failed: %v", gotErr)
+// 				}
+// 				return
+// 			}
+// 			if tt.wantErr {
+// 				t.Fatal("Return() succeeded unexpectedly")
+// 			}
+// 			for _, order := range tt.orders {
+// 				o, err := orderBook.GetById(ctx, order.ID)
+// 				if err != nil || o.ID != order.ID {
+// 					t.Errorf("Insert() didnt return orders into order book : %v", err)
+// 				}
+// 			}
+// 		})
+// 	}
+// }

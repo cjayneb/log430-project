@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS orders (
     unit_price DECIMAL(10, 2) NOT NULL,
     timing ENUM('day', 'ioc') NOT NULL,
     status ENUM('open', 'partially_filled', 'filled', 'canceled') NOT NULL,
+    status_reason VARCHAR(300) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -111,3 +112,22 @@ CREATE TABLE IF NOT EXISTS executions (
     FOREIGN KEY (buy_order_id) REFERENCES orders(id),
     FOREIGN KEY (sell_order_id) REFERENCES orders(id)
 );
+
+CREATE TABLE IF NOT EXISTS outbox_order_events (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    topic VARCHAR(64) NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    trace_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NULL,
+    jwt_token TEXT NULL,
+    payload JSON NOT NULL,
+    status ENUM('pending', 'published', 'failed') NOT NULL DEFAULT 'pending',
+    retry_count INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    error_message VARCHAR(64) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_outbox_status ON outbox_order_events(status);
+CREATE INDEX idx_outbox_trace ON outbox_order_events(trace_id);
+CREATE INDEX idx_outbox_pending ON outbox_order_events(status, next_attempt_at);

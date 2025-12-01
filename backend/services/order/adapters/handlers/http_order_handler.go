@@ -29,16 +29,15 @@ type OrdersResponse struct {
 
 type OrderHandler struct {
 	OrderService core.OrderService
-	ComplianceService core.ComplianceService
 }
 
 var validate = validator.New()
 
-func NewOrderHandler(orderService core.OrderService, complianceService core.ComplianceService) *OrderHandler {
+func NewOrderHandler(orderService core.OrderService) *OrderHandler {
 	if err := validate.RegisterValidation("limitprice", isLimitPriceValid); err != nil {
 		slog.Error("could not add order custom validation rule", "error", err)
 	}
-	return &OrderHandler{OrderService: orderService, ComplianceService: complianceService}
+	return &OrderHandler{OrderService: orderService}
 }
 
 func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) {
@@ -85,15 +84,6 @@ func (handler *OrderHandler) PlaceOrder(w http.ResponseWriter, r *http.Request) 
 
 	ctx := context.WithValue(r.Context(), common.CtxKeyJWT, jwt)
 	ctx = context.WithValue(ctx, common.CtxKeyUserId, userIDStr)
-
-	// if err := handler.ComplianceService.VerifyOrderCompliance(ctx, &order); err != nil {
-	// 	status := http.StatusInternalServerError
-	// 	if errors.Is(err, common.ErrBusinessRuleViolation) {status = http.StatusBadRequest}
-	// 	if errors.Is(err, common.ErrDependencyFailure) {status = http.StatusBadGateway}
-	// 	log.Warn(err.Error())
-	// 	common.WriteJSON(w, status, ErrorResponse{ErrorMessage: err.Error()})
-	// 	return
-	// }
 
 	if err := handler.OrderService.PlaceOrder(ctx, &order); err != nil {
 		msg := "failed to place order"

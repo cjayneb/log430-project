@@ -62,66 +62,15 @@ var order4MarketBuy = models.Order{
 
 func TestMain(m *testing.M) {
 	engine = core.MatchingEngineImpl{}
-	engine.StartMatchingWorkers(0)
 	code := m.Run()
 	os.Exit(code)
-}
-
-func TestMatchingEngineImpl_QueueOrder(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		mockOrderBook mocks.MockOrderBook
-		mockExecQueue mocks.MockExecQueue
-		order         *models.Order
-		wantLength    int
-		wantErr       bool
-	}{
-		{
-			name:          "order 1 queued sucessfully",
-			mockOrderBook: mocks.MockOrderBook{},
-			mockExecQueue: mocks.MockExecQueue{},
-			order:         &models.Order{},
-			wantLength:    1,
-			wantErr:       false,
-		},
-		{
-			name:          "order 2 queued sucessfully",
-			mockOrderBook: mocks.MockOrderBook{},
-			mockExecQueue: mocks.MockExecQueue{},
-			order:         &models.Order{},
-			wantLength:    2,
-			wantErr:       false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine.OrderBook = &tt.mockOrderBook
-			engine.ExecutionQueue = &tt.mockExecQueue
-
-			gotErr := engine.QueueOrder(ctx, tt.order)
-
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("QueueOrder() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("QueueOrder() succeeded unexpectedly")
-			}
-			if len(core.OrderQueue) != tt.wantLength {
-				t.Errorf("order was not queued")
-			}
-		})
-	}
 }
 
 func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.
-		orderId         int
+		order         models.Order
 		matchCandidates []*models.Order
 		mockOrderBook   mocks.MockOrderBook
 		mockExecQueue   mocks.MockExecQueue
@@ -129,18 +78,18 @@ func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 	}{
 		{
 			name:          "order stays open",
-			orderId:       1,
+			order:       	order1LimitBuy,
 			mockOrderBook: mocks.MockOrderBook{Order: order1LimitBuy, Orders: []*models.Order{}},
 		},
 		{
 			name:          "error is returned when order book fails",
-			orderId:       1,
+			order:       order1LimitBuy,
 			mockOrderBook: mocks.MockOrderBook{Err: errors.New("redis error")},
 			wantErr:       true,
 		},
 		{
 			name:    "market buy order is submitted",
-			orderId: 3,
+			order: order3MarketBuy,
 			mockOrderBook: mocks.MockOrderBook{
 				Orders: []*models.Order{&order2LimitSell},
 				Order:  order3MarketBuy,
@@ -153,7 +102,7 @@ func TestMatchingEngineImpl_SubmitOrder(t *testing.T) {
 			engine.OrderBook = &tt.mockOrderBook
 			engine.ExecutionQueue = &tt.mockExecQueue
 
-			gotErr := engine.SubmitOrder(ctx, tt.orderId)
+			gotErr := engine.SubmitOrder(ctx, &tt.order)
 
 			if gotErr != nil {
 				if !tt.wantErr {

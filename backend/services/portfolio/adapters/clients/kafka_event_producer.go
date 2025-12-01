@@ -6,6 +6,7 @@ import (
 	"brokerx/portfolio-service/util"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -39,7 +40,21 @@ func NewKafkaEventProducer(host string) *KafkaEventProducer {
 func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventType string, eventData models.Order, err error) error {
 	log := util.FromContext(ctx)
 
-	traceId := ctx.Value(util.CtxKeyTraceId).(string)
+	traceId := ctx.Value(util.CtxKeyTraceId)
+	if traceId == nil {
+		msg := "missing traceId. cannot send event"
+		log.Error(msg)
+		return fmt.Errorf(msg)
+	}
+	userId := ctx.Value(util.CtxKeyUserId)
+	if userId == nil {
+		userId = ""
+	}
+	jwt := ctx.Value(util.CtxKeyJWT)
+	if jwt == nil {
+		jwt = ""
+	}
+	
 	errString := ""
 	if err != nil {
 		errString = err.Error()
@@ -47,9 +62,9 @@ func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventT
 
 	event := models.OrderEvent{
 		Event:   eventType,
-		TraceID: traceId,
-		UserId:  ctx.Value(util.CtxKeyUserId).(string),
-		JWT:     ctx.Value(util.CtxKeyJWT).(string),
+		TraceID: traceId.(string),
+		UserId:  userId.(string),
+		JWT:     jwt.(string),
 		Order:   eventData,
 		Error:   errString,
 	}
@@ -63,7 +78,7 @@ func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventT
 	err = k.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          jsonEventData,
-		Headers:        []kafka.Header{{Key: string(util.HeaderTraceId), Value: []byte(traceId)}},
+		Headers:        []kafka.Header{{Key: string(util.HeaderTraceId), Value: []byte(traceId.(string))}},
 	}, nil)
 	if err != nil {
 		log.Error("error when producing event", "error", err)

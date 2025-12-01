@@ -10,9 +10,22 @@ import (
 
 type SQLWalletRepository struct {
 	DB *sql.DB
+	tx *sql.Tx
 }
 
-func (repo *SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount float64) error {
+func NewWalletRepo(tx *sql.Tx) SQLWalletRepository {
+	return SQLWalletRepository{tx: tx}
+}
+
+func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, userId int, amount float64) error {
+	log := util.FromContext(ctx)
+	
+	log.Info("releasing funds")
+
+	return nil
+}
+
+func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount float64) error {
 	log := util.FromContext(ctx)
 
 	tx, err := repo.DB.Begin()
@@ -31,7 +44,7 @@ func (repo *SQLWalletRepository) AddFunds(ctx context.Context, userId int, amoun
 			err = tx.Commit()
 		}
 	}()
-	
+
 	_, err = tx.Exec(`
 		UPDATE wallets 
 		SET available_funds = available_funds + ? 
@@ -45,7 +58,7 @@ func (repo *SQLWalletRepository) AddFunds(ctx context.Context, userId int, amoun
 	return nil
 }
 
-func (repo *SQLWalletRepository) FindByUserId(ctx context.Context, userId int) (*models.Wallet, error) {
+func (repo SQLWalletRepository) FindByUserId(ctx context.Context, userId int) (*models.Wallet, error) {
 	log := util.FromContext(ctx)
 
 	row := repo.DB.QueryRow("SELECT available_funds, reserved_funds FROM brokerx.wallets WHERE user_id=?", userId)

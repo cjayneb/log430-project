@@ -10,6 +10,6 @@ type OrderOpenHandler struct {
 	OrderBook ports.OrderBook
 }
 
-func (h *OrderOpenHandler) handle(ctx context.Context, event models.OrderEvent) error {
-	return h.OrderBook.Return(ctx, []*models.Order{&event.Order})
+func (h *OrderOpenHandler) handle(ctx context.Context, event models.OrderEvent) {
+	h.OrderBook.Return(ctx, []*models.Order{&event.Order})
 }

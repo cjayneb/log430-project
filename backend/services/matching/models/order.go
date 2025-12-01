@@ -15,6 +15,7 @@ type Order struct {
 	UnitPrice         float64 `json:"unit_price" validate:"gte=0"`
 	Timing            string  `json:"timing" validate:"required,oneof=day ioc"`
 	Status            string  // open, partially filled, filled, canceled
-	CreatedAt         sql.NullTime
+	SideKey 		  string `json:"sideKey"`
+	CreatedAt         sql.NullTime `json:"created_at"`
 	UpdatedAt         sql.NullTime
 }

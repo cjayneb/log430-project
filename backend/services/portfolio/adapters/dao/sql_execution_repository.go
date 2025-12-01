@@ -32,7 +32,7 @@ func (repo *SQLExecutionRepository) CreateBatch(ctx context.Context, execs []*mo
 	}
 
 	query += strings.Join(placeholders, ",")
-	_, err := repo.DB.ExecContext(context.Background(), query, args...)
+	_, err := repo.tx.ExecContext(context.Background(), query, args...)
 	return err
 }
 

@@ -51,12 +51,9 @@ func run() http.Handler {
 		ExecutionQueue: execQueue,
 		Producer: eventProducer,
 	}
-	matchingHandler := &handler_adapters.MatchingHandler{
-		MatchingEngine: matchingEngine,
-	}
 	orderValidatedHandler := handler_adapters.OrderValidatedHandler{MatchingService: matchingEngine, Producer: eventProducer}
 	orderOpenHandler := handler_adapters.OrderOpenHandler{OrderBook: orderBook}
-	eventConsumer := handler_adapters.NewKafkaEventConsumer("kafka:9092", "group1", orderValidatedHandler, orderOpenHandler)
+	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderValidatedHandler, orderOpenHandler)
 
 	//matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
 	eventConsumer.Start("MatchingEvents")
@@ -65,8 +62,6 @@ func run() http.Handler {
 	r.Use(httplog.RequestLogger(logger()))
 	r.Use(middleware.Recoverer)
 	r.Use(TraceMiddleware)
-
-	r.Post("/api/matching/", matchingHandler.SubmitOrder)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

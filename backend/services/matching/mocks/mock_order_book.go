@@ -33,14 +33,7 @@ func (m *MockOrderBook) GetById(ctx context.Context, orderId int) (models.Order,
 	return m.Order, nil
 }
 
-func (m *MockOrderBook) FindMatchesLimit(ctx context.Context, symbol string, action string, unitPrice float64, batchSize int) ([]*models.Order, error) {
-	if m.Err != nil {
-		return []*models.Order{}, m.Err
-	}
-	return m.Orders, nil
-}
-
-func (m *MockOrderBook) FindMatchesMarket(ctx context.Context, symbol string, action string, batchSize int) ([]*models.Order, error) {
+func (m *MockOrderBook) FindMatches(ctx context.Context, order *models.Order, batchSize int) ([]*models.Order, error) {
 	if m.Err != nil {
 		return []*models.Order{}, m.Err
 	}
@@ -51,9 +44,7 @@ func (m *MockOrderBook) Insert(ctx context.Context, order *models.Order) error {
 	return m.Err
 }
 
-func (m *MockOrderBook) Return(ctx context.Context, orders []*models.Order) error {
-	return m.Err
-}
+func (m *MockOrderBook) Return(ctx context.Context, orders []*models.Order) {}
 
 func (m *MockOrderBook) MarkDirty(ctx context.Context, orderID int) error {
 	return m.Err

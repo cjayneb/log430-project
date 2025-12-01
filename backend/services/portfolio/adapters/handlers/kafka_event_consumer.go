@@ -81,12 +81,10 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 		log.Info("Received OrderMatched event.")
 		err := k.orderMatchedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderCreated event", "error", err)
+			log.Error("error handling OrderMatched event", "error", err)
 			break
 		}
 		k.consumer.CommitMessage(msg)
-	default:
-		log.Info("Event not consumed by this service", "event", event.Event)
 	}
 }
 

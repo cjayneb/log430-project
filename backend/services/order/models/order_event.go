@@ -1,6 +1,7 @@
 package models
 
 type OrderEvent struct {
+	Topic	string
 	Event   string
 	TraceID string
 	UserId  string

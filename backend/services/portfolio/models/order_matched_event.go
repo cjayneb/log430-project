@@ -6,7 +6,7 @@ type MatchingEvent struct {
 	UserId     string
 	JWT        string
 	Order      Order
-	Orders     []*Order
+	Orders     []*ClaimedCandidate
 	Executions []*ExecutionRecord
 	Error      string
 }

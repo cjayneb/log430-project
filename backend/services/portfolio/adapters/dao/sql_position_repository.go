@@ -10,14 +10,19 @@ import (
 
 type SQLPositionRepository struct {
 	DB *sql.DB
+	tx *sql.Tx
+}
+
+func NewPositionRepo(tx *sql.Tx) SQLPositionRepository {
+	return SQLPositionRepository{tx: tx}
 }
 
 // Update implements ports.PositionRepository.
-func (repo *SQLPositionRepository) Update(ctx context.Context, userId int, symbol string, qty int) error {
+func (repo SQLPositionRepository) Update(ctx context.Context, userId int, symbol string, qty int) error {
 	panic("unimplemented")
 }
 
-func (repo *SQLPositionRepository) FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+func (repo SQLPositionRepository) FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
 	log := util.FromContext(ctx)
 
 	rows, err := repo.DB.Query("SELECT symbol, quantity, unit_price FROM brokerx.positions WHERE user_id=? and symbol=?", userId, symbol)
