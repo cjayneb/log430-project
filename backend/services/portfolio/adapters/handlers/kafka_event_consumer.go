@@ -84,7 +84,7 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 			log.Error("error handling OrderMatched event", "error", err)
 			break
 		}
-		k.consumer.CommitMessage(msg)
+		_, _ = k.consumer.CommitMessage(msg)
 	}
 }
 

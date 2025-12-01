@@ -6,7 +6,7 @@ import (
 	"brokerx/portfolio-service/util"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log/slog"
 	"os"
 
@@ -44,7 +44,7 @@ func (k *KafkaEventProducer) SendEvent(ctx context.Context, topic string, eventT
 	if traceId == nil {
 		msg := "missing traceId. cannot send event"
 		log.Error(msg)
-		return fmt.Errorf(msg)
+		return errors.New(msg)
 	}
 	userId := ctx.Value(util.CtxKeyUserId)
 	if userId == nil {

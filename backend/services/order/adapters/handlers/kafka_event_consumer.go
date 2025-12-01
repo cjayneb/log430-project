@@ -86,7 +86,7 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 			log.Error("error handling OrderCreated event", "error", err)
 			break
 		}
-		k.consumer.CommitMessage(msg)
+		_, _ = k.consumer.CommitMessage(msg)
 	case "OrderCreatedFailed", "OrderComplianceFailed", "OrderQueuingFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
 		log.Info("Received OrderFailed event", "event", event.Event)
 		err := k.orderFailedHandler.handle(ctx, event)
@@ -94,7 +94,7 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 			log.Error("error handling OrderFailed event", "error", err)
 			break
 		}
-		k.consumer.CommitMessage(msg)
+		_, _ = k.consumer.CommitMessage(msg)
 	case "OrderSagaCompleted":
 		if event.Error != "" {
 			log.Error("Order Saga completed with an error", "error", event.Error)

@@ -86,11 +86,11 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 			log.Error("error handling OrderValidated event", "error", err)
 			break
 		}
-		k.consumer.CommitMessage(msg)
+		_, _ = k.consumer.CommitMessage(msg)
 	case "OrderOpen":
 		log.Info("Received OrderOpen event.")
 		k.orderOpenHandler.handle(ctx, event)
-		k.consumer.CommitMessage(msg)
+		_, _ = k.consumer.CommitMessage(msg)
 	}
 }
 

@@ -40,7 +40,7 @@ func (s SQLOutboxRepository) FetchPending(ctx context.Context, limit int) ([]mod
 	rows, err := tx.QueryContext(ctx, stmt, limit)
 	if err != nil {
 		log.Error("error executing query", "error", err)
-		tx.Rollback()
+		_ = tx.Rollback()
 		return nil, err
 	}
 	defer rows.Close()
@@ -50,7 +50,7 @@ func (s SQLOutboxRepository) FetchPending(ctx context.Context, limit int) ([]mod
 		var rec models.OutboxRecord
 		err = rows.Scan(&rec.ID, &rec.Topic, &rec.EventType, &rec.TraceID, &rec.UserID, &rec.JWT, &rec.PayloadString, &rec.RetryCount)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return nil, err
 		}
 		records = append(records, rec)
