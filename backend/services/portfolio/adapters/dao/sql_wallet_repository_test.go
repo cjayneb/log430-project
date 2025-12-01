@@ -17,7 +17,7 @@ func insertWalletTestData(t *testing.T, db *sql.DB) {
                       VALUES (?, email, 'hello', 'test', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
-	_, err = db.Query(`INSERT INTO wallets (id, user_id, available_funds, funds_on_hold) VALUES(?, ?, ?, ?)`,
+	_, err = db.Query(`INSERT INTO wallets (id, user_id, available_funds, reserved_funds) VALUES(?, ?, ?, ?)`,
 		uuid.New().String(), userId, availableFunds, fundsOnHold)
 	require.NoError(t, err)
 }
@@ -33,7 +33,7 @@ func TestSQLWalletRepositoryIntegration(t *testing.T) {
 	wallet, err := repo.FindByUserId(ctx, userId)
 	require.NoError(t, err)
 	require.Equal(t, availableFunds, wallet.AvailableFunds)
-	require.Equal(t, fundsOnHold, wallet.OnHoldFunds)
+	require.Equal(t, fundsOnHold, wallet.ReservedFunds)
 
 	// --- FindByUserId not found ---
 	wallet, err = repo.FindByUserId(ctx, 0)

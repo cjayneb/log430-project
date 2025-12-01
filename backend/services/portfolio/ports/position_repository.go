@@ -7,4 +7,5 @@ import (
 
 type PositionRepository interface {
 	FindByUserIdAndSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
+	Update(ctx context.Context, userId int, symbol string, qty int) error
 }

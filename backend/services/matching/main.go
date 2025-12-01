@@ -1,6 +1,7 @@
 package main
 
 import (
+	client_adapters "brokerx/matching-service/adapters/clients"
 	dao_adapters "brokerx/matching-service/adapters/dao"
 	handler_adapters "brokerx/matching-service/adapters/handlers"
 	"brokerx/matching-service/core"
@@ -42,24 +43,24 @@ func main() {
 }
 
 func run() http.Handler {
-	orderBook, execQueue := initRedisConnection()
+	orderBook:= initRedisConnection()
 
+	eventProducer := client_adapters.NewKafkaEventProducer("kafka:9092")
 	matchingEngine := &core.MatchingEngineImpl{
 		OrderBook:      orderBook,
-		ExecutionQueue: execQueue,
+		Producer: eventProducer,
 	}
-	matchingHandler := &handler_adapters.MatchingHandler{
-		MatchingEngine: matchingEngine,
-	}
+	orderValidatedHandler := handler_adapters.OrderValidatedHandler{MatchingService: matchingEngine, Producer: eventProducer}
+	orderOpenHandler := handler_adapters.OrderOpenHandler{OrderBook: orderBook}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderValidatedHandler, orderOpenHandler)
 
-	matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
+	//matchingEngine.StartMatchingWorkers(config.NumberOfGoRoutines)
+	eventConsumer.Start("MatchingEvents")
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
 	r.Use(middleware.Recoverer)
 	r.Use(TraceMiddleware)
-
-	r.Post("/api/matching/", matchingHandler.SubmitOrder)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -71,7 +72,7 @@ func run() http.Handler {
 	return r
 }
 
-func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {
+func initRedisConnection() *dao_adapters.RedisOrderBook {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -85,7 +86,7 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
+	return &dao_adapters.RedisOrderBook{Rdb: client}
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {
@@ -123,7 +124,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("matching-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,

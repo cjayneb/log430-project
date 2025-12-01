@@ -35,10 +35,10 @@ func main() {
 
 	// Create DAOs
 	orderRepo, tm := initDbConnection()
-	orderBook, execQueue := initRedisConnection()
+	orderBook := initRedisConnection()
 
 	// Create external services
-	matchingEngine := client_adapters.NewMatchineEngine(config.MatchingServiceBaseUrl)
+	eventProducer := client_adapters.NewKafkaEventProducer(config.KafkaHost)
 	portfolioService := client_adapters.NewPortfolioServiceClient(config.PortfolioServiceBaseUrl)
 	marketDataProvider := client_adapters.NewMarketDataProvider(config.MarketDataServiceBaseUrl)
 
@@ -47,16 +47,18 @@ func main() {
 	orderService := &core.OrderServiceImpl{
 		Repo:              orderRepo,
 		OrderBook:         orderBook,
-		MatchingEngine:    matchingEngine,
+		TransactionManager: tm,
+		EventProducer: eventProducer,
 	}
 
-	// Create request handler
-	orderHandler := handler_adapters.NewOrderHandler(orderService, complianceService)
+	// Create request/event handlers
+	orderHandler := handler_adapters.NewOrderHandler(orderService)
+	orderCreatedHandler := handler_adapters.OrderCreatedHandler{ComplianceService: complianceService, Producer: eventProducer}
+	orderFailedHandler := handler_adapters.OrderFailedHandler{OrderService: orderService, Producer: eventProducer}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderCreatedHandler, orderFailedHandler)
 
 	// Start async processes
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	initAsyncProcesses(ctx, orderBook, execQueue, tm)
+	go eventConsumer.Start("OrderEvents")
 
 	// Init router
 	r := chi.NewRouter()
@@ -101,7 +103,7 @@ func initDbConnection() (*dao_adapters.SQLOrderRepository, *dao_adapters.SQLTran
 	return &dao_adapters.SQLOrderRepository{DB: db}, &dao_adapters.SQLTransactionManager{DB: db}
 }
 
-func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExecutionQueue) {
+func initRedisConnection() *dao_adapters.RedisOrderBook {
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.RedisAddr,
 		Password: "",
@@ -115,31 +117,7 @@ func initRedisConnection() (*dao_adapters.RedisOrderBook, *dao_adapters.RedisExe
 	}
 
 	// TODO: Initialize RedisOrderBook with the database data
-	return &dao_adapters.RedisOrderBook{Rdb: client}, &dao_adapters.RedisExecutionQueue{Rdb: client}
-}
-
-func initAsyncProcesses(
-	ctx context.Context,
-	orderBook *dao_adapters.RedisOrderBook,
-	execQueue *dao_adapters.RedisExecutionQueue,
-	tm *dao_adapters.SQLTransactionManager,
-) {
-	core.StartDirtyOrderSync(
-		ctx,
-		time.Duration(config.DirtyOrderSyncIntervalInSeconds)*time.Second,
-		config.DirtyOrderSyncBatchSize,
-		orderBook,
-		tm,
-	)
-	core.PersistOrdersAndExecutions(
-		ctx,
-		time.Duration(config.OrdersExecutionsPersistIntervalInMs)*time.Millisecond,
-		config.OrdersPersistBatchSize,
-		config.ExecutionsPersistBatchSize,
-		orderBook,
-		execQueue,
-		tm,
-	)
+	return &dao_adapters.RedisOrderBook{Rdb: client}
 }
 
 func TraceMiddleware(next http.Handler) http.Handler {
@@ -167,7 +145,7 @@ func TraceMiddleware(next http.Handler) http.Handler {
 func InitLogger(service string) {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
-		Level:     slog.LevelDebug,
+		Level:     slog.LevelInfo,
 	})
 
 	logger := slog.New(handler).With("service", service)
@@ -177,7 +155,7 @@ func InitLogger(service string) {
 
 func logger() *httplog.Logger {
 	return httplog.NewLogger("order-service", httplog.Options{
-		LogLevel:         slog.LevelDebug,
+		LogLevel:         slog.LevelInfo,
 		RequestHeaders:   false,
 		ResponseHeaders:  false,
 		JSON:             false,

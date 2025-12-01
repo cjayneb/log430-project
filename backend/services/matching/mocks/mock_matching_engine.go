@@ -15,3 +15,10 @@ func (m *MockMatchingEngine) QueueOrder(ctx context.Context, order *models.Order
 	}
 	return nil
 }
+
+func (m *MockMatchingEngine) SubmitOrder(ctx context.Context, orderId int) error {
+	if m.Err != nil {
+		return m.Err
+	}
+	return nil
+}

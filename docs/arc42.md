@@ -932,7 +932,23 @@ Accepted
 
 ### Decision
 
-Use Grafane in conjonction with Promtail and Loki for logs.
+Use Grafana in conjonction with Promtail and Loki for logs.
+
+### Status
+
+Accepted
+
+### Consequences
+
+
+## ADR-07: Transactional Outbox Pattern
+
+### Context
+
+
+### Decision
+
+Use a transactional Outbox pattern with MySQL for order confirmation steps.
 
 ### Status
 

@@ -45,6 +45,10 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
+func FromEvent(traceId string) *slog.Logger {
+	return slog.Default().With("traceId", traceId)
+}
+
 func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -5,5 +5,5 @@ import (
 )
 
 type TransactionManager interface {
-	Do(ctx context.Context, fn func(OrderRepository, ExecutionRepository) error) error
+	Do(ctx context.Context, fn func(OrderRepository, OutboxRepository) error) error
 }

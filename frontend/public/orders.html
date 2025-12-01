@@ -200,6 +200,7 @@
         document.getElementById("orderForm").onsubmit = async (e) => {
             e.preventDefault();
             const data = Object.fromEntries(new FormData(e.target));
+            data.symbol = data.symbol.toUpperCase()
             data.quantity = parseInt(data.quantity, 10);
             data.unit_price = parseFloat(data.unit_price);
             console.log(data)
