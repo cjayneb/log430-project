@@ -27,7 +27,7 @@ func (h *OrderCompliantHandler) handle(ctx context.Context, event models.OrderEv
 		err = reservePosition(ctx, order, pr)
 		if err != nil {
 			log.Error("error reserving position quantity for order", "error", err)
-			if err = releaseFunds(ctx, order, wr, total); err != nil {
+			if err := releaseFunds(ctx, order, wr, total); err != nil {
 				log.Error("error reverting fund reservation", "error", err)
 				return err
 			}

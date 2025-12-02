@@ -19,7 +19,7 @@ def make_random_order(action):
         "type": order_type,
         "action": action,
         "quantity": random.choice(range(1,10)),
-        "timing": random.choice(["day", "ioc"]),
+        "timing": random.choice(["day"]), # add IOC orders when they are properly handled
         "unit_price": unit_price
     }
 
