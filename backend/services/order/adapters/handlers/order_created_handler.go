@@ -22,7 +22,8 @@ func (h *OrderCreatedHandler) handle(ctx context.Context, event models.OrderEven
 		event.Event = "OrderComplianceFailed"
 		return h.Producer.SendEvent(ctx, "OrderEvents", event.Event, event.Order, err)
 	} else {
-		event.Event = "OrderValidated"
-		return h.Producer.SendEvent(ctx, "MatchingEvents", event.Event, event.Order, nil)
+		event.Event = "OrderCompliant"
+		log.Info("sending OrderCompliant Event")
+		return h.Producer.SendEvent(ctx, "PortfolioEvents", event.Event, event.Order, nil)
 	}
 }

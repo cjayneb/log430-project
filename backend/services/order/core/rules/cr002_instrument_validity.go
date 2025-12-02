@@ -9,11 +9,11 @@ import (
 
 const INACTIVE_INSTRUMENT_MSG string = "The instrument is not active"
 
-type CR004InstrumentValidity struct {
+type CR002InstrumentValidity struct {
 	instrument *models.Instrument
 }
 
-func (c *CR004InstrumentValidity) Setup(inputs ComplianceRuleInputs) error {
+func (c *CR002InstrumentValidity) Setup(inputs ComplianceRuleInputs) error {
 	if inputs.Instrument == nil {
 		return fmt.Errorf("%w: instrument cannot be absent", common.ErrDependencyFailure)
 	}
@@ -21,15 +21,15 @@ func (c *CR004InstrumentValidity) Setup(inputs ComplianceRuleInputs) error {
 	return nil
 }
 
-func NewCR004InstrumentValidity() *CR004InstrumentValidity {
-	return &CR004InstrumentValidity{}
+func NewCR002InstrumentValidity() *CR002InstrumentValidity {
+	return &CR002InstrumentValidity{}
 }
 
-func (c *CR004InstrumentValidity) Verify(ctx context.Context, order *models.Order) error {
+func (c *CR002InstrumentValidity) Verify(ctx context.Context, order *models.Order) error {
 	if c.instrument.Status != "Active" {
 		return fmt.Errorf("%w: error when verifying instrument {%v}: %v", common.ErrBusinessRuleViolation, order.Symbol, INACTIVE_INSTRUMENT_MSG)
 	}
 	return nil
 }
 
-var _ ComplianceRule = (*CR004InstrumentValidity)(nil) // Ensure interface is implemented at compile time
+var _ ComplianceRule = (*CR002InstrumentValidity)(nil) // Ensure interface is implemented at compile time

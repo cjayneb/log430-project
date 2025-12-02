@@ -1,32 +1,34 @@
 @startuml
 title BrokerX - Package level diagram
 
-package "brokerx" {
+package "{service}" {
   package "core" as core {
-    [AuthService]
-    [OrderService]
-    [ComplianceService]
-    [MatchingEngine]
+    [All internal service (business logic)]
   }
 
   package "ports" as ports {
-    [All interfaces]
+    [All external interfaces]
   }
 
   package "adapters" {
-    [HttpAuthHandler]
-    [HttpOrderHandler]
-    [HttpMarketDataProvider]
-    [SQLOrderRepo]
-    [SQLUserRepo]
-    [SQLPositionRepo]
-    [SQLTransactionManager]
-    [SQLWalletRepo]
-    [SQLExecutionRepo]
+    package "dao" {
+      [SQL repos and Redis access objects]
+    }
+    package "clients" {
+      [Http clients for calling external service]
+      [Kafka event producers]
+    }
+    package "handlers" {
+      [Http handlers for request endpoints]
+      [Kafka topic consumers and event handlers]
+    }
   }
 
   package "models" {
     [Order]
+    [OrderEvent]
+    [ClaimedCandidate]
+    [OutboxRecord]
     [Instrument]
     [Position]
     [User]
@@ -39,7 +41,9 @@ package "brokerx" {
 core --> models : uses
 ports --> models : references
 core --> ports : references
-adapters --> ports : implements
+clients --> ports : implements
+dao --> ports : implements
+handlers --> ports : implements
 
 @enduml
 

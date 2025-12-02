@@ -93,12 +93,15 @@ services:
       - APP_PORT=8080
       - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
       - KAFKA_HOST=kafka:9092
-      - KAFKA_GROUP_ID=portfolio-group
+      - KAFKA_MATCH_GROUP_ID=portfolio-match-group
+      - KAFKA_ORDER_GROUP_ID=portfolio-order-group
     labels:
       - "service=portfolio-service"
     depends_on:
       db:
         condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
     networks:
       - brokerx-network
     restart: always
@@ -222,6 +225,7 @@ services:
       echo -e 'Creating kafka topics'
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic OrderEvents --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic MatchingEvents --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic PortfolioEvents --replication-factor 1 --partitions 1
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka:9092 --list

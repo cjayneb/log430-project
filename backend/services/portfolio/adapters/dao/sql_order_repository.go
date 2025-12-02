@@ -27,7 +27,7 @@ func (repo SQLOrderRepository) UpdateBatch(ctx context.Context, orders []*models
 	}
 
 	valueStrings := make([]string, 0, len(orders))
-	valueArgs := make([]interface{}, 0, len(orders)*5)
+	valueArgs := make([]interface{}, 0, len(orders)*9)
 
 	for _, o := range orders {
 		valueStrings = append(valueStrings, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")

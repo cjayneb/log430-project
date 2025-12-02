@@ -91,7 +91,7 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, order *models
 		return engine.Producer.SendEvent(ctx, "OrderEvents", "OrderMatchingFailed", *order, nil)
 	}
 
-	if err := engine.Producer.SendMatchingEvent(ctx, "MatchingEvents", "OrderMatched", *order, claimedOrders, executionBuffer, nil); err != nil {
+	if err := engine.Producer.SendMatchingEvent(ctx, "PortfolioEvents", "OrderMatched", *order, claimedOrders, executionBuffer, nil); err != nil {
 		log.Error("error sending OrderMatched event. returning all used orders...", "error", err)
 		engine.OrderBook.Return(ctx, usedOrders)
 		return err

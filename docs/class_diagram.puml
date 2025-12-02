@@ -9,8 +9,13 @@ class User {
 }
 
 class Position {
-  +quantity: int
-  +avgPrice: decimal
+  +available_quantity: int
+  +reserved_quantity: int
+}
+
+class Wallet {
+  +available_funds: int
+  +reserved_funds: int
 }
 
 class Instrument {
@@ -21,7 +26,7 @@ class Instrument {
 }
 
 class Order {
-  +orderId: UUID
+  +orderId: int
   +type: enum {market, limit}
   +action: enum {buy, sell}
   +timing: enum {ioc, day}
@@ -32,7 +37,7 @@ class Order {
 }
 
 class ExecutionRecord {
-  +executionId: UUID
+  +executionId: int
   +price: decimal
   +quantity: int
   +timestamp: datetime
@@ -46,6 +51,7 @@ class Price {
 
 ' Relationships
 User "1" --> "*" Position
+User "1" --> "1" Wallet
 Position "*" --> "1" Instrument
 Order "*" <-- "1" User
 Order "*" --> "1" Instrument

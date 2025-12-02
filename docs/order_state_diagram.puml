@@ -1,0 +1,22 @@
+@startuml
+[*] --> CreatingOrder
+
+CreatingOrder --> ValidatingOrderCompliance : OrderCreated
+CreatingOrder --> CancellingOrder : OrderCreatedFailed
+
+ValidatingOrderCompliance --> ReservingQuantities : OrderCompliant
+ValidatingOrderCompliance --> CancellingOrder : OrderComplianceFailed
+
+ReservingQuantities --> MatchingOrder : QuantitiesReserved
+ReservingQuantities --> CancellingOrder : ReservingQuantitiesFailed
+
+MatchingOrder --> ConfirmingOrder : OrderMatched
+MatchingOrder --> CancellingOrder : OrderMatchingFailed
+
+ConfirmingOrder --> [*] : SagaCompleted
+ConfirmingOrder --> CancellingOrder : OrderConfirmationFailed
+ConfirmingOrder --> MatchingOrder : OrderOpen
+
+CancellingOrder --> [*] : SagaCompleted
+
+@enduml

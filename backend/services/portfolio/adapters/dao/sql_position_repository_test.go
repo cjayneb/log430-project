@@ -70,7 +70,7 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(positions))
 	require.Equal(t, symbol, positions[0].Symbol)
-	require.Equal(t, quantity, positions[0].Quantity)
+	require.Equal(t, quantity, positions[0].AvailableQuantity)
 	require.Equal(t, unitPrice, positions[0].UnitPrice)
 
 	// --- FindByUserIdAndSymbol No positions ---

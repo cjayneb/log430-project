@@ -14,22 +14,18 @@ type ComplianceService interface {
 }
 
 type ComplianceServiceImpl struct {
-	PortfolioService   ports.PortfolioService
 	MarketDataProvider ports.MarketDataProvider
 	complianceRules    []rules.ComplianceRule
 }
 
-func NewComplianceService(portfolioService ports.PortfolioService, marketDataProvider ports.MarketDataProvider) *ComplianceServiceImpl {
+func NewComplianceService(marketDataProvider ports.MarketDataProvider) *ComplianceServiceImpl {
 	complianceRules := []rules.ComplianceRule{
 		rules.NewCR001OrderQuantity(),
-		rules.NewCR002BuyingPower(portfolioService),
-		rules.NewCR003SellingPower(portfolioService),
-		rules.NewCR004InstrumentValidity(),
-		rules.NewC005InstrumentTickSize(),
-		rules.NewCR006InstrumentPriceBand(),
+		rules.NewCR002InstrumentValidity(),
+		rules.NewCR003InstrumentTickSize(),
+		rules.NewCR004InstrumentPriceBand(),
 	}
 	return &ComplianceServiceImpl{
-		PortfolioService:   portfolioService,
 		MarketDataProvider: marketDataProvider,
 		complianceRules:    complianceRules,
 	}

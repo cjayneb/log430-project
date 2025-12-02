@@ -19,11 +19,21 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 		return h.successEvent(ctx, &event.Order)
 	}
 
+	order := event.Order
 	err := h.Tm.Do(ctx, func(or ports.OrderRepository, er ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
 		total, qty := getFundsNeeded(event.Executions)
-		if err := wr.ReleaseFunds(ctx, event.Order.UserID, total); err != nil {
-			log.Error("funds validation failed", "error", err)
+		if err := updateWallets(ctx, order, total, event.Orders, wr); err != nil {
+			log.Error("error when updating wallets", "error", err)
+			if err := revertPositionsReservations(ctx, pr, order, qty, event.Orders); err != nil {
+				log.Error("error reverting positions reservations", "error", err)
+				return err
+			}
 			return revertOrdersAndCreateOutboxEvents(ctx, obr, event, qty, err) // this commits or rolls back the transaction for the failure path
+		}
+
+		if err := updatePositionsQuantities(ctx, order, qty, event.Orders, pr); err != nil {
+			log.Error("error when updating positions", "error", err)
+			return err
 		}
 
 		if err := er.CreateBatch(ctx, event.Executions); err != nil {
@@ -31,11 +41,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 			return err
 		}
 
-		// TODO: Position update logic here
-		// if err := h.PositionRepo.Update(...); err != nil { ... }
-
-
-		var ordersToUpdate = []*models.Order{&event.Order}
+		var ordersToUpdate = []*models.Order{&order}
 		for _, o := range event.Orders {
 			ordersToUpdate = append(ordersToUpdate, &o.Order)
 		}
@@ -53,7 +59,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	})
 
 	if err != nil {
-		log.Error("error confirming order matching. OrderMatched event will be consumed until successful...", "orderId", event.Order.ID, "error", err)
+		log.Error("error confirming order matching. OrderMatched event will be consumed until successful...", "orderId", order.ID, "error", err)
 		return err
 	}
 
@@ -69,6 +75,42 @@ func (h *OrderMatchedHandler) successEvent(ctx context.Context, order *models.Or
 		topic = "OrderEvents"
 	}
 	return h.Producer.SendEvent(ctx, topic, event, *order, nil)
+}
+
+func updateWallets(ctx context.Context, order models.Order, total float64, claimedOrders []*models.ClaimedCandidate, walletRepo ports.WalletRepository) error {
+	deltas := []models.WalletDelta{{Order: order, Total: total}}
+	for _, co := range claimedOrders {
+		deltas = append(deltas, models.WalletDelta{Order: co.Order, Total: pickUnitPrice(&order, &co.Order) * float64(co.ClaimedQty)})
+	}
+	return walletRepo.ReleaseFunds(ctx, deltas)
+}
+
+func pickUnitPrice(incoming, candidate *models.Order) float64 {
+	if incoming.Type == "market" || candidate.Type == "limit" {
+		return candidate.UnitPrice
+	}
+	return incoming.UnitPrice
+}
+
+func updatePositionsQuantities(ctx context.Context, order models.Order, qty int, claimedOrders []*models.ClaimedCandidate, posRepo ports.PositionRepository) error {
+	incomingClaimed := []*models.ClaimedCandidate{{Order: order, ClaimedQty: qty}}
+	if order.Action == "sell" {
+		if err := posRepo.ReleaseQuantity(ctx, incomingClaimed); err != nil {
+			return err
+		}
+		if err := posRepo.AddAvailableQuantity(ctx, claimedOrders); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := posRepo.AddAvailableQuantity(ctx, incomingClaimed); err != nil {
+		return err
+	}
+	if err := posRepo.ReleaseQuantity(ctx, claimedOrders); err != nil {
+		return err
+	}
+	return nil
 }
 
 func createSuccessOutboxEvents(ctx context.Context, obr ports.OutboxRepository, event models.MatchingEvent) error {
@@ -95,6 +137,14 @@ func createOrderEvent(event models.MatchingEvent, order *models.Order) models.Or
 		TraceID: event.TraceID,
 		Order: *order,
 	}
+}
+
+func revertPositionsReservations(ctx context.Context, posRepo ports.PositionRepository, incomingOrder models.Order, qty int, claimedOrders []*models.ClaimedCandidate) error {
+	deltas := []models.PositionDelta{{UserID: incomingOrder.UserID, Symbol: incomingOrder.Symbol, Qty: qty}}
+	for _, co := range claimedOrders {
+		deltas = append(deltas, models.PositionDelta{UserID: co.Order.UserID, Symbol: co.Order.Symbol, Qty: co.ClaimedQty})
+	}
+	return posRepo.RevertReservations(ctx, deltas)
 }
 
 func revertOrdersAndCreateOutboxEvents(ctx context.Context, obr ports.OutboxRepository, event models.MatchingEvent, qty int, err error) error {

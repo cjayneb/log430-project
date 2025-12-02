@@ -12,7 +12,8 @@ import (
 type PortfolioService interface {
 	GetWallet(ctx context.Context, userId int) (*models.Wallet, error)
 	FundWallet(ctx context.Context, userId int, amount float64) error
-	FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
+	FetchPositionsForUser(ctx context.Context, userId int) ([]*models.Position, error)
+	FetchPositionsForSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
 }
 
 type PortfolioServiceImpl struct {
@@ -41,8 +42,12 @@ func (service *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) 
 	return wallet, err
 }
 
-func (service *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+func (service *PortfolioServiceImpl) FetchPositionsForSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
 	return service.PositionsRepo.FindByUserIdAndSymbol(ctx, userId, symbol)
+}
+
+func (service *PortfolioServiceImpl) FetchPositionsForUser(ctx context.Context, userId int) ([]*models.Position, error) {
+	return service.PositionsRepo.FindByUserId(ctx, userId)
 }
 
 var _ PortfolioService = (*PortfolioServiceImpl)(nil) // Ensure interface is implemented at compile time

@@ -39,11 +39,10 @@ func main() {
 
 	// Create external services
 	eventProducer := client_adapters.NewKafkaEventProducer(config.KafkaHost)
-	portfolioService := client_adapters.NewPortfolioServiceClient(config.PortfolioServiceBaseUrl)
 	marketDataProvider := client_adapters.NewMarketDataProvider(config.MarketDataServiceBaseUrl)
 
 	// Create core services
-	complianceService := core.NewComplianceService(portfolioService, marketDataProvider)
+	complianceService := core.NewComplianceService(marketDataProvider)
 	orderService := &core.OrderServiceImpl{
 		Repo:              orderRepo,
 		OrderBook:         orderBook,
@@ -55,6 +54,7 @@ func main() {
 	orderHandler := handler_adapters.NewOrderHandler(orderService)
 	orderCreatedHandler := handler_adapters.OrderCreatedHandler{ComplianceService: complianceService, Producer: eventProducer}
 	orderFailedHandler := handler_adapters.OrderFailedHandler{OrderService: orderService, Producer: eventProducer}
+	slog.Info("Kafka group id from config", "groupId", config.KafkaGroupId)
 	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderCreatedHandler, orderFailedHandler)
 
 	// Start async processes
