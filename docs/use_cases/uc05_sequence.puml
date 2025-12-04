@@ -1,25 +1,49 @@
 @startuml
 title UC-05 Place Order
 
-actor Client
+participant "OrderService" as os
+participant "TransactionManager" as tm
+participant "OrderRepo" as or
+participant "OutboxRepo" as obr
+database "MySQL DB" as mysql
 
-participant "OrderHandler (adapters)" as Handler
-participant "OrderService (core)" as Service
-participant "ComplianceService (core)" as compliance
-participant "OrderRepository (ports)" as Repo
-participant "WalletRepository (ports)" as wallet
-participant "PositionRepository (ports)" as position
-participant "MarketDataProvider (adapters)" as mdp
-database "MySQL" as DB
-participant "MatchingEngine (core)" as MatchEngine
+participant "OutboxDispatcher" as obd
 
-Client -> Handler : POST /order/place (order payload)
-Handler -> Service : PlaceOrder(order)
-Service -> compliance : error := VerifyOrderCompliance(order)
-Service -> Repo : id, err := Create(order)
-Repo -> DB : rowId := INSERT INTO orders ...
-Service ->> MatchEngine : SubmitOrder(order)
-Service --> Handler : error || nil
-Handler --> Client : 201 Created
+participant "OrderCreatedHandler" as handler
+participant "ComplianceService" as cs
+participant "MarketDataService" as mds
 
+queue "Kafka" as kafka
+
+participant "OrderCompliantHandler" as handler2
+participant "WalletRepo" as wr
+participant "PositionRepo" as pr
+
+-> os : HTTPOrderRequest
+== Transaction start ==
+os -> tm : err := Do(orderRepo, outboxRepo)
+os -> or : err := Create(req.order)
+or -> mysql : err := Create(order)
+os -> obr : err := CreateOutboxEvent(OrderCreatedEvent)
+obr -> mysql : err := Create(OrderCreatedEvent)
+== Transaction end ==
+<-- os : HTTPResponse
+
+== Asynchronous (in Goroutine1) ==
+obd -> obr : events := GetOutboxEvents()
+obd -> kafka : SendEvents(events)
+
+== Asynchronous (in Goroutine2) ==
+->> handler : OrderCreatedEvent
+handler -> cs : VerifyOrderCompliance(event.order)
+cs -> mds : GetStockInstrument(order.symbol)
+cs -> kafka : SendEvent(OrderCompliant)
+
+== Asynchronous (in Goroutine3) ==
+->> handler2 : OrderCompliantEvent
+== Transaction start ==
+handler2 -> wr : err := ReserveFunds(event.order)
+handler2 -> pr : err := ReservePositionQty(event.order)
+handler2 -> obr : err := CreateOutboxEvent(QuantitiesReservedEvent)
+== Transaction end ==
 @enduml

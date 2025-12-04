@@ -1,0 +1,27 @@
+@startuml
+title UC-8 Confirm order and notify
+
+participant "OrderMatchedHandler" as handler
+participant "TransactionManager" as tm
+participant "WalletRepo" as wr
+participant "PositionRepo" as pr
+participant "ExecutionRepo" as er
+participant "OrderRepo" as or
+participant "OutboxRepo" as obr
+database "MySQL DB" as mysql
+queue "Kafka" as kafka
+
+== Asynchronous (in Goroutine) ==
+->> handler : OrderMatchedEvent
+== Transaction start ==
+handler -> tm : err := Do(or, er, wr, pr, obr)
+handler -> wr : err := updateWallets(event.Orders)
+handler -> pr: err := updatePositionQties(event.Orders)
+handler -> er : err:= createExecutions(event.Executions)
+handler -> or : err := updateOrders(event.Orders)
+handler -> kafka : createOutboxEvents(event)
+== Transaction end ==
+
+
+
+@enduml

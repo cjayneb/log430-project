@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+// TODO: reduce duplication
+
 type SQLPositionRepository struct {
 	DB *sql.DB
 	tx *sql.Tx

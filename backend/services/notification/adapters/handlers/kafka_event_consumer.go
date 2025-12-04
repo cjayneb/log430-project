@@ -1,9 +1,9 @@
 package handler_adapters
 
 import (
-	"brokerx/portfolio-service/models"
-	"brokerx/portfolio-service/ports"
-	"brokerx/portfolio-service/util"
+	"brokerx/notification-service/models"
+	"brokerx/notification-service/ports"
+	"brokerx/notification-service/util"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -12,12 +12,12 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-type KafkaOrderEventConsumer struct {
-	consumer              *kafka.Consumer
-	orderCompliantHandler OrderCompliantHandler
+type KafkaEventConsumer struct {
+	consumer *kafka.Consumer
+	handler  OrderCompletedHandler
 }
 
-func NewKafkaOrderEventConsumer(host string, groupId string, orderCompliantHandler OrderCompliantHandler) *KafkaOrderEventConsumer {
+func NewKafkaEventConsumer(host string, groupId string, handler OrderCompletedHandler) *KafkaEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -30,13 +30,13 @@ func NewKafkaOrderEventConsumer(host string, groupId string, orderCompliantHandl
 		os.Exit(1)
 	}
 
-	return &KafkaOrderEventConsumer{
-		consumer:              c,
-		orderCompliantHandler: orderCompliantHandler,
+	return &KafkaEventConsumer{
+		consumer: c,
+		handler:  handler,
 	}
 }
 
-func (k *KafkaOrderEventConsumer) Start(topic string) {
+func (k *KafkaEventConsumer) Start(topic string) {
 	err := k.consumer.SubscribeTopics([]string{topic}, nil)
 	if err != nil {
 		slog.Error("Unable to subscribe to topic", "error", err)
@@ -57,7 +57,7 @@ func (k *KafkaOrderEventConsumer) Start(topic string) {
 	}
 }
 
-func (k *KafkaOrderEventConsumer) handleMessage(msg *kafka.Message) {
+func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	var log *slog.Logger
 	for _, header := range msg.Headers {
 		if header.Key == string(util.HeaderTraceId) {
@@ -77,17 +77,15 @@ func (k *KafkaOrderEventConsumer) handleMessage(msg *kafka.Message) {
 	ctx = util.WithLogger(ctx, log)
 
 	switch event.Event {
-	case "OrderCompliant":
-		log.Info("Received OrderCompliant event.", "orderId", event.Order.ID)
-		err := k.orderCompliantHandler.handle(ctx, event)
+	case "OrderConfirmed", "OrderCanceled":
+		log.Info("Received OrderCompleted event.", "event", event.Event, "orderId", event.Order.ID)
+		err := k.handler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderCompliant event", "error", err)
+			log.Error("error handling OrderCompleted event", "error", err)
 			break
 		}
-		// TODO FOR ALL commitMessage, find what is the best course of action if committing fails (idea: make sure operations idempotent)
-		// TODO: For all event consumers, figure out what to do when processing fails (non committed messages are not reprocessed automatically)
 		_, _ = k.consumer.CommitMessage(msg)
 	}
 }
 
-var _ ports.EventConsumer = (*KafkaOrderEventConsumer)(nil) // Ensure interface is implemented at compile time
+var _ ports.EventConsumer = (*KafkaEventConsumer)(nil) // Ensure interface is implemented at compile time

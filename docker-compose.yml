@@ -113,6 +113,38 @@ services:
     deploy:
       replicas: 1
 
+  notification-service:
+    build:
+      context: ./backend/services/notification
+    expose:
+      - "8080"
+    environment:
+      - API_GATEWAY_BASE_URL=http://nginx
+      - APP_PORT=8080
+      - DATABASE_URL=root:root@tcp(db:3306)/brokerx?parseTime=true
+      - REDIS_ADDR=redis:6379
+      - KAFKA_HOST=kafka:9092
+      - KAFKA_GROUP_ID=notification-group
+    labels:
+      - "service=notification-service"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+    networks:
+      - brokerx-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://notification-service:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+
   market-data-service:
     build:
       context: ./backend/services/market-data
@@ -226,6 +258,7 @@ services:
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic OrderEvents --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic MatchingEvents --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic PortfolioEvents --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic NotificationEvents --replication-factor 1 --partitions 1
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka:9092 --list

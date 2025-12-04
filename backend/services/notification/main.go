@@ -1,10 +1,11 @@
 package main
 
 import (
-	dao_adapters "brokerx/user-service/adapters/dao"
-	handler_adapters "brokerx/user-service/adapters/handlers"
-	"brokerx/user-service/core"
-	"brokerx/user-service/util"
+	client_adapters "brokerx/notification-service/adapters/clients"
+	dao_adapters "brokerx/notification-service/adapters/dao"
+	handler_adapters "brokerx/notification-service/adapters/handlers"
+	"brokerx/notification-service/core"
+	"brokerx/notification-service/util"
 	"context"
 	"database/sql"
 	"log/slog"
@@ -13,29 +14,24 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog/v2"
-	"github.com/go-chi/traceid"
 )
-
-const TraceIDHeader = "X-Trace-Id"
-type contextKey string
-const TraceIdCtxKey contextKey = "traceId"
 
 var config Config = Config{}
 
 func main() {
-	InitLogger("user-service")
+	InitLogger("notification-service")
 
 	if err := config.LoadConfig(); err != nil {
 		slog.Error("Config error", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("Starting User Service", "port", config.Port)
+	slog.Info("Starting Notification Service", "port", config.Port)
 	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
 		slog.Error("Server error", "error", err)
@@ -44,30 +40,26 @@ func main() {
 }
 
 func run() http.Handler {
-	userRepo := initDbConnection()
+	notificationRepo := initDbConnection()
+	userRepo := initRedisConnection()
 
-	authService := &core.AuthServiceImpl{
-		Repo: userRepo,
-		PasswordAllowedRetries: config.PasswordAllowedRetries,
-		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
-	}
-	userService := core.UserServiceImpl{Repo: userRepo}
+	userServiceClient := client_adapters.NewUserServiceImpl(config.ApiGatewayBaseUrl)
+	eventProducer := client_adapters.NewKafkaEventProducer(config.KafkaHost)
 
-	authHandler := &handler_adapters.AuthHandler{
-		Service:   authService,
-		JWTSecret: []byte(config.JWTSecret),
+	notificationService := core.NotificationServiceImpl{
+		NotificationRepo:  notificationRepo,
+		UserRepository:    userRepo,
+		UserServiceClient: userServiceClient,
+		Producer:          eventProducer,
 	}
-	userHandler := handler_adapters.UserHandler{Service: &userService}
+
+	orderCompletedHandler := handler_adapters.OrderCompletedHandler{Service: &notificationService, Producer: eventProducer}
+	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderCompletedHandler)
+	go eventConsumer.Start("NotificationEvents")
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
 	r.Use(middleware.Recoverer)
-	r.Use(TraceMiddleware)
-
-	r.Post("/api/user/register", authHandler.Register)
-	r.Post("/api/user/auth/login", authHandler.Login)
-	r.Get("/api/user/auth/verify", authHandler.VerifyToken)
-	r.Get("/api/user/contact", userHandler.GetUserContactInfo)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		log := util.FromContext(r.Context())
@@ -81,7 +73,7 @@ func run() http.Handler {
 	return r
 }
 
-func initDbConnection() *dao_adapters.SQLUserRepository {
+func initDbConnection() *dao_adapters.SQLNotificationRepository {
 	db, err := sql.Open("mysql", config.DBUrl)
 	if err != nil {
 		slog.Error("Db open error", "error", err)
@@ -96,30 +88,24 @@ func initDbConnection() *dao_adapters.SQLUserRepository {
 	if err := db.Ping(); err != nil {
 		slog.Error("Db ping error", "error", err)
 	}
-	return &dao_adapters.SQLUserRepository{DB: db}
+	return &dao_adapters.SQLNotificationRepository{DB: db}
 }
 
-func TraceMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		traceID := r.Header.Get(TraceIDHeader)
-		if traceID == "" {
-			traceID = uuid.New().String()
-		}
-
-		ctx = traceid.NewContext(ctx)
-		ctx = context.WithValue(ctx, TraceIdCtxKey, traceID)
-
-		reqLogger := slog.Default().With("traceId", traceID)
-		ctx = util.WithLogger(ctx, reqLogger)
-
-		httplog.LogEntrySetField(ctx, "traceId", slog.StringValue(traceID))
-
-		next.ServeHTTP(w, r.WithContext(ctx))
+func initRedisConnection() *dao_adapters.RedisUserRepository {
+	client := redis.NewClient(&redis.Options{
+		Addr:     config.RedisAddr,
+		Password: "",
+		DB:       0,
 	})
-}
 
+	ctx := context.Background()
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		slog.Error("Redis error", "error", err)
+	}
+
+	return &dao_adapters.RedisUserRepository{Rdb: client}
+}
 
 func InitLogger(service string) {
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{

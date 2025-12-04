@@ -85,7 +85,7 @@ func initRedisConnection() *dao_adapters.RedisOrderBook {
 		slog.Error("Redis error", "error", err)
 	}
 
-	// TODO: Initialize RedisOrderBook with the database data
+	// TODO: Initialize RedisOrderBook with the database data?
 	return &dao_adapters.RedisOrderBook{Rdb: client}
 }
 

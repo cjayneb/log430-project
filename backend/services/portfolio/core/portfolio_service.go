@@ -33,7 +33,6 @@ func (service *PortfolioServiceImpl) FundWallet(ctx context.Context, userId int,
 	return service.WalletRepo.AddFunds(ctx, userId, amount)
 }
 
-// TODO: Reserve funds and add to wallet ledger with idempotency key and transaction manager
 func (service *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) (*models.Wallet, error) {
 	wallet, err := service.WalletRepo.FindByUserId(ctx, userId)
 	if wallet == nil {

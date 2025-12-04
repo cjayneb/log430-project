@@ -30,7 +30,7 @@ state ConfirmingOrder {
     end note
 }
 
-state CancellingOrder {
+state UpdatingOrder {
     note as n1
         order-service
     end note
@@ -45,22 +45,22 @@ state SendingNotification {
 [*] --> CreatingOrder
 
 CreatingOrder --> ValidatingOrderCompliance : OrderCreated
-CreatingOrder --> CancellingOrder : OrderCreatedFailed
+CreatingOrder --> UpdatingOrder : OrderCreatedFailed
 
 ValidatingOrderCompliance --> ReservingQuantities : OrderCompliant
-ValidatingOrderCompliance --> CancellingOrder : OrderComplianceFailed
+ValidatingOrderCompliance --> UpdatingOrder : OrderComplianceFailed
 
 ReservingQuantities --> MatchingOrder : QuantitiesReserved
-ReservingQuantities --> CancellingOrder : ReservingQuantitiesFailed
+ReservingQuantities --> UpdatingOrder : ReservingQuantitiesFailed
 
 MatchingOrder --> ConfirmingOrder : OrderMatched
-MatchingOrder --> CancellingOrder : OrderMatchingFailed
+MatchingOrder --> UpdatingOrder : OrderMatchingFailed
 
-ConfirmingOrder --> SendingNotification : OrderConfirmed
-ConfirmingOrder --> CancellingOrder : OrderConfirmationFailed
+ConfirmingOrder --> UpdatingOrder : OrderConfirmationFailed
+ConfirmingOrder --> UpdatingOrder : OrderConfirmed
 ConfirmingOrder --> MatchingOrder : OrderOpen
 
-CancellingOrder --> SendingNotification : OrderCanceled
+UpdatingOrder --> SendingNotification : OrderCompleted
 SendingNotification --> [*] : SagaCompleted
 
 @enduml

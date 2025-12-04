@@ -5,6 +5,7 @@ LOG430 — Architecture logicielle \
 5 décembre 2025, Montréal \
 École de technologie supérieure
 
+TODO : re-add http handlers on each service
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
@@ -589,6 +590,8 @@ Allow a user to place a buy or sell order on a stock.
 <!-- TOC --><a name="main-flow-2"></a>
 ### Main Flow:
 
+> TODO: update textual flow to match phase 3 reality
+
 **1.** The Client completes the form to place an order containing the symbol, quantity, action, type, timing and unit price.
 
 **2.** The system receives the order data and validates that the inputs are not empty.
@@ -628,7 +631,7 @@ Allow a user to place a buy or sell order on a stock.
 
 **E5.** The order tick size or price band does not match the instrument's required tick size or price band → The system propagates the error back to the client. The order is not created.
 
-![SVG Image](use_cases/uc05_sequence.svg)
+![SVG Image](use_cases/uc05_sequence.png)
 
 <!-- TOC --><a name="uc-07-find-match-and-execute-order"></a>
 ## UC-07 Find match and execute order
@@ -648,6 +651,8 @@ Match incoming buy and sell orders and generates execution records.
 
 <!-- TOC --><a name="main-flow-3"></a>
 ### Main Flow:
+
+> TODO: update textual flow to match phase 3 reality
 
 **1.** The matching engine receives the order.
 
@@ -679,7 +684,7 @@ Match incoming buy and sell orders and generates execution records.
 
 **E6.** There is a database error when saving the execution records → The system logs the error. The order stays in the database. The order is not updated. The execution records are not saved.
 
-![SVG Image](use_cases/uc07_sequence.svg)
+![SVG Image](use_cases/uc07_sequence.png)
 
 <!-- TOC --><a name="uc-08-confirm-order-and-notify"></a>
 ## UC-08 Confirm order and notify
@@ -707,7 +712,7 @@ Update an incoming order and all its claimed candidates's respective user wallet
 ### Exceptions / Alternatives:
 
 
-![SVG Image](use_cases/uc08_sequence.svg)
+![SVG Image](use_cases/uc08_sequence.png)
 
 
 <!-- TOC --><a name="7-deployment-view"></a>
@@ -869,6 +874,15 @@ Accepted
 
 <!-- TOC --><a name="adr-06-grafana-loki-and-promtail-for-observability"></a>
 ## ADR-06: Grafana, Loki and Promtail for observability
+TODO : promtail is deprecated
+
+TODO : fix c4 arrows
+
+TODO : fix deployment diagram (is it necessary?)
+
+TODO : fix class diagram to match code structs
+
+TODO : bounded context make match actual code
 
 <!-- TOC --><a name="context-5"></a>
 ### Context
@@ -890,6 +904,27 @@ Accepted
 
 <!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
 ## ADR-07: Transactional Outbox Pattern
+
+<!-- TOC --><a name="context-6"></a>
+### Context
+
+
+<!-- TOC --><a name="decision-6"></a>
+### Decision
+
+Use a transactional Outbox pattern with MySQL for order confirmation steps.
+
+<!-- TOC --><a name="status-6"></a>
+### Status
+
+Accepted
+
+<!-- TOC --><a name="consequences-6"></a>
+### Consequences
+
+
+<!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
+## ADR-08: Notification sender
 
 <!-- TOC --><a name="context-6"></a>
 ### Context

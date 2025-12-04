@@ -116,7 +116,7 @@ func initRedisConnection() *dao_adapters.RedisOrderBook {
 		slog.Warn("Redis ping error", "error", err)
 	}
 
-	// TODO: Initialize RedisOrderBook with the database data
+	// TODO: Initialize RedisOrderBook with the database data?
 	return &dao_adapters.RedisOrderBook{Rdb: client}
 }
 

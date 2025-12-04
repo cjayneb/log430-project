@@ -16,7 +16,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	log := util.FromContext(ctx)
 
 	if len(event.Executions) == 0 {
-		return h.successEvent(ctx, &event.Order)
+		return h.successEvent(ctx, event)
 	}
 
 	order := event.Order
@@ -67,14 +67,9 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	return nil
 }
 
-func (h *OrderMatchedHandler) successEvent(ctx context.Context, order *models.Order) error {
-	topic := "MatchingEvents"
-	event := "OrderOpen"
-	if order.Status == "filled" {
-		event = "SagaCompleted"
-		topic = "OrderEvents"
-	}
-	return h.Producer.SendEvent(ctx, topic, event, *order, nil)
+func (h *OrderMatchedHandler) successEvent(ctx context.Context, event models.MatchingEvent) error {
+	orderEvent := createOrderEvent(event, &event.Order)
+	return h.Producer.SendEvent(ctx, orderEvent.Topic, orderEvent.Event, orderEvent.Order, nil)
 }
 
 func updateWallets(ctx context.Context, order models.Order, total float64, claimedOrders []*models.ClaimedCandidate, walletRepo ports.WalletRepository) error {
@@ -128,13 +123,14 @@ func createOrderEvent(event models.MatchingEvent, order *models.Order) models.Or
 	topic := "MatchingEvents"
 	eventType := "OrderOpen"
 	if order.Status == "filled" {
-		eventType = "SagaCompleted"
-		topic = "OrderEvents"
+		eventType = "OrderConfirmed"
+		topic = "NotificationEvents"
 	}
 	return models.OrderEvent{
 		Topic: topic,
 		Event: eventType,
 		TraceID: event.TraceID,
+		JWT: event.JWT,
 		Order: *order,
 	}
 }

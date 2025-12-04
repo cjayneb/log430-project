@@ -16,6 +16,8 @@ type SQLWalletRepository struct {
 	tx *sql.Tx
 }
 
+// TODO: reduce duplication
+
 func NewWalletRepo(tx *sql.Tx) SQLWalletRepository {
 	return SQLWalletRepository{tx: tx}
 }

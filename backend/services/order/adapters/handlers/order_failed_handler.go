@@ -23,7 +23,7 @@ func (h *OrderFailedHandler) handle(ctx context.Context, event models.OrderEvent
 		log.Error("Order could not be canceled", "error", err)
 		return err
 	} else {
-		event.Event = "OrderSagaCompleted"
-		return h.Producer.SendEvent(ctx, "OrderEvents", event.Event, event.Order, errors.New(event.Error))
+		event.Event = "OrderCanceled"
+		return h.Producer.SendEvent(ctx, "NotificationEvents", event.Event, event.Order, errors.New(event.Error))
 	}
 }
