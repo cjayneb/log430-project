@@ -15,7 +15,6 @@ import (
 var ctx = context.Background()
 
 var quantity int = 1000
-var unitPrice float64 = 150.0
 var userId int = 1
 var symbol string = "AAPL"
 
@@ -53,8 +52,8 @@ func insertPositionTestData(t *testing.T, db *sql.DB) {
                       VALUES (?, email, 'hello', 'test', 'hashedpw')`, userId)
 	require.NoError(t, err)
 
-	_, err = db.Query(`INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES(?, ?, ?, ?)`,
-		userId, symbol, quantity, unitPrice)
+	_, err = db.Query(`INSERT INTO positions (user_id, symbol, quantity) VALUES(?, ?, ?)`,
+		userId, symbol, quantity)
 	require.NoError(t, err)
 }
 
@@ -71,7 +70,6 @@ func TestSQLPositionRepositoryIntegration(t *testing.T) {
 	require.Equal(t, 1, len(positions))
 	require.Equal(t, symbol, positions[0].Symbol)
 	require.Equal(t, quantity, positions[0].AvailableQuantity)
-	require.Equal(t, unitPrice, positions[0].UnitPrice)
 
 	// --- FindByUserIdAndSymbol No positions ---
 	positions, err = repo.FindByUserIdAndSymbol(ctx, userId, "stockThatUserDoesntOwn")

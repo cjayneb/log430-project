@@ -6,5 +6,4 @@ type Position struct {
 	Symbol    string `json:"symbol"`
 	AvailableQuantity  int `json:"available_quantity"`
 	ReservedQuantity int `json:"reserved_quantity"`
-	UnitPrice float64
 }

@@ -50,6 +50,7 @@ func run() http.Handler {
 	portfolioService := &core.PortfolioServiceImpl{
 		WalletRepo:    walletRepo,
 		PositionsRepo: positionsRepo,
+		Tm: &tm,
 	}
 	portfolioHandler := handler_adapters.PortfolioHandler{Service: portfolioService}
 

@@ -16,8 +16,6 @@ type SQLWalletRepository struct {
 	tx *sql.Tx
 }
 
-// TODO: reduce duplication
-
 func NewWalletRepo(tx *sql.Tx) SQLWalletRepository {
 	return SQLWalletRepository{tx: tx}
 }
@@ -25,90 +23,88 @@ func NewWalletRepo(tx *sql.Tx) SQLWalletRepository {
 func (repo SQLWalletRepository) ReserveFunds(ctx context.Context, userId int, amount float64) error {
 	log := util.FromContext(ctx)
 
-	row := repo.tx.QueryRowContext(ctx,
-		`SELECT id, available_funds, reserved_funds
-		 FROM brokerx.wallets
-		 WHERE user_id = ?
-		 FOR UPDATE`,
-		userId,
-	)
-
-	var id string
-	var available float64
-	var reserved float64
-
-	if err := row.Scan(&id, &available, &reserved); err != nil {
-		if err == sql.ErrNoRows {
-			msg := "wallet does not exist"
-			log.Error(msg, "error", err, "userId", userId)
-			return errors.New(msg)
-		}
-		log.Error("failed to fetch wallet", "error", err)
-		return err
-	}
-
-	if available < amount {
-		return fmt.Errorf("insufficient funds: available=%v, required=%v", available, amount)
-	}
-
-	_, err := repo.tx.ExecContext(ctx,
-		`UPDATE brokerx.wallets
-		 SET available_funds = available_funds - ?,
-		     reserved_funds  = reserved_funds + ?
-		 WHERE id = ?`,
-		amount, amount, id,
-	)
-
+	w, err := repo.loadWalletForUpdate(ctx, userId)
 	if err != nil {
-		log.Error("failed to reserve funds", "error", err)
 		return err
 	}
 
-	log.Info("funds reserved", "reserved", amount)
-	return nil
+	if w.AvailableFunds < amount {
+		return fmt.Errorf("insufficient funds: available=%f, required=%f", w.AvailableFunds, amount)
+	}
+
+	err = repo.applyWalletDeltas(ctx, w.ID, -amount, amount)
+	if err == nil {
+		log.Info("funds reserved", "reserved", amount)
+	}
+
+	return err
 }
 
 func (repo SQLWalletRepository) RevertFundReservation(ctx context.Context, userId int, amount float64) error {
 	log := util.FromContext(ctx)
 
+	w, err := repo.loadWalletForUpdate(ctx, userId)
+	if err != nil {
+		return err
+	}
+
+	err = repo.applyWalletDeltas(ctx, w.ID, amount, -amount)
+	if err == nil {
+		log.Info("funds reverted", "amount", amount)
+	}
+
+	return err
+}
+
+func (repo SQLWalletRepository) loadWalletForUpdate(ctx context.Context, userId int) (*models.Wallet, error) {
+	log := util.FromContext(ctx)
+
 	row := repo.tx.QueryRowContext(ctx,
-		`SELECT id, available_funds, reserved_funds
+		`SELECT id, user_id, available_funds, reserved_funds
 		 FROM brokerx.wallets
 		 WHERE user_id = ?
 		 FOR UPDATE`,
 		userId,
 	)
 
-	var id string
-	var available float64
-	var reserved float64
-
-	if err := row.Scan(&id, &available, &reserved); err != nil {
+	var w models.Wallet
+	if err := row.Scan(&w.ID, &w.UserId, &w.AvailableFunds, &w.ReservedFunds); err != nil {
 		if err == sql.ErrNoRows {
 			msg := "wallet does not exist"
 			log.Error(msg, "error", err, "userId", userId)
-			return errors.New(msg)
+			return nil, errors.New(msg)
 		}
 		log.Error("failed to fetch wallet", "error", err)
-		return err
+		return nil, err
 	}
+
+	return &w, nil
+}
+
+func (repo SQLWalletRepository) applyWalletDeltas(
+	ctx context.Context,
+	id string,
+	availableDelta float64,
+	reserveDelta float64,
+) error {
+	log := util.FromContext(ctx)
 
 	_, err := repo.tx.ExecContext(ctx,
 		`UPDATE brokerx.wallets
 		 SET available_funds = available_funds + ?,
-		     reserved_funds  = reserved_funds - ?
+		     reserved_funds  = reserved_funds + ?
 		 WHERE id = ?`,
-		amount, amount, id,
+		availableDelta, reserveDelta, id,
 	)
 
 	if err != nil {
-		log.Error("failed to revert funds reservation", "error", err)
-		return err
+		log.Error("failed to update wallet", "error", err)
 	}
 
-	log.Info("funds reverted", "reserved", amount)
-	return nil
+	return err
 }
+
+
 
 func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []models.WalletDelta) error {
 	log := util.FromContext(ctx)
@@ -207,36 +203,20 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []model
 }
 
 func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount float64) error {
+
 	log := util.FromContext(ctx)
 
-	tx, err := repo.DB.Begin()
+	w, err := repo.loadWalletForUpdate(ctx, userId)
 	if err != nil {
-		log.Error("error starting transaction", "error", err)
-		return err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			log.Warn("transaction failed, rolling back")
-			_ = tx.Rollback()
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
-	_, err = tx.Exec(`
-		UPDATE wallets 
-		SET available_funds = available_funds + ? 
-		WHERE user_id = ?`,
-		amount, userId)
-	if err != nil {
-		log.Error("error updating wallet", "error", err)
 		return err
 	}
 
-	return nil
+	err = repo.applyWalletDeltas(ctx, w.ID, amount, 0)
+	if err == nil {
+		log.Info("funds reverted", "amount", amount)
+	}
+
+	return err
 }
 
 func (repo SQLWalletRepository) FindByUserId(ctx context.Context, userId int) (*models.Wallet, error) {

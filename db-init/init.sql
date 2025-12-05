@@ -105,15 +105,14 @@ CREATE TABLE IF NOT EXISTS positions (
     symbol VARCHAR(10) NOT NULL,
     available_quantity INT NOT NULL,
     reserved_quantity INT NOT NULL DEFAULT 0,
-    unit_price DECIMAL(10, 2) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX idx_positions_user ON positions(user_id);
 
-INSERT INTO positions (user_id, symbol, available_quantity, unit_price) VALUES
-(3, 'AAPL', 150, 400.00);
+INSERT INTO positions (user_id, symbol, available_quantity) VALUES
+(3, 'AAPL', 150);
 
 CREATE TABLE IF NOT EXISTS executions (
     id INT PRIMARY KEY AUTO_INCREMENT,
