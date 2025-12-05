@@ -22,7 +22,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	order := event.Order
 	err := h.Tm.Do(ctx, func(er ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
 		total, qty := getFundsNeeded(event.Executions)
-		if err := updateWallets(ctx, order, total, event.Orders, wr); err != nil {
+		if err := updateWallets(ctx, order, total, &event.Orders, wr); err != nil {
 			log.Error("error when updating wallets", "error", err)
 			if err := revertPositionsReservations(ctx, pr, order, qty, event.Orders); err != nil {
 				log.Error("error reverting positions reservations", "error", err)
@@ -63,12 +63,31 @@ func (h *OrderMatchedHandler) successEvent(ctx context.Context, event models.Mat
 	return h.Producer.SendEvent(ctx, orderEvent.Topic, orderEvent.Event, orderEvent.Order, nil)
 }
 
-func updateWallets(ctx context.Context, order models.Order, total float64, claimedOrders []*models.ClaimedCandidate, walletRepo ports.WalletRepository) error {
-	deltas := []models.WalletDelta{{Order: order, Total: total}}
-	for _, co := range claimedOrders {
-		deltas = append(deltas, models.WalletDelta{Order: co.Order, Total: pickUnitPrice(&order, &co.Order) * float64(co.ClaimedQty)})
+func updateWallets(ctx context.Context, incoming models.Order, total float64, claimedOrders *[]*models.ClaimedCandidate, walletRepo ports.WalletRepository) error {
+	deltas :=  make(map[int]models.WalletDelta)
+	for _, co := range *claimedOrders {
+		deltas[co.Order.ID] = models.WalletDelta{Order: co.Order, Total: pickUnitPrice(&incoming, &co.Order) * float64(co.ClaimedQty)}
 	}
-	return walletRepo.ReleaseFunds(ctx, deltas)
+
+	deltas, err := walletRepo.ReleaseFunds(ctx, deltas)
+	if err != nil {
+		return err
+	}
+
+	totalToDeductFromIncoming := 0.0
+	for _, co := range *claimedOrders {
+		d := deltas[co.Order.ID]
+		if d.Total == 0 {
+			co.Order.Status = "canceled"
+		}
+		totalToDeductFromIncoming += d.Total
+	}
+
+	var incomingDelta models.WalletDelta
+	incomingDelta.Order = incoming
+	incomingDelta.Total = totalToDeductFromIncoming
+	_, err = walletRepo.ReleaseFunds(ctx, map[int]models.WalletDelta{incoming.UserID: incomingDelta})
+	return err
 }
 
 func pickUnitPrice(incoming, candidate *models.Order) float64 {
