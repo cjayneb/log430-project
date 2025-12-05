@@ -77,8 +77,8 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	ctx = util.WithLogger(ctx, log)
 
 	switch event.Event {
-	case "OrderConfirmed", "OrderCanceled":
-		log.Info("Received OrderCompleted event.", "event", event.Event, "orderId", event.Order.ID)
+	case "OrderCompleted":
+		log.Info("Received OrderCompleted event.", "orderId", event.Order.ID)
 		err := k.handler.handle(ctx, event)
 		if err != nil {
 			log.Error("error handling OrderCompleted event", "error", err)

@@ -36,6 +36,7 @@ func (service *OrderServiceImpl) PlaceOrder(ctx context.Context, order *models.O
 		createdOrderId, err := service.Repo.Create(ctx, order)
 		if err != nil {
 			log.Error("error creating order", "error", err)
+			order.Status = "canceled"
 			return obr.CreateOrderEvents(ctx, []*models.OrderEvent{{
 				Topic: "OrderEvents",
 				Event: "OrderCreatedFailed",

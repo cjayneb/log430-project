@@ -20,7 +20,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	}
 
 	order := event.Order
-	err := h.Tm.Do(ctx, func(or ports.OrderRepository, er ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
+	err := h.Tm.Do(ctx, func(er ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
 		total, qty := getFundsNeeded(event.Executions)
 		if err := updateWallets(ctx, order, total, event.Orders, wr); err != nil {
 			log.Error("error when updating wallets", "error", err)
@@ -38,15 +38,6 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 
 		if err := er.CreateBatch(ctx, event.Executions); err != nil {
 			log.Error("execution batch failed", "error", err)
-			return err
-		}
-
-		var ordersToUpdate = []*models.Order{&order}
-		for _, o := range event.Orders {
-			ordersToUpdate = append(ordersToUpdate, &o.Order)
-		}
-		if err := or.UpdateBatch(ctx, ordersToUpdate); err != nil {
-			log.Error("order batch update failed", "error", err)
 			return err
 		}
 
@@ -120,15 +111,9 @@ func createSuccessOutboxEvents(ctx context.Context, obr ports.OutboxRepository, 
 }
 
 func createOrderEvent(event models.MatchingEvent, order *models.Order) models.OrderEvent {
-	topic := "MatchingEvents"
-	eventType := "OrderOpen"
-	if order.Status == "filled" {
-		eventType = "OrderConfirmed"
-		topic = "NotificationEvents"
-	}
 	return models.OrderEvent{
-		Topic: topic,
-		Event: eventType,
+		Topic: "OrderEvents",
+		Event: "OrderConfirmed",
 		TraceID: event.TraceID,
 		JWT: event.JWT,
 		Order: *order,
@@ -145,6 +130,7 @@ func revertPositionsReservations(ctx context.Context, posRepo ports.PositionRepo
 
 func revertOrdersAndCreateOutboxEvents(ctx context.Context, obr ports.OutboxRepository, event models.MatchingEvent, qty int, err error) error {
 	updateStatusAndQty(&event.Order, qty)
+	event.Order.Status = "canceled"
 	var orderEvents = []*models.OrderEvent{{
 		Topic: "OrderEvents",
 		Event: "OrderConfirmationFailed",

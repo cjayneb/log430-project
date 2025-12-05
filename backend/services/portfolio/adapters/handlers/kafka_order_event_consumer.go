@@ -84,8 +84,6 @@ func (k *KafkaOrderEventConsumer) handleMessage(msg *kafka.Message) {
 			log.Error("error handling OrderCompliant event", "error", err)
 			break
 		}
-		// TODO FOR ALL commitMessage, find what is the best course of action if committing fails (idea: make sure operations idempotent)
-		// TODO: For all event consumers, figure out what to do when processing fails (non committed messages are not reprocessed automatically)
 		_, _ = k.consumer.CommitMessage(msg)
 	}
 }

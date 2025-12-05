@@ -53,7 +53,7 @@ func main() {
 	// Create request/event handlers
 	orderHandler := handler_adapters.NewOrderHandler(orderService)
 	orderCreatedHandler := handler_adapters.OrderCreatedHandler{ComplianceService: complianceService, Producer: eventProducer}
-	orderFailedHandler := handler_adapters.OrderFailedHandler{OrderService: orderService, Producer: eventProducer}
+	orderFailedHandler := handler_adapters.UpdateOrderHandler{OrderService: orderService, Tm: tm}
 	slog.Info("Kafka group id from config", "groupId", config.KafkaGroupId)
 	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderCreatedHandler, orderFailedHandler)
 

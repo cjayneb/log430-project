@@ -28,8 +28,6 @@ func NewKafkaEventProducer(host string) *KafkaEventProducer {
 func (k *KafkaEventProducer) SendEvent(ctx context.Context, event models.OrderEvent) error {
 	log := util.FromContext(ctx)
 
-	log.Info("event to send", "event", event)
-
 	jsonEventData, err := json.Marshal(event)
 	if err != nil {
 		log.Error("error when encoding JSON", "error", err)

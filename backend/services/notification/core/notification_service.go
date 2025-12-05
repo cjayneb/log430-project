@@ -21,6 +21,8 @@ type NotificationServiceImpl struct {
 	Producer          ports.EventProducer
 }
 
+// TODO: implement quasi strategy pattern
+
 func (n *NotificationServiceImpl) SendNotification(ctx context.Context, order models.Order) error {
 	log := util.FromContext(ctx)
 	log.Info("Sending email for Order", "orderId", order.ID)
@@ -79,6 +81,9 @@ func getEmailBody(order models.Order) string {
 	if order.Status == "canceled" {
 		msg = "Your order #%d has been canceled."
 	}
+	if order.Status == "partially_filled" {
+		msg = "Your order #%d has been partially filled and the remaining quantity has been canceled."
+	}
 	return fmt.Sprintf(msg, order.ID)
 }
 
@@ -86,6 +91,9 @@ func getEmailSubject(order models.Order) string {
 	msg := "Order #%d Filled"
 	if order.Status == "canceled" {
 		msg = "Order #%d Canceled"
+	}
+	if order.Status == "partially_filled" {
+		msg = "Order #%d Partially Filled"
 	}
 	return fmt.Sprintf(msg, order.ID)
 }

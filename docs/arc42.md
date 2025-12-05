@@ -476,7 +476,7 @@ These goals are to be met during the third iteration (event-driven architecture)
 
 [UC-07 Find match and execute order](#uc-07-find-match-and-execute-order) and [UC-08 Confirm order and notify](#uc-08-confirm-order-and-notify) both follow this state transition diagram :
 
-![PNG Image](order_state_diagram.png)
+![PNG Image](order_state_diagram.svg)
 
 <!-- TOC --><a name="uc-01-sign-up"></a>
 ## UC-01 Sign up
@@ -924,7 +924,7 @@ Accepted
 
 
 <!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
-## ADR-08: Notification sender
+## ADR-08: Notification sender Resend
 
 <!-- TOC --><a name="context-6"></a>
 ### Context

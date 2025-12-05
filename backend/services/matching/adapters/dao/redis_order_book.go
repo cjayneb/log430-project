@@ -7,9 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 )
 
 const ORDER_PERSISTANCE_QUEUE = "orderpersistancequeue"
@@ -206,6 +206,8 @@ func (book *RedisOrderBook) GetById(ctx context.Context, orderId int) (models.Or
 }
 
 func (book *RedisOrderBook) Insert(ctx context.Context, order *models.Order) error {
+	log := util.FromContext(ctx)
+
 	sideKey := keyBook(order.Symbol, order.Action, order.Type)
 	order.SideKey = sideKey
 	data, err := json.Marshal(order)
@@ -250,11 +252,53 @@ func computeScore(order *models.Order) float64 {
 func (book *RedisOrderBook) Return(ctx context.Context, orders []*models.Order) {
 	log := util.FromContext(ctx)
 
-	// TODO: Send orders that could not be returned to a recovery queue that will return them safely
 	for _, order := range orders {
 		if err := book.Insert(ctx, order); err != nil {
 			log.Error("error when returning order to order book", "orderId", order.ID, "error", err)
+			go book.InsertAsync(ctx, order)
 			continue
+		}
+	}
+}
+
+func (book *RedisOrderBook) InsertAsync(ctx context.Context, order *models.Order) {
+	log := util.FromContext(ctx)
+
+	var (
+		err      error
+		backoff  = 100 * time.Millisecond
+		maxBack  = 5 * time.Second
+	)
+
+	err = book.Insert(ctx, order)
+	for err != nil {
+		select {
+		case <-ctx.Done():
+			log.Error("InsertAsync stopped due to context cancellation",
+				"orderId", order.ID, "error", err)
+			return
+		default:
+		}
+
+		log.Error("error inserting order into order book; retrying",
+			"orderId", order.ID, "error", err, "backoff", backoff)
+
+        // Sleep with backoff
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+			log.Error("InsertAsync stopped due to context cancellation during backoff",
+				"orderId", order.ID)
+			return
+		}
+
+		err = book.Insert(ctx, order)
+
+		if backoff < maxBack {
+			backoff *= 2
+			if backoff > maxBack {
+				backoff = maxBack
+			}
 		}
 	}
 }

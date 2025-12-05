@@ -16,7 +16,7 @@ func (h *OrderCompliantHandler) handle(ctx context.Context, event models.OrderEv
 	log := util.FromContext(ctx)
 
 	order := event.Order
-	err := h.Tm.Do(ctx, func(or ports.OrderRepository, _ ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
+	err := h.Tm.Do(ctx, func(_ ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
 		total := order.UnitPrice * float64(order.Quantity)
 		err := reserveFunds(ctx, order, wr, total)
 		if err != nil {
@@ -85,6 +85,7 @@ func createQuantitiesReservedOutboxEvent(ctx context.Context, event models.Order
 func createReservingQuantitiesFailedOutboxEvent(ctx context.Context, event models.OrderEvent, obr ports.OutboxRepository, err error) error {
 	event.Topic = "OrderEvents"
 	event.Event = "ReservingQuantitiesFailed"
+	event.Order.Status = "canceled"
 	event.Error = err.Error()
 	return obr.CreateOrderEvents(ctx, []*models.OrderEvent{&event})
 }
