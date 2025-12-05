@@ -121,9 +121,13 @@ func createOrderEvent(event models.MatchingEvent, order *models.Order) models.Or
 }
 
 func revertPositionsReservations(ctx context.Context, posRepo ports.PositionRepository, incomingOrder models.Order, qty int, claimedOrders []*models.ClaimedCandidate) error {
-	deltas := []models.PositionDelta{{UserID: incomingOrder.UserID, Symbol: incomingOrder.Symbol, Qty: qty}}
-	for _, co := range claimedOrders {
-		deltas = append(deltas, models.PositionDelta{UserID: co.Order.UserID, Symbol: co.Order.Symbol, Qty: co.ClaimedQty})
+	var deltas []models.PositionDelta
+	if incomingOrder.Action == "sell" {
+		deltas = []models.PositionDelta{{UserID: incomingOrder.UserID, Symbol: incomingOrder.Symbol, Qty: qty}}
+	} else {
+		for _, co := range claimedOrders {
+			deltas = append(deltas, models.PositionDelta{UserID: co.Order.UserID, Symbol: co.Order.Symbol, Qty: co.ClaimedQty})
+		}
 	}
 	return posRepo.RevertReservations(ctx, deltas)
 }

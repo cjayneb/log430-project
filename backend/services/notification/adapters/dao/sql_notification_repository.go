@@ -25,6 +25,11 @@ func (repo *SQLNotificationRepository) FindByUserId(ctx context.Context, userId 
 
 	var pref models.NotificationPreference
 	e := row.Scan(&pref.Email, &pref.SMS, &pref.Push)
+	if e == sql.ErrNoRows {
+		pref.UserID = userId
+		_ = repo.Create(ctx, &pref)
+		return &pref, nil
+	}
 	if e != nil {
 		return nil, e
 	}
