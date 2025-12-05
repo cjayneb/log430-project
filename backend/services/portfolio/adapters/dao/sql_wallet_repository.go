@@ -216,7 +216,7 @@ func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount
 			res, err := repo.tx.ExecContext(ctx,
 				`INSERT INTO brokerx.wallets (id, user_id, available_funds)
 				 VALUES (?, ?, 0)`,
-				userId,
+				walletId, userId,
 			)
 			if err != nil {
 				log.Error("failed to create wallet", "error", err)
