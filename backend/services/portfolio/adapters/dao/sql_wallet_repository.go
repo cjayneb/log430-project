@@ -223,7 +223,7 @@ func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount
 				return err
 			}
 
-			_, err := res.LastInsertId()
+			_, err = res.LastInsertId()
 			if err != nil {
 				return fmt.Errorf("failed to get new wallet id: %w", err)
 			}
