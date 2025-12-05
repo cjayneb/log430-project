@@ -79,16 +79,16 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	ctx = util.WithLogger(ctx, log)
 
 	switch event.Event {
-	case "OrderValidated":
-		log.Info("Received OrderValidated event.")
+	case "QuantitiesReserved":
+		log.Info("Received QuantitiesReserved event.", "orderId", event.Order.ID)
 		err := k.orderValidatedHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderValidated event", "error", err)
+			log.Error("error handling QuantitiesReserved event", "error", err)
 			break
 		}
 		_, _ = k.consumer.CommitMessage(msg)
 	case "OrderOpen":
-		log.Info("Received OrderOpen event.")
+		log.Info("Received OrderOpen event.", "orderId", event.Order.ID)
 		k.orderOpenHandler.handle(ctx, event)
 		_, _ = k.consumer.CommitMessage(msg)
 	}

@@ -41,6 +41,7 @@ jobs:
         run: go build ./...
         working-directory: ./backend/services/${{ matrix.service }}
 
+      # TODO: reactivate tests
       # - name: Start tests dependencies
       #   run: |
       #     docker rm -f brokerx_test_db || true

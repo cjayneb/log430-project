@@ -91,7 +91,7 @@ func (engine *MatchingEngineImpl) SubmitOrder(ctx context.Context, order *models
 		return engine.Producer.SendEvent(ctx, "OrderEvents", "OrderMatchingFailed", *order, nil)
 	}
 
-	if err := engine.Producer.SendMatchingEvent(ctx, "MatchingEvents", "OrderMatched", *order, claimedOrders, executionBuffer, nil); err != nil {
+	if err := engine.Producer.SendMatchingEvent(ctx, "PortfolioEvents", "OrderMatched", *order, claimedOrders, executionBuffer, nil); err != nil {
 		log.Error("error sending OrderMatched event. returning all used orders...", "error", err)
 		engine.OrderBook.Return(ctx, usedOrders)
 		return err
@@ -105,10 +105,10 @@ func HandleIocOrder(incoming *models.Order, claimedOrders *[]*models.ClaimedCand
 		return
 	}
 
-	if incoming.RemainingQuantity > 0 {
+	if incoming.RemainingQuantity == incoming.Quantity {
 		incoming.Status = "canceled"
-		incoming.RemainingQuantity = incoming.Quantity
 		RevertClaimedOrders(claimedOrders, unclaimedCandidates)
+		*claimedOrders = nil
 		*executionBuffer = nil
 	}
 }
@@ -116,28 +116,25 @@ func HandleIocOrder(incoming *models.Order, claimedOrders *[]*models.ClaimedCand
 func RevertClaimedOrders(claimedOrders *[]*models.ClaimedCandidate, unclaimedCandidates *[]*models.Order) {
 	for _, claimed := range *claimedOrders {
 		claimed.Order.RemainingQuantity += claimed.ClaimedQty
-		claimed.Order = *UpdateStatus(&claimed.Order)
+		UpdateStatus(&claimed.Order)
 		*unclaimedCandidates = append(*unclaimedCandidates, &claimed.Order)
 	}
 }
 
-func UpdateStatus(order *models.Order) *models.Order {
+func UpdateStatus(order *models.Order) {
 	if order.RemainingQuantity != 0 && order.RemainingQuantity < order.Quantity {
 		order.Status = "partially_filled"
-		return order
+		return
 	}
 
 	if order.RemainingQuantity == 0 {
 		order.Status = "filled"
-		return order
+		return
 	}
 
 	if order.RemainingQuantity == order.Quantity {
 		order.Status = "open"
-		return order
 	}
-
-	return order
 }
 
 func pickID(a, b *models.Order, side string) int {

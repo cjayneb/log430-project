@@ -114,7 +114,7 @@ func (handler *PortfolioHandler) FundWallet(w http.ResponseWriter, r *http.Reque
 	util.WriteJSON(w, http.StatusOK, WalletResponse{Wallet: *wallet})
 }
 
-func (handler *PortfolioHandler) FetchPositions(w http.ResponseWriter, r *http.Request) {
+func (handler *PortfolioHandler) FetchPositionsForSymbol(w http.ResponseWriter, r *http.Request) {
 	log := util.FromContext(r.Context())
 
 	userIDStr := r.Header.Get(USER_ID_HEADER_KEY)
@@ -140,7 +140,36 @@ func (handler *PortfolioHandler) FetchPositions(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	positions, err := handler.Service.FetchPositions(r.Context(), userID, symbol)
+	positions, err := handler.Service.FetchPositionsForSymbol(r.Context(), userID, symbol)
+	if err != nil {
+		msg := "failed to fetch positions"
+		log.Warn(msg, "error", err)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
+		return
+	}
+
+	util.WriteJSON(w, http.StatusOK, PositionsResponse{Positions: positions})
+}
+
+func (handler *PortfolioHandler) FetchPositionsForUser(w http.ResponseWriter, r *http.Request) {
+	log := util.FromContext(r.Context())
+
+	userIDStr := r.Header.Get(USER_ID_HEADER_KEY)
+	if userIDStr == "" {
+		msg := "missing user authentication context"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusUnauthorized, ErrorResponse{ErrorMessage: msg})
+		return
+	}
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		msg := "invalid 'user_id' parameter"
+		log.Warn(msg)
+		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
+		return
+	}
+
+	positions, err := handler.Service.FetchPositionsForUser(r.Context(), userID)
 	if err != nil {
 		msg := "failed to fetch positions"
 		log.Warn(msg, "error", err)

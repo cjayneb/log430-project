@@ -9,12 +9,12 @@ import (
 
 const INVALID_PRICE_BAND_MSG string = "The specified price is outside the instrument's price band"
 
-type CR006InstrumentPriceBand struct {
+type CR004InstrumentPriceBand struct {
 	instrument   *models.Instrument
 	currentPrice float64
 }
 
-func (c *CR006InstrumentPriceBand) Setup(inputs ComplianceRuleInputs) error {
+func (c *CR004InstrumentPriceBand) Setup(inputs ComplianceRuleInputs) error {
 	if inputs.CurrentPrice == nil || inputs.Instrument == nil {
 		return fmt.Errorf("%w: neither instrument nor currenPrice can be absent", common.ErrDependencyFailure)
 	}
@@ -23,15 +23,15 @@ func (c *CR006InstrumentPriceBand) Setup(inputs ComplianceRuleInputs) error {
 	return nil
 }
 
-func NewCR006InstrumentPriceBand() *CR006InstrumentPriceBand {
-	return &CR006InstrumentPriceBand{}
+func NewCR004InstrumentPriceBand() *CR004InstrumentPriceBand {
+	return &CR004InstrumentPriceBand{}
 }
 
-func (c *CR006InstrumentPriceBand) Verify(ctx context.Context, order *models.Order) error {
+func (c *CR004InstrumentPriceBand) Verify(ctx context.Context, order *models.Order) error {
 	if order.Type == "market" {
 		return nil
 	}
-	
+
 	maxPrice := c.currentPrice + c.currentPrice*(1.0/float64(c.instrument.PriceBandPercent))
 	minPrice := c.currentPrice - c.currentPrice*(1.0/float64(c.instrument.PriceBandPercent))
 	if order.UnitPrice < minPrice || order.UnitPrice > maxPrice {
@@ -41,4 +41,4 @@ func (c *CR006InstrumentPriceBand) Verify(ctx context.Context, order *models.Ord
 	return nil
 }
 
-var _ ComplianceRule = (*CR006InstrumentPriceBand)(nil) // Ensure interface is implemented at compile time
+var _ ComplianceRule = (*CR004InstrumentPriceBand)(nil) // Ensure interface is implemented at compile time

@@ -173,7 +173,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
         }
 		msg := "error when registering user"
 		log.Error(msg, "error", err)
-		util.WriteJSON(w, http.StatusBadRequest, ErrorResponse{ErrorMessage: msg})
+		util.WriteJSON(w, http.StatusInternalServerError, ErrorResponse{ErrorMessage: msg})
         return
     }
 

@@ -11,13 +11,25 @@ type SQLUserRepository struct {
 	DB *sql.DB
 }
 
+func (repo *SQLUserRepository) FindByUserId(ctx context.Context, userId int) (*models.User, error) {
+	row := repo.DB.QueryRowContext(ctx, "SELECT id, email FROM brokerx.users WHERE id=?", userId)
+
+	var user models.User
+	e := row.Scan(&user.ID, &user.Email)
+	if e != nil {
+		return nil, e
+	}
+
+	return &user, nil
+}
+
 func (repo *SQLUserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
         INSERT INTO brokerx.users (email, password, first_name, last_name, status)
         VALUES (?, ?, ?, ?, ?)
     `
-    _, err := repo.DB.Exec(query, user.Email, user.Password, user.FirstName, user.LastName, user.Status)
-    return err
+	_, err := repo.DB.Exec(query, user.Email, user.Password, user.FirstName, user.LastName, user.Status)
+	return err
 }
 
 func (repo *SQLUserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {

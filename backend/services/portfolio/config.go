@@ -10,7 +10,8 @@ type Config struct {
 	DBUrl string `env:"DATABASE_URL" envDefault:"root:root@tcp(127.0.0.1:3306)/brokerx?parseTime=true"`
 
 	KafkaHost							string `env:"KAFKA_HOST" envDefault:"127.0.0.1:9092"`
-	KafkaGroupId						string `env:"KAFKA_GROUP_ID" envDefault:"group3"`
+	KafkaMatchGroupId						string `env:"KAFKA_MATCH_GROUP_ID" envDefault:"portfolio-match-group"`
+	KafkaOrderGroupId						string `env:"KAFKA_ORDER_GROUP_ID" envDefault:"portfolio-order-group"`
 }
 
 func (config *Config) LoadConfig() error {

@@ -8,12 +8,38 @@ node "ETS VM (Linux)" as VM {
   }
 
   node "Docker Engine" as Docker {
-    node "BrokerX API Container (brokerx_app)" as API {
-      artifact "Go API Server\n(brokerx.exe)" as GoApp
+    node "NGINX API Gateway" as nginx {
+      artifact "nginx.conf" as nginxconf
+    }
+    
+    node "frontend-service Container" as frontend {
+      artifact "Go API\n(frontend-service)" as faf
+    }
+    
+    node "order-service Container" as order {
+      artifact "Go API\n(order-service)" as oaf
+    }
+    
+    node "portfolio-service Container" as portfolio {
+      artifact "Go API\n(portfolio-service)" as paf
+    }
+    
+    node "market-data-service Container" as market {
+      artifact "Go API\n(market-data-service)" as mdaf
+    }
+    
+    node "matching-service Container" as matching {
+      artifact "Go API\n(matching-service)" as maf
     }
 
     node "MySQL Container (brokerx_db)" as DB {
       artifact "MySQL Database\n(brokerx)" as MySQL
+    }
+    
+    node "Redis Container" as redis {
+    }
+    
+    node "Kafka Container" as kafka {
     }
   }
 }
@@ -26,9 +52,8 @@ node "Client Machine" as ClientMachine {
 }
 
 ' Relationships
-browser --> GoApp : sends HTTP requests
-browser <-- GoApp : Serves rendred HTML pages and data
-GoApp --> MySQL : SQL queries over TCP
+browser --> nginx : sends HTTP requests
+browser <-- nginx : Serves rendred HTML pages and data
 
 Runner --> Docker : Deploys containers (docker-compose up)
 

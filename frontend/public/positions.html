@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrokerX - Positions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ccc;
+        }
+
+        th,
+        td {
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>BrokerX - Positions</h1>
+    <a href="/orders.html">Orders</a>
+    <a href="/wallet.html">Wallet</a> |
+    <a href="/positions.html">Positions</a>
+    <a href="/" onclick="logout()">Logout</a>
+
+    <section>
+        <h2>Your Positions</h2>
+        <div id="posContainers">
+            <p>Loading your positions...</p>
+        </div>
+    </section>
+
+    <script>
+        const token = localStorage.getItem("jwt");
+        if (!token) {
+            window.location.href = "/";
+        }
+
+        const apiBase = "/api/portfolio";
+
+        // Fetch user's positions
+        async function loadPositions() {
+            const res = await fetch(apiBase+"/positions/user", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!res.ok) {
+                document.getElementById("posContainers").innerHTML =
+                    "<p>Failed to load positions.</p>";
+                return;
+            }
+
+            const data = await res.json();
+            if (!data || data.positions.length === 0) {
+                document.getElementById("posContainers").innerHTML =
+                    "<p>No positions yet.</p>";
+                return;
+            }
+
+            let html = `
+            <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Symbol</th>
+                    <th>Available quantity</th>
+                    <th>Reserved quantity</th>
+                </tr>
+                </thead>
+                <tbody>
+            `;
+
+            for (const p of data.positions) {
+                html += `
+                <tr>
+                    <td>${p.id}</td>
+                    <td>${p.symbol}</td>
+                    <td>${p.available_quantity}</td>
+                    <td>${p.reserved_quantity}</td>
+                </tr>
+                `;
+            }
+
+            html += "</tbody></table></div>";
+            document.getElementById("posContainers").innerHTML = html;
+        }
+
+        function logout() {
+            localStorage.removeItem("jwt");
+        }
+
+        loadPositions();
+    </script>
+</body>
+
+</html>

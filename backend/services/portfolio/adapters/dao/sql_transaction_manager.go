@@ -11,7 +11,7 @@ type SQLTransactionManager struct {
 	DB *sql.DB
 }
 
-func (manager *SQLTransactionManager) Do(ctx context.Context, fn func(ports.OrderRepository, ports.ExecutionRepository, ports.WalletRepository, ports.PositionRepository, ports.OutboxRepository) error) error {
+func (manager *SQLTransactionManager) Do(ctx context.Context, fn func(ports.ExecutionRepository, ports.WalletRepository, ports.PositionRepository, ports.OutboxRepository) error) error {
 	log := util.FromContext(ctx)
 
 	tx, err := manager.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
@@ -22,13 +22,12 @@ func (manager *SQLTransactionManager) Do(ctx context.Context, fn func(ports.Orde
 	//nolint
 	defer tx.Rollback()
 
-	orderRepo := NewOrderRepo(tx)
 	executionRepo := NewExecutionRepo(tx)
 	walletRepo := NewWalletRepo(tx)
 	positionRepo := NewPositionRepo(tx)
 	outboxRepo := NewOutboxRepo(tx)
 
-	if err := fn(orderRepo, executionRepo, walletRepo, positionRepo, outboxRepo); err != nil {
+	if err := fn(executionRepo, walletRepo, positionRepo, outboxRepo); err != nil {
 		return err
 	}
 	return tx.Commit()

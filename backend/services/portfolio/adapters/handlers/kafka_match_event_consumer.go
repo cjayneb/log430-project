@@ -12,12 +12,12 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-type KafkaEventConsumer struct {
+type KafkaMatchingEventConsumer struct {
 	consumer            *kafka.Consumer
 	orderMatchedHandler OrderMatchedHandler
 }
 
-func NewKafkaEventConsumer(host string, groupId string, orderMatchedHandler OrderMatchedHandler) *KafkaEventConsumer {
+func NewKafkaMatchingEventConsumer(host string, groupId string, orderMatchedHandler OrderMatchedHandler) *KafkaMatchingEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -30,13 +30,13 @@ func NewKafkaEventConsumer(host string, groupId string, orderMatchedHandler Orde
 		os.Exit(1)
 	}
 
-	return &KafkaEventConsumer{
+	return &KafkaMatchingEventConsumer{
 		consumer:            c,
 		orderMatchedHandler: orderMatchedHandler,
 	}
 }
 
-func (k *KafkaEventConsumer) Start(topic string) {
+func (k *KafkaMatchingEventConsumer) Start(topic string) {
 	err := k.consumer.SubscribeTopics([]string{topic}, nil)
 	if err != nil {
 		slog.Error("Unable to subscribe to topic", "error", err)
@@ -57,7 +57,7 @@ func (k *KafkaEventConsumer) Start(topic string) {
 	}
 }
 
-func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
+func (k *KafkaMatchingEventConsumer) handleMessage(msg *kafka.Message) {
 	var log *slog.Logger
 	for _, header := range msg.Headers {
 		if header.Key == string(util.HeaderTraceId) {
@@ -78,7 +78,7 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 
 	switch event.Event {
 	case "OrderMatched":
-		log.Info("Received OrderMatched event.")
+		log.Info("Received OrderMatched event.", "orderId", event.Order.ID)
 		err := k.orderMatchedHandler.handle(ctx, event)
 		if err != nil {
 			log.Error("error handling OrderMatched event", "error", err)
@@ -88,4 +88,4 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 	}
 }
 
-var _ ports.EventConsumer = (*KafkaEventConsumer)(nil) // Ensure interface is implemented at compile time
+var _ ports.EventConsumer = (*KafkaMatchingEventConsumer)(nil) // Ensure interface is implemented at compile time

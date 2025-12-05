@@ -35,7 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("Starting Portfolio Service", "port", config.Port)
+	slog.Info("Starting User Service", "port", config.Port)
 	router := run()
 	if err := http.ListenAndServe(":"+config.Port, router); err != nil {
 		slog.Error("Server error", "error", err)
@@ -45,15 +45,19 @@ func main() {
 
 func run() http.Handler {
 	userRepo := initDbConnection()
+
 	authService := &core.AuthServiceImpl{
 		Repo: userRepo,
 		PasswordAllowedRetries: config.PasswordAllowedRetries,
 		PasswordLockDurationMinutes: config.PasswordLockDurationMinutes,
 	}
+	userService := core.UserServiceImpl{Repo: userRepo}
+
 	authHandler := &handler_adapters.AuthHandler{
 		Service:   authService,
 		JWTSecret: []byte(config.JWTSecret),
 	}
+	userHandler := handler_adapters.UserHandler{Service: &userService}
 
 	r := chi.NewRouter()
 	r.Use(httplog.RequestLogger(logger()))
@@ -63,6 +67,7 @@ func run() http.Handler {
 	r.Post("/api/user/register", authHandler.Register)
 	r.Post("/api/user/auth/login", authHandler.Login)
 	r.Get("/api/user/auth/verify", authHandler.VerifyToken)
+	r.Get("/api/user/contact", userHandler.GetUserContactInfo)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		log := util.FromContext(r.Context())

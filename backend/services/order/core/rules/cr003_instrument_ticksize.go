@@ -10,11 +10,11 @@ import (
 
 const INVALID_TICK_SIZE_MSG string = "The specified price does not match the instrument's tick size"
 
-type C005InstrumentTickSize struct {
+type CR003InstrumentTickSize struct {
 	instrument *models.Instrument
 }
 
-func (c *C005InstrumentTickSize) Setup(inputs ComplianceRuleInputs) error {
+func (c *CR003InstrumentTickSize) Setup(inputs ComplianceRuleInputs) error {
 	if inputs.Instrument == nil {
 		return fmt.Errorf("%w: instrument cannot be absent", common.ErrDependencyFailure)
 	}
@@ -22,11 +22,11 @@ func (c *C005InstrumentTickSize) Setup(inputs ComplianceRuleInputs) error {
 	return nil
 }
 
-func NewC005InstrumentTickSize() *C005InstrumentTickSize {
-	return &C005InstrumentTickSize{}
+func NewCR003InstrumentTickSize() *CR003InstrumentTickSize {
+	return &CR003InstrumentTickSize{}
 }
 
-func (c *C005InstrumentTickSize) Verify(ctx context.Context, order *models.Order) error {
+func (c *CR003InstrumentTickSize) Verify(ctx context.Context, order *models.Order) error {
 	if order.Type == "market" {
 		return nil
 	}
@@ -43,4 +43,4 @@ func isValidTick(price, tickSize float64) bool {
 	return remainder < 1e-9 || math.Abs(remainder-tickSize) < 1e-9
 }
 
-var _ ComplianceRule = (*C005InstrumentTickSize)(nil) // Ensure interface is implemented at compile time
+var _ ComplianceRule = (*CR003InstrumentTickSize)(nil) // Ensure interface is implemented at compile time

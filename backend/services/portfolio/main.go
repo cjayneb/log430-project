@@ -50,6 +50,7 @@ func run() http.Handler {
 	portfolioService := &core.PortfolioServiceImpl{
 		WalletRepo:    walletRepo,
 		PositionsRepo: positionsRepo,
+		Tm: &tm,
 	}
 	portfolioHandler := handler_adapters.PortfolioHandler{Service: portfolioService}
 
@@ -58,8 +59,12 @@ func run() http.Handler {
 		Producer: eventProducer,
 		Tm: &tm,
 	}
-	eventConsumer := handler_adapters.NewKafkaEventConsumer(config.KafkaHost, config.KafkaGroupId, orderMatchedHandler)
-	go eventConsumer.Start("MatchingEvents")
+	matchingEventConsumer := handler_adapters.NewKafkaMatchingEventConsumer(config.KafkaHost, config.KafkaMatchGroupId, orderMatchedHandler)
+	go matchingEventConsumer.Start("PortfolioEvents")
+
+	orderCompliantHandler := handler_adapters.OrderCompliantHandler{Producer: eventProducer, Tm: &tm}
+	orderEventConsumer := handler_adapters.NewKafkaOrderEventConsumer(config.KafkaHost, config.KafkaOrderGroupId, orderCompliantHandler)
+	go orderEventConsumer.Start("PortfolioEvents")
 
 	outboxDispatcher := core.NewOutboxDispatcher(outboxRepo, eventProducer, 500 * time.Millisecond, 100, 10, 1 * time.Second)
 	go outboxDispatcher.Start()
@@ -72,7 +77,8 @@ func run() http.Handler {
 
 	r.Get("/api/portfolio/wallet", portfolioHandler.GetWallet)
 	r.Patch("/api/portfolio/wallet/fund", portfolioHandler.FundWallet)
-	r.Get("/api/portfolio/positions", portfolioHandler.FetchPositions)
+	r.Get("/api/portfolio/positions", portfolioHandler.FetchPositionsForSymbol)
+	r.Get("/api/portfolio/positions/user", portfolioHandler.FetchPositionsForUser)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		log := util.FromContext(r.Context())

@@ -1,5 +1,10 @@
-<h2>Wallet</h2>
+<h1>BrokerX - Wallet</h1>
+<a href="/orders.html">Orders</a>
+<a href="/wallet.html">Wallet</a> |
+<a href="/positions.html">Positions</a>
+<a href="/" onclick="logout()">Logout</a>
 <div id="balance">Loading...</div>
+<div id="reserved_funds">Loading...</div>
 
 <form id="fundForm">
     <input type="number" name="amount" placeholder="Add funds" min="1" required>
@@ -14,7 +19,8 @@
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const wallet = await res.json();
-        document.getElementById('balance').innerText = `Balance: $${wallet.wallet.available_funds}`;
+        document.getElementById('balance').innerText = `Available funds: $${wallet.wallet.available_funds}`;
+        document.getElementById('reserved_funds').innerText = `Reserved funds: $${wallet.wallet.reserved_funds}`;
     }
 
     document.getElementById('fundForm').onsubmit = async (e) => {

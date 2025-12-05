@@ -13,12 +13,12 @@ import (
 )
 
 type KafkaEventConsumer struct {
-	consumer                     *kafka.Consumer
-	orderCreatedHandler          OrderCreatedHandler
-	orderFailedHandler OrderFailedHandler
+	consumer            *kafka.Consumer
+	orderCreatedHandler OrderCreatedHandler
+	updateOrderHandler  UpdateOrderHandler
 }
 
-func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler OrderCreatedHandler, orderFailedHandler OrderFailedHandler) *KafkaEventConsumer {
+func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler OrderCreatedHandler, updateOrderHandler UpdateOrderHandler) *KafkaEventConsumer {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  host,
 		"group.id":           groupId,
@@ -32,9 +32,9 @@ func NewKafkaEventConsumer(host string, groupId string, orderCreatedHandler Orde
 	}
 
 	return &KafkaEventConsumer{
-		consumer:                     c,
-		orderCreatedHandler:          orderCreatedHandler,
-		orderFailedHandler: orderFailedHandler,
+		consumer:            c,
+		orderCreatedHandler: orderCreatedHandler,
+		updateOrderHandler:  updateOrderHandler,
 	}
 }
 
@@ -80,24 +80,24 @@ func (k *KafkaEventConsumer) handleMessage(msg *kafka.Message) {
 
 	switch event.Event {
 	case "OrderCreated":
-		log.Info("Received OrderCreated event.")
+		log.Info("Received OrderCreated event.", "orderId", event.Order.ID)
 		err := k.orderCreatedHandler.handle(ctx, event)
 		if err != nil {
 			log.Error("error handling OrderCreated event", "error", err)
 			break
 		}
 		_, _ = k.consumer.CommitMessage(msg)
-	case "OrderCreatedFailed", "OrderComplianceFailed", "OrderQueuingFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
-		log.Info("Received OrderFailed event", "event", event.Event)
-		err := k.orderFailedHandler.handle(ctx, event)
+	case "OrderConfirmed", "OrderCreatedFailed", "OrderComplianceFailed", "ReservingQuantitiesFailed", "OrderMatchingFailed", "OrderConfirmationFailed":
+		log.Info("Received UpdateOrder event", "event", event.Event, "orderId", event.Order.ID)
+		err := k.updateOrderHandler.handle(ctx, event)
 		if err != nil {
-			log.Error("error handling OrderFailed event", "error", err)
+			log.Error("error handling UpdateOrder event", "error", err)
 			break
 		}
 		_, _ = k.consumer.CommitMessage(msg)
 	case "OrderSagaCompleted":
 		if event.Error != "" {
-			log.Error("Order Saga completed with an error", "error", event.Error)
+			log.Error("Order Saga completed with an error", "error", event.Error, "orderId", event.Order.ID)
 		} else {
 			log.Info("Order Saga completed!", "orderId", event.Order.ID)
 		}

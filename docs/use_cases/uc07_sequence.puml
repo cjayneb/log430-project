@@ -1,26 +1,19 @@
 @startuml
 title UC-07 Matching & Execution
 
+participant "OrderValidatedHandler" as handler
 participant "MatchingEngine (core)" as MatchEngine
-participant "TransactionManager (ports)" as tx
-participant "OrderRepository (ports)" as Repo
-database "MySQL" as DB
-participant "ExecutionRepository (ports)" as ExecRepo
-
+participant "OrderBook (ports)" as book
+database "Redis" as redis
+queue "Kafka" as kafka
 
 == Asynchronous (in Goroutine) ==
-->> MatchEngine : SubmitOrder(order)
-MatchEngine -> tx : Do(ctx, func(orderRepo, execRepo))
-== Transaction start ==
-MatchEngine -> Repo : err := FindMatches(order)
-Repo -> DB : SELECT * FROM orders ... FOR UPDATE
-DB --> Repo : List of matching orders
-Repo --> MatchEngine : Orders
+->> handler : QuantitiesReservedEvent
+handler -> MatchEngine : err := SubmitOrder(event.Order)
+MatchEngine -> book : err, matches := FindMatches(order, limit)
+book -> redis : err, matches := getMatchesAndPopScript.Run()
+MatchEngine -> MatchEngine : UpdateOrders(order, matches)
+MatchEngine -> kafka: OrderMatchedEvent
 
-MatchEngine -> Repo : err := Update(order)
-Repo -> DB : UPDATE order...
-MatchEngine -> ExecRepo : err := Create(execution)
-ExecRepo -> DB : INSERT INTO executions ...
-== Transaction end (commit) ==
 
 @enduml

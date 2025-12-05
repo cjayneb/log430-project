@@ -12,27 +12,29 @@ import (
 type PortfolioService interface {
 	GetWallet(ctx context.Context, userId int) (*models.Wallet, error)
 	FundWallet(ctx context.Context, userId int, amount float64) error
-	FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
+	FetchPositionsForUser(ctx context.Context, userId int) ([]*models.Position, error)
+	FetchPositionsForSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error)
 }
 
 type PortfolioServiceImpl struct {
 	PositionsRepo ports.PositionRepository
+	Tm 		  	  ports.TransactionManager
 	WalletRepo    ports.WalletRepository
 }
 
 func (service *PortfolioServiceImpl) FundWallet(ctx context.Context, userId int, amount float64) error {
 	log := util.FromContext(ctx)
 
-	// TODO: add checks for compliance
 	if amount <=0 {
 		msg := "amount must be positive"
 		log.Error(msg)
 		return errors.New(msg)
 	}
-	return service.WalletRepo.AddFunds(ctx, userId, amount)
+	return service.Tm.Do(ctx, func(_ ports.ExecutionRepository, wr ports.WalletRepository, _ ports.PositionRepository, _ ports.OutboxRepository) error {
+		return wr.AddFunds(ctx, userId, amount)
+	})
 }
 
-// TODO: Reserve funds and add to wallet ledger with idempotency key and transaction manager
 func (service *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) (*models.Wallet, error) {
 	wallet, err := service.WalletRepo.FindByUserId(ctx, userId)
 	if wallet == nil {
@@ -41,8 +43,12 @@ func (service *PortfolioServiceImpl) GetWallet(ctx context.Context, userId int) 
 	return wallet, err
 }
 
-func (service *PortfolioServiceImpl) FetchPositions(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
+func (service *PortfolioServiceImpl) FetchPositionsForSymbol(ctx context.Context, userId int, symbol string) ([]*models.Position, error) {
 	return service.PositionsRepo.FindByUserIdAndSymbol(ctx, userId, symbol)
+}
+
+func (service *PortfolioServiceImpl) FetchPositionsForUser(ctx context.Context, userId int) ([]*models.Position, error) {
+	return service.PositionsRepo.FindByUserId(ctx, userId)
 }
 
 var _ PortfolioService = (*PortfolioServiceImpl)(nil) // Ensure interface is implemented at compile time

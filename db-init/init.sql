@@ -15,8 +15,22 @@ CREATE UNIQUE INDEX idx_users_email ON users(email);
 
 INSERT INTO users (email, password, first_name, last_name, status) VALUES
 ('email', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'fn', 'ln', 'active'),
-('buyer@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'buyer', 'man', 'active'),
-('seller@email.com', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'seller', 'woman', 'active');
+('jean-christophe.benoit.1@ens.etsmtl.ca', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'buyer', 'man', 'active'),
+('jc_ben@live.ca', '$2a$14$VWlwuLF38a4lcpkmsBk9Bulkanjd2mauqYDkU9Y5OziSgbA9CryZG', 'seller', 'woman', 'active');
+
+CREATE TABLE IF NOT EXISTS notification_preference (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id int NOT NULL,
+    email BOOLEAN NOT NULL DEFAULT TRUE,
+    sms BOOLEAN NOT NULL DEFAULT FALSE,
+    push BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX idx_notif_userid ON notification_preference(user_id);
+
+INSERT INTO notification_preference (user_id) VALUES (2), (3);
 
 CREATE TABLE IF NOT EXISTS wallets (
     id CHAR(36) PRIMARY KEY,
@@ -89,16 +103,16 @@ CREATE TABLE IF NOT EXISTS positions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     symbol VARCHAR(10) NOT NULL,
-    quantity INT NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL,
+    available_quantity INT NOT NULL,
+    reserved_quantity INT NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX idx_positions_user ON positions(user_id);
 
-INSERT INTO positions (user_id, symbol, quantity, unit_price) VALUES
-(3, 'AAPL', 15, 400.00);
+INSERT INTO positions (user_id, symbol, available_quantity) VALUES
+(3, 'AAPL', 150);
 
 CREATE TABLE IF NOT EXISTS executions (
     id INT PRIMARY KEY AUTO_INCREMENT,
