@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+ "github.com/google/uuid"
 )
 
 type SQLWalletRepository struct {
@@ -208,12 +209,36 @@ func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount
 
 	w, err := repo.loadWalletForUpdate(ctx, userId)
 	if err != nil {
-		return err
+		if err.Error() == "wallet does not exist" {
+			log.Info("wallet not found — creating new wallet", "userId", userId)
+
+   walletId := uuid.New().String()
+			res, err := repo.tx.ExecContext(ctx,
+				`INSERT INTO brokerx.wallets (id, user_id, available_funds)
+				 VALUES (?, ?, 0)`,
+				userId,
+			)
+			if err != nil {
+				log.Error("failed to create wallet", "error", err)
+				return err
+			}
+
+			_, err := res.LastInsertId()
+			if err != nil {
+				return fmt.Errorf("failed to get new wallet id: %w", err)
+			}
+
+			w = &models.Wallet{
+				ID: walletId,
+			}
+		} else {
+			return err // actual DB error
+		}
 	}
 
 	err = repo.applyWalletDeltas(ctx, w.ID, amount, 0)
 	if err == nil {
-		log.Info("funds reverted", "amount", amount)
+		log.Info("funds added", "amount", amount)
 	}
 
 	return err
