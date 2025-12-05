@@ -29,17 +29,26 @@ node "ETS VM (Linux)" as VM {
     }
     
     node "matching-service Container" as matching {
-      artifact "Go API\n(matching-service)" as maf
+      artifact "Go App\n(matching-service)" as maf
     }
 
-    node "MySQL Container (brokerx_db)" as DB {
-      artifact "MySQL Database\n(brokerx)" as MySQL
+    node "notification-service Container" as matching {
+      artifact "Go App\n(notification-service)" as maf
+    }
+
+    node "MySQL Container" as DB {
+      database "MySQL Database\n(brokerx_db)" as MySQL
     }
     
     node "Redis Container" as redis {
+      database "Redis Cache" as Redis
     }
     
     node "Kafka Container" as kafka {
+      queue "OrderEvents"
+      queue "NotificationEvents"
+      queue "MatchingEvents"
+      queue "PortfolioEvents"
     }
   }
 }
@@ -51,10 +60,15 @@ node "Client Machine" as ClientMachine {
     }
 }
 
-' Relationships
-browser --> nginx : sends HTTP requests
-browser <-- nginx : Serves rendred HTML pages and data
+node "Dev Machine" as DevMachine {
+    node "IDE (VS Code, IntelliJ, ...)" as IDE {
+        artifact "Golang source code\n(.go, .mod, .sum, ...)"
+    }
+}
 
-Runner --> Docker : Deploys containers (docker-compose up)
+' Relationships
+DevMachine - VM : <<HTTP>>
+ClientMachine -- VM : <<HTTP>>
+
 
 @enduml

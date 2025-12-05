@@ -5,8 +5,6 @@ LOG430 — Architecture logicielle \
 5 décembre 2025, Montréal \
 École de technologie supérieure
 
-TODO : re-add http handlers on each service
-
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Run book](#run-book)
@@ -155,6 +153,7 @@ TODO : re-add http handlers on each service
 
 <!-- TOC --><a name="run-book"></a>
 # Run book
+TODO update runbook
 <!-- TOC --><a name="prerequisites"></a>
 ## Prerequisites
 
@@ -281,6 +280,7 @@ _The current deployment pipeline is broken because of issues with the storage on
 
 <!-- TOC --><a name="user-guide"></a>
 # User Guide
+TODO update user guide
 This document show syou how to use BrokerX once it has been deployed either locally or remotely.
 
 <!-- TOC --><a name="access-brokerx"></a>
@@ -453,9 +453,7 @@ These goals are to be met during the third iteration (event-driven architecture)
 
 ![alt text](c4_level1.png)
 
-![alt text](c4-service-level.png)
-
-![alt text](package-level-diagram.png)
+![alt text](package-level-diagram.png) TODO update package level diagram
 
 ![SVG Image](class_diagram.png)
 
@@ -465,16 +463,14 @@ These goals are to be met during the third iteration (event-driven architecture)
 <!-- TOC --><a name="general-use-case-diagram"></a>
 ## General Use Case Diagram
 
-![SVG Image](use_cases/allusecases.png)
+![SVG Image](use_cases/all_use_cases.svg)
 
 > The use cases colored in green are the ones that are currently implemented in the system
-
-> Note that not all use case scenarios and runtime diagrams have been updated for the phase 3 demo due to lack of time. They will be updated before submission.
 
 <!-- TOC --><a name="order-saga-state-transition-diagram"></a>
 ## Order Saga State Transition Diagram
 
-[UC-07 Find match and execute order](#uc-07-find-match-and-execute-order) and [UC-08 Confirm order and notify](#uc-08-confirm-order-and-notify) both follow this state transition diagram :
+[UC-05 Place Order](#uc-05-place-order), [UC-07 Find match and execute order](#uc-07-find-match-and-execute-order) and [UC-08 Confirm order and notify](#uc-08-confirm-order-and-notify) all follow this state transition diagram :
 
 ![PNG Image](order_state_diagram.svg)
 
@@ -724,18 +720,22 @@ Update an incoming order and all its claimed candidates's respective user wallet
 <!-- TOC --><a name="8-cross-cutting-concepts"></a>
 # 8. Cross-cutting Concepts
 
-- Architecture semi-hexagonale
+- Quasi-hexagonal Architecture
 - Micro-services
+- Event-Driven Architecture
 - Server-side HTML rendring
 - Interfaces
 - MySQL relational database
+- Redis Cache
+- Kafka Event Broker
 - Repository pattern
 - Transaction pattern
+- Choreographed Saga with Outbox pattern
 
 
 <!-- TOC --><a name="9-design-decisions"></a>
 # 9. Design Decisions
-
+TODO: finish ADR
 ---
 
 <!-- TOC --><a name="adr-01-hexagonal-architecture"></a>
@@ -871,22 +871,12 @@ Accepted
 <!-- TOC --><a name="consequences-4"></a>
 ### Consequences
 
-
 <!-- TOC --><a name="adr-06-grafana-loki-and-promtail-for-observability"></a>
 ## ADR-06: Grafana, Loki and Promtail for observability
-TODO : promtail is deprecated
-
-TODO : fix c4 arrows
-
-TODO : fix deployment diagram (is it necessary?)
-
-TODO : fix class diagram to match code structs
-
-TODO : bounded context make match actual code
 
 <!-- TOC --><a name="context-5"></a>
 ### Context
-
+We need a way to collect the logs from each component of our system, store it and make requests on the log contents to get meaningful information about the state of each service.
 
 <!-- TOC --><a name="decision-5"></a>
 ### Decision
@@ -896,11 +886,12 @@ Use Grafana in conjonction with Promtail and Loki for logs.
 <!-- TOC --><a name="status-5"></a>
 ### Status
 
-Accepted
+Accepted (Contested)
 
 <!-- TOC --><a name="consequences-5"></a>
 ### Consequences
-
+- This ADR is marked as _Contested_ because it has been brought to my attention that Promtail has been deprecated since February 2025 (https://grafana.com/docs/loki/latest/send-data/promtail/). Not enough extensive research had been done before implementing Promtail into the system.
+- Migration to Alloy will be necessary in the near future.
 
 <!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
 ## ADR-07: Transactional Outbox Pattern
@@ -947,6 +938,8 @@ Accepted
 <!-- TOC --><a name="10-quality-requirements"></a>
 # 10. Quality Requirements
 
+TODO add details here from load test results
+
 <!-- TOC --><a name="latency"></a>
 ## Latency
 
@@ -972,6 +965,8 @@ Accepted
 - Writing a lot of code in a short amount of time can lead to lack of unit testing and therefore, quality degradation.
 - Lack of code review due to the project being individually developped.
 - There is a risk of long refactoring time between phases depending on the evolvability of the system.
+- Promtail, a deprecated service, was implemented into the system due to lack of research, causing technical debt since it will need to be replaced.
+- Lack of physical infrastructure to push the limits of horizontal scaling for performance testing.
 
 
 <!-- TOC --><a name="12-glossary"></a>

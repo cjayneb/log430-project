@@ -5,6 +5,8 @@ title BrokerX - C4 Container Diagram
 
 Person(client, "Client", "End user interacting via web browser")
 
+System_Ext(smtp, "SMTP Email Server")
+
 System_Boundary(bx, "BrokerX System") {
   Container(nginx, "NGINX API Gateway", "NGINX", "Verifies and routes requests to the appropriate service")
   Container(frontend, "frontend-service", "Go server", "Serves static html javascript files and routes some requests from frontend to backend")
@@ -22,22 +24,26 @@ System_Boundary(bx, "BrokerX System") {
 
 Rel(client, nginx, "Sends all requests through", "HTTP/REST")
 Rel(nginx, frontend, "Routes requests to", "HTTP/REST")
+Rel(nginx, user, "Authenticates incoming external requests with", "HTTP/REST")
 Rel(frontend, portfolio, "Routes requests to", "HTTP/REST")
 Rel(frontend, market, "Routes requests to", "HTTP/REST")
 Rel(frontend, order, "Submit/view orders", "HTTP/REST")
 Rel(frontend, user, "Routes login and register requests to", "HTTP/REST")
 Rel(matching, redis, "Reads/writes", "RESP/TCP")
-Rel(matching, redis, "")
+
 Rel(user, db, "Reads/writes", "TCP/IP")
 Rel(order, db, "Reads/writes", "TCP/IP")
 Rel(portfolio, db, "Reads/writes", "TCP/IP")
 Rel(portfolio, kafka, "Produces/Consumes Events to/from", "kafka binary/TCP")
-Rel(kafka, portfolio, "")
+
 Rel(matching, kafka, "Produces/Consumes Events to/from", "kafka binary/TCP")
-Rel(kafka, matching, "")
+
 Rel(order, kafka, "Produces/Consumes Events to/from", "kafka binary/TCP")
-Rel(kafka, order, "")
+
 Rel(notification, kafka, "Consumes Events from", "kafka binary/TCP")
+Rel(notification, redis, "Reads/writes", "TCP/IP")
+Rel(notification, smtp, "Sends emails through", "SMTP/TCP")
+Rel(client, smtp, "Receives emails from", "SMTP/TCP")
 
 
 @enduml

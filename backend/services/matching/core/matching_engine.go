@@ -8,13 +8,6 @@ import (
 	"log/slog"
 )
 
-type QueuedOrder struct {
-    Ctx   context.Context
-    Order *models.Order
-}
-
-var OrderQueue chan QueuedOrder
-
 type MatchingEngine interface {
 	SubmitOrder(ctx context.Context, order *models.Order) error
 }
