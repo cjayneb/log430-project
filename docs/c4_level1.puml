@@ -9,7 +9,7 @@ System_Ext(smtp, "SMTP Email Server")
 
 System_Boundary(bx, "BrokerX System") {
   Container(nginx, "NGINX API Gateway", "NGINX", "Verifies and routes requests to the appropriate service")
-  Container(frontend, "frontend-service", "Go server", "Serves static html javascript files and routes some requests from frontend to backend")
+  Container(frontend, "frontend-service", "Go server", "Serves static html javascript files")
   Container(order, "order-service", "Go RESTful API", "Handles creating and fetching orders")
   Container(user, "user-service", "Go RESTful API", "Handles authentication and user registration")
   Container(portfolio, "portfolio-service", "Go API", "Handles balancing wallets and positions quantities")
@@ -25,10 +25,9 @@ System_Boundary(bx, "BrokerX System") {
 Rel(client, nginx, "Sends all requests through", "HTTP/REST")
 Rel(nginx, frontend, "Routes requests to", "HTTP/REST")
 Rel(nginx, user, "Authenticates incoming external requests with", "HTTP/REST")
-Rel(frontend, portfolio, "Routes requests to", "HTTP/REST")
-Rel(frontend, market, "Routes requests to", "HTTP/REST")
-Rel(frontend, order, "Submit/view orders", "HTTP/REST")
-Rel(frontend, user, "Routes login and register requests to", "HTTP/REST")
+Rel(nginx, portfolio, "Routes requests to", "HTTP/REST")
+Rel(nginx, market, "Routes requests to", "HTTP/REST")
+Rel(nginx, order, "Routes requests to", "HTTP/REST")
 Rel(matching, redis, "Reads/writes", "RESP/TCP")
 
 Rel(user, db, "Reads/writes", "TCP/IP")
@@ -43,6 +42,7 @@ Rel(order, kafka, "Produces/Consumes Events to/from", "kafka binary/TCP")
 Rel(notification, kafka, "Consumes Events from", "kafka binary/TCP")
 Rel(notification, redis, "Reads/writes", "TCP/IP")
 Rel(notification, smtp, "Sends emails through", "SMTP/TCP")
+Rel(notification, user, "Request user contact info", "HTTP/REST")
 Rel(client, smtp, "Receives emails from", "SMTP/TCP")
 
 

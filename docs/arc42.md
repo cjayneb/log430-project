@@ -25,6 +25,7 @@ LOG430 — Architecture logicielle \
    * [Logging in](#logging-in)
    * [Placing an order](#placing-an-order)
    * [Adding funds to your wallet](#adding-funds-to-your-wallet)
+   * [Checking your positions](#checking-your-positions)
 - [Arc42](#arc42)
 - [1. Introduction and Goals](#1-introduction-and-goals)
    * [1.1 Requirements Overview](#11-requirements-overview)
@@ -108,11 +109,16 @@ LOG430 — Architecture logicielle \
       + [Decision](#decision-5)
       + [Status](#status-5)
       + [Consequences](#consequences-5)
-   * [ADR-07: Transactional Outbox Pattern](#adr-07-transactional-outbox-pattern)
+   * [ADR-07: Choreographed Saga with Outbox Pattern](#adr-07-choreographed-saga-with-outbox-pattern)
       + [Context](#context-6)
       + [Decision](#decision-6)
       + [Status](#status-6)
       + [Consequences](#consequences-6)
+   * [ADR-08: Notification service](#adr-08-notification-service)
+      + [Context](#context-7)
+      + [Decision](#decision-7)
+      + [Status](#status-7)
+      + [Consequences](#consequences-7)
 - [10. Quality Requirements](#10-quality-requirements)
    * [Latency](#latency)
    * [Throughput](#throughput)
@@ -153,13 +159,12 @@ LOG430 — Architecture logicielle \
 
 <!-- TOC --><a name="run-book"></a>
 # Run book
-TODO update runbook
 <!-- TOC --><a name="prerequisites"></a>
 ## Prerequisites
 
 To run this project locally, you need the following tools installed:
 
-- [Go 1.21+](https://go.dev/dl/)
+- [Go 1.25+](https://go.dev/dl/)
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/)
 
 <!-- TOC --><a name="installation"></a>
@@ -205,7 +210,7 @@ More examples
 - Home page endpoint: http://127.0.0.1:8080/ (GET)
 - Orders page endpoint: http://127.0.0.1:8080/api/order (GET)
 
-> You must have a MySQL instance and a Redis instance running on your machine for all uses cases to work
+> You must have a MySQL instance, Redis instance and a Kafka instance running on your machine for all uses cases to work (depends on the service, see C$ container diagram)
 
 <!-- TOC --><a name="run-with-docker-compose"></a>
 ### Run with Docker Compose
@@ -223,6 +228,8 @@ This starts:
 - A MySQL database (`brokerx_db`) on port `3306`
 - Nginx API Gateway
 - Redis DB
+- Kafka instance
+- Promtail, Loki and Grafana instances
 
 <!-- TOC --><a name="running-tests"></a>
 ## Running tests
@@ -273,14 +280,12 @@ docker compose up --build -d # Build the Docker image and run docker compose in 
 
 The GitHub Actions Workflow should take care of deploying the application to the ETS Virtual Machine self hosted runner automatically on every push. See `.github/workflows/ci_cd.yml`
 
-_The current deployment pipeline is broken because of issues with the storage on the ETS VM._
 
 > To access the remote deployment, you must be connected to the ETS Cisco Secure Client via accesvpn.etsmtl.ca
 
 
 <!-- TOC --><a name="user-guide"></a>
 # User Guide
-TODO update user guide
 This document show syou how to use BrokerX once it has been deployed either locally or remotely.
 
 <!-- TOC --><a name="access-brokerx"></a>
@@ -295,9 +300,11 @@ To access BrokerX, use your web browser and navigate to :
 ## Registering as a new user
 
 Access the following link in your browser : http://localhost/register.html
+
 ![alt text](image-8.png)
 
 Enter you first and last name as well as an email and a password and submit : 
+
 ![alt text](image-9.png)
 
 <!-- TOC --><a name="logging-in"></a>
@@ -318,6 +325,7 @@ Logging in will bring you to this _Orders_ page:
 ![alt text](image-1.png)
 
 Then you can fill the form to sell AAPL stocks at market price and click _Submit Order_ :
+
 ![alt text](image-2.png)
 
 Then you should see your order appear at the top of the page and this confirmation message at the bottom of the form.
@@ -327,6 +335,7 @@ Then you should see your order appear at the top of the page and this confirmati
 ![alt text](image-3.png)
 
 Next, if you refresh the page, you should see that your order status, and remaining quantity have been updated if a matching order has been found :
+
 ![alt text](image-4.png)
 
 > Other users (email and buyer@email.com) have different base positions, orders and wallet balances, which make for different outputs in results.
@@ -335,13 +344,27 @@ Next, if you refresh the page, you should see that your order status, and remain
 ## Adding funds to your wallet
 
 After logging in, it is possible to add funds to your wallet by clicking on _Wallet_:
+
 ![alt text](image-5.png)
 
 Then entering the amount you want to deposit and submitting : 
-![alt text](image-6.png)
 
-The balance automatically updates itself and you will be able to make bigger purchases of stocks : 
-![alt text](image-7.png)
+![alt text](image-10.png)
+
+The balances automatically updates themselves and you will be able to make bigger purchases of stocks : 
+
+![alt text](image-11.png)
+
+Funds are moved from available to reserved when you make a limit buy order.
+
+<!-- TOC --><a name="checking-your-positions"></a>
+## Checking your positions
+
+You can also check your current positions/holdings by clicking on _Positions_ : 
+
+![alt text](image-12.png)
+
+Positions represent the stocks you own and the quantity that is available for new orders and the quantity that is reserved for an open or partifally filled order.
 
 
 <!-- TOC --><a name="arc42"></a>
@@ -453,7 +476,7 @@ These goals are to be met during the third iteration (event-driven architecture)
 
 ![alt text](c4_level1.png)
 
-![alt text](package-level-diagram.png) TODO update package level diagram
+![alt text](package.png)
 
 ![SVG Image](class_diagram.png)
 
@@ -586,27 +609,17 @@ Allow a user to place a buy or sell order on a stock.
 <!-- TOC --><a name="main-flow-2"></a>
 ### Main Flow:
 
-> TODO: update textual flow to match phase 3 reality
-
 **1.** The Client completes the form to place an order containing the symbol, quantity, action, type, timing and unit price.
 
 **2.** The system receives the order data and validates that the inputs are not empty.
 
-**3.** The system starts verification the compliance of the order.
+**3.** The system creates an order.
 
-**4.** The system requests instrument and price data from the Market Data Provider.
+**4.** The system submits an OrderCreated event which will be consumed by an internal service.
 
-**5.** The Market Data Provider responds with instrument tick size and price band.
+**5.** The system send an acknowledgement to the client that the order has been placed.
 
-**6.** The system finishes verifying the compliance of the order.
-
-**7.** The system creates an order.
-
-**8.** The system submits the order to the internal matching engine.
-
-**9.** The system send an acknowledgement to the client that the order has been placed.
-
-**10.** The client receives the acknowledgement.
+**6.** The client receives the acknowledgement.
 
 <!-- TOC --><a name="postconditions-2"></a>
 ### Postconditions:
@@ -617,15 +630,11 @@ Allow a user to place a buy or sell order on a stock.
 <!-- TOC --><a name="exceptions-alternatives-2"></a>
 ### Exceptions / Alternatives:
 
-**E3.** The order has an invalid quantity → The system propagates the error back to the client. The order is not created.
+**E2.** The order has an invalid inputs → The system propagates the error back to the client. The order is not created.
 
-**E5.** The Market Data Provider does not respond → The system propagates the error back to the client. The order is not created.
+**E3.** There is an error when creating the order → The system propagates the error back to the client. The order is not created.
 
-**E5.** The user does not have enough funds → The system propagates the error back to the client. The order is not created.
-
-**E5.** The user does not have enough stocks → The system propagates the error back to the client. The order is not created.
-
-**E5.** The order tick size or price band does not match the instrument's required tick size or price band → The system propagates the error back to the client. The order is not created.
+**E4.** There is an error submitting the event → The system propagates the error back to the client. The order is not created.
 
 ![SVG Image](use_cases/uc05_sequence.png)
 
@@ -648,37 +657,22 @@ Match incoming buy and sell orders and generates execution records.
 <!-- TOC --><a name="main-flow-3"></a>
 ### Main Flow:
 
-> TODO: update textual flow to match phase 3 reality
-
 **1.** The matching engine receives the order.
 
-**2.** The matching engine fetches all matching orders (symbol, action, type) from the database.
+**2.** The matching engine fetches all matching orders (symbol, action, type) from the cache.
 
 **3.** The matching engine finds a match or multiple matches for the submitted order.
 
-**4.** The matching engine generates execution records for each match order.
-
-**5.** The matching engine updates order(s) quantities and status.
-
-**5.** The matching engine saves the execution records to the database.
+**4.** The matching engine submits an OrderMatched event.
 
 <!-- TOC --><a name="postconditions-3"></a>
 ### Postconditions:
 
-- The order changes are saved to the database.
-- The client can see the submitted order with all its information and the status and quantities updated.
-- The client can see each execution record for the order
 
 <!-- TOC --><a name="exceptions-alternatives-3"></a>
 ### Exceptions / Alternatives:
 
-**E2.** There is a database error when fetching the orders → The system logs the error. The order stays in the database. The order is not updated.
-
-**A2.** The systeme finds no match for the order → The order stays in the database. The order is not updated. No execution records are saved.
-
-**E5.** There is a database error when updating the order(s) → The system logs the error. The order stays in the database. The order is not updated. The execution records are not saved.
-
-**E6.** There is a database error when saving the execution records → The system logs the error. The order stays in the database. The order is not updated. The execution records are not saved.
+**E2.** There is a database error when fetching the orders → The system logs the error. A OrderMatchingFailed event is submitted.
 
 ![SVG Image](use_cases/uc07_sequence.png)
 
@@ -735,7 +729,6 @@ Update an incoming order and all its claimed candidates's respective user wallet
 
 <!-- TOC --><a name="9-design-decisions"></a>
 # 9. Design Decisions
-TODO: finish ADR
 ---
 
 <!-- TOC --><a name="adr-01-hexagonal-architecture"></a>
@@ -836,12 +829,12 @@ Accepted
 
 <!-- TOC --><a name="context-3"></a>
 ### Context
-
+We needed a way to easily guard and route external requests to the system.
 
 <!-- TOC --><a name="decision-3"></a>
 ### Decision
 
-Implement API Gateway with NGINX.
+Implement API Gateway with NGINX config file.
 
 <!-- TOC --><a name="status-3"></a>
 ### Status
@@ -850,18 +843,21 @@ Accepted
 
 <!-- TOC --><a name="consequences-3"></a>
 ### Consequences
+- All external requests go through an automated authentication request to the user service before entering the rest of the system, making us able to trust resulting internal requests after that point.
+- All API Gateway logic is limited to a single configuration file, making it easy to make changes to the gateway.
+- NGINX allows for load balancing requests to the instance with the least amount of traffic, resulting in easy horizontal scaling for the internal services.
 
 <!-- TOC --><a name="adr-05-redi-based-order-book"></a>
 ## ADR-05: Redi-Based Order Book
 
 <!-- TOC --><a name="context-4"></a>
 ### Context
-
+During the evolution of the project, we found that the bottleneck of the system under load was the MySQL database. Therefore, we needed a way to lower the load on the database onto another component that allows for faster read and writes.
 
 <!-- TOC --><a name="decision-4"></a>
 ### Decision
 
-Implement Order Book using Redis Sorted Set.
+Implement Order Book using Redis Sorted Set and store open and partially filed orders temporarily in the Redis cache.
 
 <!-- TOC --><a name="status-4"></a>
 ### Status
@@ -870,6 +866,10 @@ Accepted
 
 <!-- TOC --><a name="consequences-4"></a>
 ### Consequences
+- The system is able to handle a much higher load because access to data is fast and part of the work is offloaded to the redis cache instaed of the database.
+- Added complexity for having atomic behavior. Lua scripts were used to ensure this.
+- Cache was momentarily used to store queues of orders and executions to persist but as we move to event driven architecture, the cache is not used for these purposes.
+
 
 <!-- TOC --><a name="adr-06-grafana-loki-and-promtail-for-observability"></a>
 ## ADR-06: Grafana, Loki and Promtail for observability
@@ -891,19 +891,19 @@ Accepted (Contested)
 <!-- TOC --><a name="consequences-5"></a>
 ### Consequences
 - This ADR is marked as _Contested_ because it has been brought to my attention that Promtail has been deprecated since February 2025 (https://grafana.com/docs/loki/latest/send-data/promtail/). Not enough extensive research had been done before implementing Promtail into the system.
-- Migration to Alloy will be necessary in the near future.
+- Promtail works for our current needs but it is good practice to stay up to date and migrate to Alloy in the near future.
 
-<!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
-## ADR-07: Transactional Outbox Pattern
+<!-- TOC --><a name="adr-07-choreographed-saga-with-outbox-pattern"></a>
+## ADR-07: Choreographed Saga with Outbox Pattern
 
 <!-- TOC --><a name="context-6"></a>
 ### Context
-
+Since the move to event driven architecture was required by the project, we needed to find a way to have distributed transactions when placing orders while ensuring that the data is eventually consistent and correct. The decision also needed to allow for microservices to stay in their bounded context.
 
 <!-- TOC --><a name="decision-6"></a>
 ### Decision
 
-Use a transactional Outbox pattern with MySQL for order confirmation steps.
+Use a choreographed Saga Outbox pattern with MySQL and Kafka.
 
 <!-- TOC --><a name="status-6"></a>
 ### Status
@@ -912,52 +912,69 @@ Accepted
 
 <!-- TOC --><a name="consequences-6"></a>
 ### Consequences
+- Added complexity for dealing with errors. Retries are not inate with kafka consumers. The current implementation still does not take care of lost messages properly.
+- Most operations must be made idempotent to allow for retries without creating duplicate records
+- Decoupling of services through the event broker.
+- Permits order service to respond with order acknowledgement faster than before because validation, matching and confirmation are asynchronous.
 
 
-<!-- TOC --><a name="adr-07-transactional-outbox-pattern"></a>
-## ADR-08: Notification sender Resend
+<!-- TOC --><a name="adr-08-notification-service"></a>
+## ADR-08: Notification service
 
-<!-- TOC --><a name="context-6"></a>
+<!-- TOC --><a name="context-7"></a>
 ### Context
+The system must send notifications to the user for registration, login and order events.
 
-
-<!-- TOC --><a name="decision-6"></a>
+<!-- TOC --><a name="decision-7"></a>
 ### Decision
 
-Use a transactional Outbox pattern with MySQL for order confirmation steps.
+Create a Notification service that uses Resend for sending emails.
 
-<!-- TOC --><a name="status-6"></a>
+<!-- TOC --><a name="status-7"></a>
 ### Status
 
 Accepted
 
-<!-- TOC --><a name="consequences-6"></a>
+<!-- TOC --><a name="consequences-7"></a>
 ### Consequences
-
+- Resend is very developer friendly and works out of the box.
+- The team's domain is already managed by Vercel making it very easy to send emails.
+- The service addition is transparent for the rest of the system. No changes needed, because the service consumes events that already exist.
+- The notification service is easily extensible for sending other types of notifications in the future such as SMS or push thanks to the NotificationPreferences table.
 
 <!-- TOC --><a name="10-quality-requirements"></a>
 # 10. Quality Requirements
 
-TODO add details here from load test results
-
 <!-- TOC --><a name="latency"></a>
 ## Latency
 
+- On average, the system must respond to order submissions under 100 ms.
+  - Under load, this has been achieved in phase 1 and phase 2 of the project.
+  - For phase 3, load test could not be executed due to lack of time, but we expect the system to be stable thanks to asynchronous processing of most requests.
+- On the other hand, the latency for receiving the most up to date status of an order will and can vary as long as it is eventually given to the user. 
+
 <!-- TOC --><a name="throughput"></a>
 ## Throughput
+- The system must be able to handle over 1000 order requests per second.
+  - This was achieved during phase 1 and 2, phase 3 is pending load test execution.
+
 
 <!-- TOC --><a name="data-integrity"></a>
 ## Data Integrity
+- The system must ensure that order statuses, position quantities and wallet funds are eventually correct and valid. This is critical in BrokerX because we cannot allow user's money or stock holdings to be lost.
+  - The current system guarantees that no funds or positions will be misplaced, but it does not yet ensure that all orders can be processed automatically. In the case of an unexpected error, manual work may be required.
 
 <!-- TOC --><a name="security"></a>
 ## Security
+The current system does not use multi-factor authentication. It is something that will be added in the future.
 
 <!-- TOC --><a name="testability"></a>
 ## Testability
+The current system lacks tests. The justification for this was a lack of time and return on investment for the educational context. With the architecture of the system evolving so fast, all types of tests were hard to maintain. In the future, unit tests, integration tests and end to end tests must be reintegrated.
 
 <!-- TOC --><a name="interoperability"></a>
 ## Interoperability
-
+The system uses interface and a message broker to communicate between components. Sent events can easily be modified to match the consumer's needs.
 
 <!-- TOC --><a name="11-risks-and-technical-debts"></a>
 # 11. Risks and Technical Debts

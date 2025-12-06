@@ -6,8 +6,6 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"time"
 
@@ -31,30 +29,6 @@ func main() {
 	// Serve static files
 	fs := http.FileServer(http.Dir("./public"))
 	mux.Handle("/", fs)
-
-	// Proxy API calls
-	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
-		var target *url.URL
-		switch r.URL.Path {
-		case "/api/user/auth/login", "/api/user/register":
-			target, _ = url.Parse("http://user-service:8080")
-		case "/api/order":
-			target, _ = url.Parse("http://order-service:8080")
-		case "/api/portfolio":
-			target, _ = url.Parse("http://portfolio-service:8080")
-		default:
-			http.NotFound(w, r)
-			return
-		}
-		proxy := httputil.NewSingleHostReverseProxy(target)
-
-		traceID := r.Context().Value(TraceIdCtxKey)
-		if traceIDStr, ok := traceID.(string); ok && traceIDStr != "" {
-			r.Header.Set(TraceIDHeader, traceIDStr)
-		}
-
-		proxy.ServeHTTP(w, r)
-	})
 
 	handler := TraceMiddleware(mux)
 	handler = httplog.RequestLogger(logger())(handler)
