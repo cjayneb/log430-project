@@ -153,20 +153,22 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas map[int
 	}
 
 	// --- 3. Validate constraints (simulate update) ---
-	for _, d := range deltas {
+	for k, d := range deltas {
 		key := d.Order.UserID
 		lw, ok := locked[key]
 		if !ok {
 			log.Error("wallet not found for user", "userId", d.Order.UserID)
 			d.Total = 0
+			deltas[k] = d
 			continue
 		}
 
 		if d.Order.Action == "buy" && 
 			((d.Order.Type == "limit" && lw.ReservedFunds < d.Total) || 
 			(d.Order.Type == "market" && lw.AvailableFunds < d.Total)) {
-			log.Error(fmt.Sprintf("insufficient funds for user=%d : reserved=%f needed=%f", d.Order.UserID, lw.ReservedFunds, d.Total))
+			log.Error(fmt.Sprintf("insufficient funds for user=%d : available=%f, reserved=%f needed=%f", d.Order.UserID, lw.AvailableFunds, lw.ReservedFunds, d.Total))
 			d.Total = 0
+			deltas[k] = d
 			continue
 		}
 
@@ -179,6 +181,10 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas map[int
 		}
 
 		locked[key] = lw
+	}
+
+	if len(locked) == 0 {
+		return deltas, nil
 	}
 
 	valueStrings := make([]string, 0, len(locked))
