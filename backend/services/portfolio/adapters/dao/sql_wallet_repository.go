@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type SQLWalletRepository struct {
@@ -106,11 +108,11 @@ func (repo SQLWalletRepository) applyWalletDeltas(
 
 
 
-func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []models.WalletDelta) error {
+func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas map[int]models.WalletDelta) (map[int]models.WalletDelta, error) {
 	log := util.FromContext(ctx)
 
 	if len(deltas) == 0 {
-		return nil
+		return deltas, nil
 	}
 
 	// --- 1. Build the IN clause and lock all rows ---
@@ -133,7 +135,7 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []model
 	rows, err := repo.tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Error("failed to lock rows", "error", err)
-		return err
+		return deltas, err
 	}
 	defer rows.Close()
 
@@ -144,26 +146,30 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []model
 		var lw models.Wallet
 
 		if err := rows.Scan(&lw.ID, &lw.UserId, &lw.AvailableFunds, &lw.ReservedFunds); err != nil {
-			return err
+			return deltas, err
 		}
 
 		locked[lw.UserId] = lw
 	}
 
 	// --- 3. Validate constraints (simulate update) ---
-	for _, d := range deltas {
+	for k, d := range deltas {
 		key := d.Order.UserID
 		lw, ok := locked[key]
 		if !ok {
-			return fmt.Errorf("wallet not found for user=%d", d.Order.UserID)
+			log.Error("wallet not found for user", "userId", d.Order.UserID)
+			d.Total = 0
+			deltas[k] = d
+			continue
 		}
 
 		if d.Order.Action == "buy" && 
 			((d.Order.Type == "limit" && lw.ReservedFunds < d.Total) || 
 			(d.Order.Type == "market" && lw.AvailableFunds < d.Total)) {
-			return fmt.Errorf(
-				"insufficient funds for user=%d : reserved=%f needed=%f",
-				d.Order.UserID, lw.ReservedFunds, d.Total)
+			log.Error(fmt.Sprintf("insufficient funds for user=%d : available=%f, reserved=%f needed=%f", d.Order.UserID, lw.AvailableFunds, lw.ReservedFunds, d.Total))
+			d.Total = 0
+			deltas[k] = d
+			continue
 		}
 
 		if d.Order.Action == "sell" {
@@ -175,6 +181,10 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []model
 		}
 
 		locked[key] = lw
+	}
+
+	if len(locked) == 0 {
+		return deltas, nil
 	}
 
 	valueStrings := make([]string, 0, len(locked))
@@ -196,10 +206,10 @@ func (repo SQLWalletRepository) ReleaseFunds(ctx context.Context, deltas []model
 	_, err = repo.tx.ExecContext(ctx, query, valueArgs...)
 	if err != nil {
 		log.Error("Error executing wallet batch release", "error", err)
-		return err
+		return deltas, err
 	}
 
-	return nil
+	return deltas, nil
 }
 
 func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount float64) error {
@@ -208,12 +218,36 @@ func (repo SQLWalletRepository) AddFunds(ctx context.Context, userId int, amount
 
 	w, err := repo.loadWalletForUpdate(ctx, userId)
 	if err != nil {
-		return err
+		if err.Error() == "wallet does not exist" {
+			log.Info("wallet not found — creating new wallet", "userId", userId)
+
+   walletId := uuid.New().String()
+			res, err := repo.tx.ExecContext(ctx,
+				`INSERT INTO brokerx.wallets (id, user_id, available_funds)
+				 VALUES (?, ?, 0)`,
+				walletId, userId,
+			)
+			if err != nil {
+				log.Error("failed to create wallet", "error", err)
+				return err
+			}
+
+			_, err = res.LastInsertId()
+			if err != nil {
+				return fmt.Errorf("failed to get new wallet id: %w", err)
+			}
+
+			w = &models.Wallet{
+				ID: walletId,
+			}
+		} else {
+			return err // actual DB error
+		}
 	}
 
 	err = repo.applyWalletDeltas(ctx, w.ID, amount, 0)
 	if err == nil {
-		log.Info("funds reverted", "amount", amount)
+		log.Info("funds added", "amount", amount)
 	}
 
 	return err

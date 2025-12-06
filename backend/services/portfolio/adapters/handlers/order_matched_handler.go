@@ -19,19 +19,20 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 		return h.successEvent(ctx, event)
 	}
 
-	order := event.Order
+	incoming := event.Order
 	err := h.Tm.Do(ctx, func(er ports.ExecutionRepository, wr ports.WalletRepository, pr ports.PositionRepository, obr ports.OutboxRepository) error {
-		total, qty := getFundsNeeded(event.Executions)
-		if err := updateWallets(ctx, order, total, event.Orders, wr); err != nil {
+		originalQty := getQuantityNeeded(event.Executions)
+		qty, err := updateWalletsAndAdjustOrders(ctx, &incoming, originalQty, &event.Orders, wr)
+		if err != nil {
 			log.Error("error when updating wallets", "error", err)
-			if err := revertPositionsReservations(ctx, pr, order, qty, event.Orders); err != nil {
+			if err := revertPositionsReservations(ctx, pr, incoming, originalQty, event.Orders); err != nil {
 				log.Error("error reverting positions reservations", "error", err)
 				return err
 			}
-			return revertOrdersAndCreateOutboxEvents(ctx, obr, event, qty, err) // this commits or rolls back the transaction for the failure path
+			return revertOrdersAndCreateOutboxEvents(ctx, obr, event, originalQty, err) // this commits or rolls back the transaction for the failure path
 		}
 
-		if err := updatePositionsQuantities(ctx, order, qty, event.Orders, pr); err != nil {
+		if err := updatePositionsQuantities(ctx, incoming, qty, event.Orders, pr); err != nil {
 			log.Error("error when updating positions", "error", err)
 			return err
 		}
@@ -41,7 +42,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 			return err
 		}
 
-		if err := createSuccessOutboxEvents(ctx, obr, event); err != nil {
+		if err := createSuccessOutboxEvents(ctx, obr, incoming, event); err != nil {
 			log.Error("error creating success outbox events", "error", err)
 			return err
 		}
@@ -50,7 +51,7 @@ func (h *OrderMatchedHandler) handle(ctx context.Context, event models.MatchingE
 	})
 
 	if err != nil {
-		log.Error("error confirming order matching. OrderMatched event will be consumed until successful...", "orderId", order.ID, "error", err)
+		log.Error("error confirming order matching. OrderMatched event will be consumed until successful...", "orderId", incoming.ID, "error", err)
 		return err
 	}
 
@@ -63,12 +64,40 @@ func (h *OrderMatchedHandler) successEvent(ctx context.Context, event models.Mat
 	return h.Producer.SendEvent(ctx, orderEvent.Topic, orderEvent.Event, orderEvent.Order, nil)
 }
 
-func updateWallets(ctx context.Context, order models.Order, total float64, claimedOrders []*models.ClaimedCandidate, walletRepo ports.WalletRepository) error {
-	deltas := []models.WalletDelta{{Order: order, Total: total}}
-	for _, co := range claimedOrders {
-		deltas = append(deltas, models.WalletDelta{Order: co.Order, Total: pickUnitPrice(&order, &co.Order) * float64(co.ClaimedQty)})
+func updateWalletsAndAdjustOrders(ctx context.Context, incoming *models.Order, originalQty int, claimedOrders *[]*models.ClaimedCandidate, walletRepo ports.WalletRepository) (int, error) {
+	deltas :=  make(map[int]models.WalletDelta)
+	for _, co := range *claimedOrders {
+		deltas[co.Order.ID] = models.WalletDelta{Order: co.Order, Total: pickUnitPrice(incoming, &co.Order) * float64(co.ClaimedQty)}
 	}
-	return walletRepo.ReleaseFunds(ctx, deltas)
+
+	deltas, err := walletRepo.ReleaseFunds(ctx, deltas)
+	if err != nil {
+		return 0, err
+	}
+
+	totalToDeductFromIncoming := 0.0
+	newQty := 0
+	for _, co := range *claimedOrders {
+		d := deltas[co.Order.ID]
+		if d.Total == 0 {
+			co.Order.Status = "canceled"
+			co.Order.RemainingQuantity += co.ClaimedQty
+			co.ClaimedQty = 0
+			continue
+		}
+		newQty += co.ClaimedQty
+		totalToDeductFromIncoming += d.Total
+	}
+
+	var incomingDelta models.WalletDelta
+	incomingDelta.Order = *incoming
+	incomingDelta.Total = totalToDeductFromIncoming
+	_, err = walletRepo.ReleaseFunds(ctx, map[int]models.WalletDelta{incoming.ID: incomingDelta})
+
+	incoming.RemainingQuantity += originalQty - newQty
+	updateStatus(incoming)
+
+	return newQty, err
 }
 
 func pickUnitPrice(incoming, candidate *models.Order) float64 {
@@ -99,8 +128,8 @@ func updatePositionsQuantities(ctx context.Context, order models.Order, qty int,
 	return nil
 }
 
-func createSuccessOutboxEvents(ctx context.Context, obr ports.OutboxRepository, event models.MatchingEvent) error {
-	successEvent := createOrderEvent(event, &event.Order)
+func createSuccessOutboxEvents(ctx context.Context, obr ports.OutboxRepository, incoming models.Order, event models.MatchingEvent) error {
+	successEvent := createOrderEvent(event, &incoming)
 	var orderEvents = []*models.OrderEvent{&successEvent}
 
 	for _, o := range event.Orders {
@@ -121,15 +150,20 @@ func createOrderEvent(event models.MatchingEvent, order *models.Order) models.Or
 }
 
 func revertPositionsReservations(ctx context.Context, posRepo ports.PositionRepository, incomingOrder models.Order, qty int, claimedOrders []*models.ClaimedCandidate) error {
-	deltas := []models.PositionDelta{{UserID: incomingOrder.UserID, Symbol: incomingOrder.Symbol, Qty: qty}}
-	for _, co := range claimedOrders {
-		deltas = append(deltas, models.PositionDelta{UserID: co.Order.UserID, Symbol: co.Order.Symbol, Qty: co.ClaimedQty})
+	var deltas []models.PositionDelta
+	if incomingOrder.Action == "sell" {
+		deltas = []models.PositionDelta{{UserID: incomingOrder.UserID, Symbol: incomingOrder.Symbol, Qty: qty}}
+	} else {
+		for _, co := range claimedOrders {
+			deltas = append(deltas, models.PositionDelta{UserID: co.Order.UserID, Symbol: co.Order.Symbol, Qty: co.ClaimedQty})
+		}
 	}
 	return posRepo.RevertReservations(ctx, deltas)
 }
 
 func revertOrdersAndCreateOutboxEvents(ctx context.Context, obr ports.OutboxRepository, event models.MatchingEvent, qty int, err error) error {
-	updateStatusAndQty(&event.Order, qty)
+	event.Order.RemainingQuantity += qty
+	updateStatus(&event.Order)
 	event.Order.Status = "canceled"
 	var orderEvents = []*models.OrderEvent{{
 		Topic: "OrderEvents",
@@ -140,7 +174,8 @@ func revertOrdersAndCreateOutboxEvents(ctx context.Context, obr ports.OutboxRepo
 	}}
 
 	for _, o := range event.Orders {
-		updateStatusAndQty(&o.Order, o.ClaimedQty)
+		o.Order.RemainingQuantity += o.ClaimedQty
+		updateStatus(&o.Order)
 		returningEvent := createOrderEvent(event, &o.Order)
 		orderEvents = append(orderEvents, &returningEvent)
 	}
@@ -148,8 +183,7 @@ func revertOrdersAndCreateOutboxEvents(ctx context.Context, obr ports.OutboxRepo
 	return obr.CreateOrderEvents(ctx, orderEvents) // this commits the transaction for the failure path
 }
 
-func updateStatusAndQty(order *models.Order, qty int) {
-	order.RemainingQuantity += qty
+func updateStatus(order *models.Order) {
 	if order.RemainingQuantity != 0 && order.RemainingQuantity < order.Quantity {
 		order.Status = "partially_filled"
 		return
@@ -166,14 +200,12 @@ func updateStatusAndQty(order *models.Order, qty int) {
 	}
 }
 
-func getFundsNeeded(records []*models.ExecutionRecord) (float64, int) {
-	total := 0.0
+func getQuantityNeeded(records []*models.ExecutionRecord) int {
 	qty := 0
 
 	for _, r := range records {
-		total += r.Price * float64(r.Quantity)
 		qty += r.Quantity
 	}
 
-	return total, qty
+	return qty
 }
