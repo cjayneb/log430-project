@@ -1,61 +1,86 @@
 @startuml
 title BrokerX - Domain Model
 
-class User {
-  +userId: int
-  +name: string
-  +email: string
-  +password: string
+class User << (S, #00ADD8) >> {
+  +ID: int
+  +Email: string
+  +Password: string
+  +FirstName: string
+  +LastName: string
+  +Status: string
+  +FailedAttempts: int
+  +LockedUntil: datetime
 }
 
-class Position {
-  +available_quantity: int
-  +reserved_quantity: int
+class UserContactInfo << (S, #00ADD8) >> {
+  +UserID: int
+  +Email: string
 }
 
-class Wallet {
-  +available_funds: int
-  +reserved_funds: int
+class NotificationPrefences << (S, #00ADD8) >> {
+  +ID: int
+  +UserId: int
+  +Email: boolean
+  +SMS: boolean
+  +Push: boolean
 }
 
-class Instrument {
-  +symbol: string
-  +name: string
-  +tickSize: decimal
-  +priceBandPercent: int
+class Position << (S, #00ADD8) >> {
+  +ID: int
+  +UserID: int
+  +Symbol: string
+  +AvailableQuantity: int
+  +ReservedQuantity: int
 }
 
-class Order {
-  +orderId: int
-  +type: enum {market, limit}
-  +action: enum {buy, sell}
-  +timing: enum {ioc, day}
-  +quantity: int
-  +remainingQty: int
-  +unitPrice: decimal
-  +status: enum {open, filled, partially_filled, cancelled}
+class Wallet << (S, #00ADD8) >> {
+  +ID: int
+  +UserID: int
+  +AvailableFunds: float
+  +ReservedFunds: float
 }
 
-class ExecutionRecord {
-  +executionId: int
-  +price: decimal
-  +quantity: int
-  +timestamp: datetime
+class Instrument << (S, #00ADD8) >> {
+  +Symbol: string
+  +Name: string
+  +TickSize: decimal
+  +PriceBandPercent: int
+  +Status: string
 }
 
-class Price {
-  +symbol: string
-  +price: decimal
-  +timestamp: datetime
+class Order << (S, #00ADD8) >> {
+  +ID: int
+  +UserID: int
+  +Symbol: string
+  +Type: string
+  +Action: string
+  +Quantity: int
+  +RemainingQuantity: int
+  +UnitPrice: decimal
+  +Timing: string
+  +Status: string
+  +SideKey: string
+  +CreatedAt: datetime
+  +UpdatedAt: datetime
+}
+
+class ExecutionRecord << (S, #00ADD8) >> {
+  +ID: int
+  +BuyOrderID: int
+  +SellOrderID: int
+  +Price: decimal
+  +Quantity: int
+  +Symbol: string
 }
 
 ' Relationships
 User "1" --> "*" Position
-User "1" --> "1" Wallet
-Position "*" --> "1" Instrument
+User "1" --> "0..1" Wallet
+User "1" --> "0..1" NotificationPrefences
+User "1" --> "0..1" UserContactInfo
+Position "1" --> "1" Instrument
 Order "*" <-- "1" User
 Order "*" --> "1" Instrument
 ExecutionRecord "*" --> "1" Order
-Instrument "1" --> "*" Price
 
 @enduml

@@ -13,13 +13,12 @@ rectangle BrokerX {
     }
     
     together {
-        usecase "UC-08\nConfirm order and notify client" as UC08
+        usecase "UC-08\nConfirm order and notify client" as UC08 #palegreen
         usecase "UC-05\nPlace order" as UC05 #palegreen
         usecase "UC-07\nFind match and execute order" as UC07 #palegreen
     }
 }
 
-actor "Payment Service" as PS
 actor "Market Data Provider" as MDP
 
 ' Client interactions
@@ -31,7 +30,6 @@ C --> UC05
 C --> UC06
 
 ' External services interactions
-UC03 -- PS 
 UC04 -- MDP
 
 ' Relationships between use cases

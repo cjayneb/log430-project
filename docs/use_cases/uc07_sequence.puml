@@ -7,7 +7,7 @@ participant "OrderBook (ports)" as book
 database "Redis" as redis
 queue "Kafka" as kafka
 
-== Asynchronous (in Goroutine) ==
+== Asynchronous (in Matching Service) ==
 ->> handler : QuantitiesReservedEvent
 handler -> MatchEngine : err := SubmitOrder(event.Order)
 MatchEngine -> book : err, matches := FindMatches(order, limit)

@@ -1,51 +1,48 @@
 @startuml
 title BrokerX - Bounded Contexts
 
-package "Trading Context" {
+package "Order Context" {
   [Order]
-  [Execution]
-  [Matching Engine]
-  [Positions]
+  [ComplianceRules]
 }
 
 package "Market Data Context" {
   [Instrument]
-  [Price]
 }
 
-package "Account Context" {
+package "User Context" {
   [User]
+}
+
+package "Portfolio Context" {
+  [Executions]
+  [Positions]
   [Wallet]
-  [Portfolio]
 }
 
-package "Compliance Context" {
-  [AuditLogs]
-  [PreTradeRules]
+package "Matching Context" {
+  [OrderBook]
 }
 
-package "Back-Office Context" {
-  [Execution]
-  [Reports]
+package "Notification Context" {
+  [NotificationPreferences]
+  [UserContactInfo]
 }
 
 ' Relationships
-[Order] --> [Execution] : produces
-[Order] --> [Matching Engine] : submitted to
-[Matching Engine] --> [Execution] : generates
+[Order] --> [Executions] : produces
+[Order] --> [OrderBook] : listed in
 
 [Order] --> [Instrument] : references
-[Portfolio] --> [Positions] : holds
+[User] --> [Positions] : holds
 
 [User] --> [Wallet] : adds funds to
-[User] --> [Portfolio] : manages
+[User] --> [Order] : manages
 
-[AuditLogs] --> [Execution] : records
+[ComplianceRules] --> [Order] : validate
 
-[Reports] --> [Execution] : aggregates
-
-[PreTradeRules] --> [Order] : validates
-[Instrument] --> [Price] : is priced by
+[User] --> [NotificationPreferences] : sets
+[User] --> [UserContactInfo] : provides
 
 @enduml
 

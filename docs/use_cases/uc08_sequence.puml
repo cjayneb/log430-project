@@ -6,22 +6,31 @@ participant "TransactionManager" as tm
 participant "WalletRepo" as wr
 participant "PositionRepo" as pr
 participant "ExecutionRepo" as er
-participant "OrderRepo" as or
 participant "OutboxRepo" as obr
 database "MySQL DB" as mysql
 queue "Kafka" as kafka
 
-== Asynchronous (in Goroutine) ==
+participant "OrderMatchedHandler" as confirmedhandler
+participant "OrderRepo" as or
+participant "OrderMatchedHandler" as notifhandler
+
+== Asynchronous (in Portfolio Service) ==
 ->> handler : OrderMatchedEvent
 == Transaction start ==
 handler -> tm : err := Do(or, er, wr, pr, obr)
 handler -> wr : err := updateWallets(event.Orders)
 handler -> pr: err := updatePositionQties(event.Orders)
 handler -> er : err:= createExecutions(event.Executions)
-handler -> or : err := updateOrders(event.Orders)
 handler -> kafka : createOutboxEvents(event)
 == Transaction end ==
 
+== Asynchronous (in Order Service) ==
+->> confirmedhandler : OrderConfirmedEvent
+confirmedhandler -> or : err := updateOrder(event.Order)
+confirmedhandler -> kafka : createOutboxEvent(event)
 
+== Asynchronous (in Notification Service) ==
+->> notifhandler : OrderCompletedEvent
+notifhandler ->  : SendNotification(event)
 
 @enduml

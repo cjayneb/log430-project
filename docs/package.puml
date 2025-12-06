@@ -27,6 +27,7 @@ package "{service}" {
   package "models" {
     [Order]
     [OrderEvent]
+    [MatchingEvent]
     [ClaimedCandidate]
     [OutboxRecord]
     [Instrument]
@@ -38,12 +39,10 @@ package "{service}" {
 }
 
 ' Relationships
-core --> models : uses
+core -> models : uses
 ports --> models : references
 core --> ports : references
-clients --> ports : implements
-dao --> ports : implements
-handlers --> ports : implements
+adapters --> ports : implements
 
 @enduml
 
